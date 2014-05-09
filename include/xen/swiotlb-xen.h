@@ -7,4 +7,7 @@
 extern int xen_swiotlb_init(int verbose, bool early);
 extern const struct dma_map_ops xen_swiotlb_dma_ops;
 
+extern u64
+xen_swiotlb_get_required_mask(struct device *dev);
+
 #endif /* __LINUX_SWIOTLB_XEN_H */
