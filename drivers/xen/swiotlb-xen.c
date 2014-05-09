@@ -703,6 +703,13 @@ static int xen_swiotlb_mapping_error(struct device *dev, dma_addr_t dma_addr)
 	return dma_addr == XEN_SWIOTLB_ERROR_CODE;
 }
 
+u64
+xen_swiotlb_get_required_mask(struct device *dev)
+{
+	return DMA_BIT_MASK(64);
+}
+EXPORT_SYMBOL_GPL(xen_swiotlb_get_required_mask);
+
 const struct dma_map_ops xen_swiotlb_dma_ops = {
 	.alloc = xen_swiotlb_alloc_coherent,
 	.free = xen_swiotlb_free_coherent,
@@ -718,4 +725,5 @@ const struct dma_map_ops xen_swiotlb_dma_ops = {
 	.mmap = xen_swiotlb_dma_mmap,
 	.get_sgtable = xen_swiotlb_get_sgtable,
 	.mapping_error	= xen_swiotlb_mapping_error,
+	.get_required_mask = xen_swiotlb_get_required_mask,
 };
