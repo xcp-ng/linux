@@ -668,6 +668,13 @@ xen_swiotlb_dma_supported(struct device *hwdev, u64 mask)
 }
 EXPORT_SYMBOL_GPL(xen_swiotlb_dma_supported);
 
+u64
+xen_swiotlb_get_required_mask(struct device *dev)
+{
+	return DMA_BIT_MASK(64);
+}
+EXPORT_SYMBOL_GPL(xen_swiotlb_get_required_mask);
+
 int
 xen_swiotlb_set_dma_mask(struct device *dev, u64 dma_mask)
 {
