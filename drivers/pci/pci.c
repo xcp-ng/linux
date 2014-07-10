@@ -4839,6 +4839,7 @@ int pci_probe_reset_function(struct pci_dev *dev)
 
 	return pci_parent_bus_reset(dev, 1);
 }
+EXPORT_SYMBOL_GPL(pci_probe_reset_function);
 
 /**
  * pci_reset_function - quiesce and reset a PCI device function
