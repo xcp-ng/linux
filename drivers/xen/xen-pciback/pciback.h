@@ -47,6 +47,7 @@ struct xen_pcibk_device {
 struct xen_pcibk_dev_data {
 	struct list_head config_fields;
 	struct pci_saved_state *pci_saved_state;
+	bool created_reset_file;
 	unsigned int permissive:1;
 	unsigned int allow_interrupt_control:1;
 	unsigned int warned_on_write:1;
