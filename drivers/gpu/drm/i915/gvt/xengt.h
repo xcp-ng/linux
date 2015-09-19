@@ -47,6 +47,10 @@ struct xengt_hvm_dev {
 	void *dev_state;
 	struct rb_root logd_list;
 	struct mutex logd_lock;
+
+	/* translation cache */
+	struct rb_root dma_addr_cache;
+	struct mutex cache_lock;
 };
 
 struct xengt_hvm_params {
