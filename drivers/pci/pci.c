@@ -3422,6 +3422,9 @@ static int pcie_flr(struct pci_dev *dev, int probe)
 {
 	u32 cap;
 
+	if (dev->dev_flags & PCI_DEV_FLAGS_NO_FLR_RESET)
+		return -ENOTTY;
+
 	pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
 	if (!(cap & PCI_EXP_DEVCAP_FLR))
 		return -ENOTTY;
