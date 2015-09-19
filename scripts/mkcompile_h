@@ -16,6 +16,14 @@ else
 	LINUX_COMPILE_HOST=$KBUILD_BUILD_HOST
 fi
 
+if [ -f .xsversion ]; then
+    . ./.xsversion
+else
+    XS_VERSION=dev
+    XS_BASE_COMMIT=unknown
+    XS_PQ_COMMIT=unknown
+fi
+
 LD_VERSION=$(LC_ALL=C $LD -v | head -n1 |
 		sed -e 's/(compatible with [^)]*)//' -e 's/[[:space:]]*$//')
 
@@ -24,4 +32,9 @@ cat <<EOF
 #define LINUX_COMPILE_BY	"${LINUX_COMPILE_BY}"
 #define LINUX_COMPILE_HOST	"${LINUX_COMPILE_HOST}"
 #define LINUX_COMPILER		"${CC_VERSION}, ${LD_VERSION}"
+
+#define XS_VERSION		"${XS_VERSION}"
+#define XS_BASE_COMMIT		"${XS_BASE_COMMIT}"
+#define XS_PQ_COMMIT		"${XS_PQ_COMMIT}"
+
 EOF
