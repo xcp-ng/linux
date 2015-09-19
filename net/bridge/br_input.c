@@ -146,7 +146,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
 	/* insert into forwarding database after filtering to avoid spoofing */
 	br = p->br;
 	if (p->flags & BR_LEARNING)
-		br_fdb_update(br, p, eth_hdr(skb)->h_source, vid, false);
+		if (!br_fdb_update(br, p, skb, vid, false))
+			goto drop;
 
 	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
 	    br_multicast_rcv(br, p, skb, vid))
@@ -220,8 +221,12 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
 	u16 vid = 0;
 
 	/* check if vlan is allowed, to avoid spoofing */
-	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
-		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
+	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid)) {
+		if (!br_fdb_update(p->br, p, skb, vid, false)) {
+			kfree_skb(skb);
+			return 1;
+		}
+	}
 	return 0;	 /* process further */
 }
 
