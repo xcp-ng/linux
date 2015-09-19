@@ -137,7 +137,6 @@ static int xen_wdt_release(struct inode *inode, struct file *file)
 	if (expect_release)
 		err = xen_wdt_stop();
 	else {
-		pr_crit("unexpected close, not stopping watchdog!\n");
 		xen_wdt_kick();
 	}
 	is_active = err;
