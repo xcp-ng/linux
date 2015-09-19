@@ -46,6 +46,7 @@
 #include <xen/interface/memory.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/vcpu.h>
+#include <xen/ioemu.h>
 
 #include <i915_drv.h>
 #include <i915_pvinfo.h>
@@ -476,25 +477,27 @@ void xengt_sysfs_del(void)
 }
 
 /* Translate from VM's guest pfn to machine pfn */
-static unsigned long xen_g2m_pfn(domid_t vm_id, unsigned long g_pfn)
+static unsigned long xen_g2m_pfn(struct xengt_hvm_dev *info, unsigned long g_pfn)
 {
-	struct xen_get_mfn_from_pfn pfn_arg;
+	struct pv_iommu_op iommu_op;
 	int rc;
-	unsigned long pfn_list[1];
 
-	pfn_list[0] = g_pfn;
+	if (info->vm_id == 0)
+		return g_pfn;
 
-	set_xen_guest_handle(pfn_arg.pfn_list, pfn_list);
-	pfn_arg.nr_pfns = 1;
-	pfn_arg.domid = vm_id;
+	iommu_op.flags = 0;
+	iommu_op.u.map_foreign_page.gfn = g_pfn;
+	iommu_op.u.map_foreign_page.domid = info->vm_id;
+	iommu_op.u.map_foreign_page.ioserver = info->iosrv_id;
 
-	rc = HYPERVISOR_memory_op(XENMEM_get_mfn_from_pfn, &pfn_arg);
-	if (rc < 0) {
-		gvt_err("failed to get mfn for gpfn 0x%lx: %d\n", g_pfn, rc);
+	rc = xen_ioemu_map_foreign_gfn_to_bfn(&iommu_op, 1);
+	if (rc < 0 || iommu_op.status ) {
+		gvt_err("failed to get mfn for gpfn 0x%lx: errno=%d status %d\n",
+			g_pfn, rc, iommu_op.status);
 		return INTEL_GVT_INVALID_ADDR;
 	}
 
-	return pfn_list[0];
+	return iommu_op.u.lookup_foreign_page.bfn;
 }
 
 static int xen_get_max_gpfn(domid_t vm_id)
@@ -1758,7 +1761,7 @@ static unsigned long xengt_gfn_to_pfn(unsigned long handle, unsigned long gfn)
 	if (!info)
 		return -EINVAL;
 
-	pfn = xen_g2m_pfn(info->vm_id, gfn);
+	pfn = xen_g2m_pfn(info, gfn);
 
 	if (pfn != INTEL_GVT_INVALID_ADDR)
 		xengt_logd_add(info, gfn);
