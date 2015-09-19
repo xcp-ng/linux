@@ -20,7 +20,7 @@
 #define MODULE_PARAM_PREFIX "module."
 
 static bool sig_enforce = IS_ENABLED(CONFIG_MODULE_SIG_FORCE);
-module_param(sig_enforce, bool_enable_only, 0644);
+module_param(sig_enforce, bool, 0644);
 
 /*
  * Export sig_enforce kernel cmdline parameter to allow other subsystems rely
