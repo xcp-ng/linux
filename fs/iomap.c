@@ -651,10 +651,14 @@ static int
 iomap_write_begin(struct inode *inode, loff_t pos, unsigned len, unsigned flags,
 		struct page **pagep, struct iomap *iomap)
 {
-	const struct iomap_page_ops *page_ops = iomap->page_ops;
+	struct iomap_page_ops ops = { .page_done = iomap->page_done };
+	const struct iomap_page_ops *page_ops = &ops;
 	pgoff_t index = pos >> PAGE_SHIFT;
 	struct page *page;
 	int status = 0;
+
+	if (iomap->flags & IOMAP_F_PAGE_OPS)
+		page_ops = (const struct iomap_page_ops *)iomap->page_done;
 
 	BUG_ON(pos + len > iomap->offset + iomap->length);
 
@@ -767,9 +771,13 @@ static int
 iomap_write_end(struct inode *inode, loff_t pos, unsigned len,
 		unsigned copied, struct page *page, struct iomap *iomap)
 {
-	const struct iomap_page_ops *page_ops = iomap->page_ops;
+	struct iomap_page_ops ops = { .page_done = iomap->page_done };
+	const struct iomap_page_ops *page_ops = &ops;
 	loff_t old_size = inode->i_size;
 	int ret;
+
+	if (iomap->flags & IOMAP_F_PAGE_OPS)
+		page_ops = (const struct iomap_page_ops *)iomap->page_done;
 
 	if (iomap->type == IOMAP_INLINE) {
 		ret = iomap_write_end_inline(inode, page, iomap, pos, copied);

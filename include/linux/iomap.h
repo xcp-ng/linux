@@ -42,6 +42,8 @@ struct vm_fault;
 #define IOMAP_F_MERGED		0x10	/* contains multiple blocks/extents */
 #define IOMAP_F_SHARED		0x20	/* block shared with another file */
 
+#define IOMAP_F_PAGE_OPS	0x40	/* page_done is actually page_ops */
+
 /*
  * Flags from 0x1000 up are for file system specific usage:
  */
@@ -65,7 +67,8 @@ struct iomap {
 	struct dax_device	*dax_dev; /* dax_dev for dax operations */
 	void			*inline_data;
 	void			*private; /* filesystem private */
-	const struct iomap_page_ops *page_ops;
+	void (*page_done)(struct inode *inode, loff_t pos, unsigned copied,
+			struct page *page, struct iomap *iomap);
 };
 
 /*
