@@ -1949,6 +1949,12 @@ static bool gfs2_rgrp_used_recently(const struct gfs2_blkreserv *rs,
 	return tdiff > (msecs * 1000 * 1000);
 }
 
+static bool gfs2_rgrp_demoted_recently(const struct gfs2_blkreserv *rs,
+				       u32 max_age_jiffies, u32 loop)
+{
+	return time_before(jiffies, rs->rs_rbm.rgd->rd_gl->gl_last_demote + max_age_jiffies);
+}
+
 static u32 gfs2_orlov_skip(const struct gfs2_inode *ip)
 {
 	const struct gfs2_sbd *sdp = GFS2_SB(&ip->i_inode);
@@ -2077,6 +2083,10 @@ int gfs2_inplace_reserve(struct gfs2_inode *ip, struct gfs2_alloc_parms *ap)
 							goto next_rgrp;
 						}
 					}
+
+					if (gfs2_rgrp_demoted_recently(rs, HZ, loops))
+						goto next_rgrp;
+
 					if (gfs2_rgrp_used_recently(rs, 1000) &&
 						gfs2_rgrp_congested(rs->rs_rbm.rgd, loops))
 						goto next_rgrp;
