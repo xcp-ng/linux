@@ -12232,9 +12232,8 @@ lpfc_sli_enable_intr(struct lpfc_hba *phba, uint32_t cfg_mode)
 
 	/* Need to issue conf_port mbox cmd before conf_msi mbox cmd */
 	retval = lpfc_sli_config_port(phba, LPFC_SLI_REV3);
-	if (retval)
-		return intr_mode;
-	phba->hba_flag &= ~HBA_NEEDS_CFG_PORT;
+	if (!retval)
+		phba->hba_flag &= ~HBA_NEEDS_CFG_PORT;
 
 	if (cfg_mode == 2) {
 		/* Now, try to enable MSI-X interrupt mode */
