@@ -49,6 +49,7 @@
 #include <xen/interface/physdev.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/xen-mca.h>
+#include <xen/interface/domctl.h>
 
 /*
  * The hypercall asms have to meet several constraints:
@@ -464,6 +465,14 @@ HYPERVISOR_kexec_op(
 {
 	return _hypercall2(int, kexec_op, op, args);
 }
+
+static inline int
+HYPERVISOR_domctl(
+	struct xen_domctl *arg)
+{
+	return _hypercall1(int, domctl, arg);
+}
+
 
 static inline int
 HYPERVISOR_tmem_op(
