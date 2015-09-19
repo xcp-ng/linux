@@ -3995,6 +3995,10 @@ int idle_cpu(int cpu)
 	if (rq->nr_running)
 		return 0;
 
+	/* When the current CPU is in softirq context, count it as non-idle */
+	if (cpu == smp_processor_id() && in_softirq())
+		return 0;
+
 #ifdef CONFIG_SMP
 	if (!llist_empty(&rq->wake_list))
 		return 0;
