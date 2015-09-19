@@ -264,7 +264,7 @@ smb2_reconnect(__le16 smb2_command, struct cifs_tcon *tcon)
 		goto out;
 
 	if (smb2_command != SMB2_INTERNAL_CMD)
-		queue_delayed_work(cifsiod_wq, &server->reconnect, 0);
+		queue_delayed_work(cifsiod_wq, &server->reconnect, 2 * HZ);
 
 	atomic_inc(&tconInfoReconnectCount);
 out:
@@ -2039,7 +2039,7 @@ SMB2_echo(struct TCP_Server_Info *server)
 
 	if (server->tcpStatus == CifsNeedNegotiate) {
 		/* No need to send echo on newly established connections */
-		queue_delayed_work(cifsiod_wq, &server->reconnect, 0);
+		queue_delayed_work(cifsiod_wq, &server->reconnect, 2 * HZ);
 		return rc;
 	}
 
