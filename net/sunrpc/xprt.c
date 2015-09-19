@@ -789,6 +789,16 @@ static void xprt_connect_status(struct rpc_task *task)
 	case -ETIMEDOUT:
 		dprintk("RPC: %5u xprt_connect_status: connect attempt timed "
 				"out\n", task->tk_pid);
+		/*
+		 * Timed out while waiting for the old connection to
+		 * be closed?
+		 *
+		 * Force a disconnect since its unlikely to close
+		 * gracefully and waiting for the socket close to
+		 * timeout may take a long time.
+		 */
+		if (test_bit(XPRT_CLOSING, &xprt->state))
+			xprt_force_disconnect(xprt);
 		break;
 	default:
 		dprintk("RPC: %5u xprt_connect_status: error %d connecting to "
