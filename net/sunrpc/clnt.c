@@ -2201,6 +2201,17 @@ call_connect_status(struct rpc_task *task)
 	case -ENOTCONN:
 	case -EAGAIN:
 	case -ETIMEDOUT:
+		/*
+		 * Timed out while waiting for the old connection to
+		 * be closed?
+		 *
+		 * Force a disconnect since its unlikely to close
+		 * gracefully and waiting for the socket close to
+		 * timeout may take a long time.
+		 */
+		if (test_bit(XPRT_CLOSING, &xprt->state))
+			xprt_force_disconnect(xprt);
+
 		if (!(task->tk_flags & RPC_TASK_NO_ROUND_ROBIN) &&
 		    (task->tk_flags & RPC_TASK_MOVEABLE) &&
 		    test_bit(XPRT_REMOVE, &xprt->state)) {
