@@ -26,6 +26,8 @@
 #include <linux/bitops.h>
 #include <linux/device.h>
 
+#include <xen/xen.h>
+
 #include <asm/apic.h>
 #include <asm/stacktrace.h>
 #include <asm/nmi.h>
@@ -1680,6 +1682,11 @@ static int __init init_hw_perf_events(void)
 	int err;
 
 	pr_info("Performance Events: ");
+
+	if (xen_pv_domain()) {
+		pr_cont("running under Xen, no PMU driver, software events only.\n");
+		return 0;
+	}
 
 	switch (boot_cpu_data.x86_vendor) {
 	case X86_VENDOR_INTEL:
