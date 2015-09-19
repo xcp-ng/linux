@@ -25,6 +25,12 @@
 #include <linux/nmi.h>
 #include <linux/console.h>
 
+#ifdef CONFIG_XEN
+#include <xen/xen.h>
+#include <asm/xen/hypercall.h>
+#include <xen/interface/kexec.h>
+#endif
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -112,6 +118,12 @@ void panic(const char *fmt, ...)
 		dump_stack();
 #endif
 
+#ifdef CONFIG_XEN
+	if (xen_initial_domain()) {
+		xen_kexec_exec_t xke = { KEXEC_TYPE_CRASH };
+		HYPERVISOR_kexec_op(KEXEC_CMD_kexec, &xke);
+	}
+#endif
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.
