@@ -29,6 +29,7 @@
 #include <xen/xen.h>
 #include <xen/page.h>
 #include <xen/interface/callback.h>
+#include <xen/interface/kexec.h>
 #include <xen/interface/memory.h>
 #include <xen/interface/physdev.h>
 #include <xen/features.h>
@@ -830,6 +831,8 @@ char * __init xen_memory_setup(void)
 	xen_e820_table.nr_entries = memmap.nr_entries;
 
 	if (xen_initial_domain()) {
+		xen_kexec_range_t range = { KEXEC_RANGE_MA_CRASH, 0 };
+
 		/*
 		 * Xen won't allow a 1:1 mapping to be created to UNUSABLE
 		 * regions, so if we're using the machine memory map leave the
@@ -839,6 +842,19 @@ char * __init xen_memory_setup(void)
 		 * a patch in the future.
 		 */
 		xen_ignore_unusable();
+
+		/*
+		 * Reserve the crashkernel region to prevent outstanding DMA
+		 * ops overwriting the crashkernel after the IOMMU is disabled
+		 * while kexecing.
+		 */
+		rc = HYPERVISOR_kexec_op(KEXEC_CMD_kexec_get_range, &range);
+		if (rc == 0) {
+			xen_e820_table.entries[xen_e820_table.nr_entries].addr = range.start;
+			xen_e820_table.entries[xen_e820_table.nr_entries].size = range.size;
+			xen_e820_table.entries[xen_e820_table.nr_entries].type = E820_TYPE_RESERVED;
+			xen_e820_table.nr_entries++;
+		}
 
 #ifdef CONFIG_ISCSI_IBFT_FIND
 		/* Reserve 0.5 MiB to 1 MiB region so iBFT can be found */
