@@ -6479,7 +6479,7 @@ void __init zero_resv_unavail(void)
 			pgcnt += zero_pfn_range(PFN_DOWN(next), PFN_UP(start));
 		next = end;
 	}
-	pgcnt += zero_pfn_range(PFN_DOWN(next), max_pfn);
+	pgcnt += zero_pfn_range(PFN_DOWN(next), SECTION_ALIGN_UP(max_pfn));
 
 	/*
 	 * Struct pages that do not have backing memory. This could be because
