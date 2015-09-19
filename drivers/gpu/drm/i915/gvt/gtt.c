@@ -1882,7 +1882,9 @@ struct intel_vgpu_mm *intel_vgpu_create_ppgtt_mm(struct intel_vgpu *vgpu,
 	}
 
 	list_add_tail(&mm->ppgtt_mm.list, &vgpu->gtt.ppgtt_mm_list_head);
+	mutex_lock(&gvt->gtt_lock);
 	list_add_tail(&mm->ppgtt_mm.lru_list, &gvt->gtt.ppgtt_mm_lru_list_head);
+	mutex_unlock(&gvt->gtt_lock);
 	return mm;
 }
 
@@ -1925,7 +1927,9 @@ void _intel_vgpu_mm_release(struct kref *mm_ref)
 
 	if (mm->type == INTEL_GVT_MM_PPGTT) {
 		list_del(&mm->ppgtt_mm.list);
+		mutex_lock(&mm->vgpu->gvt->gtt_lock);
 		list_del(&mm->ppgtt_mm.lru_list);
+		mutex_unlock(&mm->vgpu->gvt->gtt_lock);
 		invalidate_ppgtt_mm(mm);
 	} else {
 		vfree(mm->ggtt_mm.virtual_ggtt);
@@ -1967,9 +1971,10 @@ int intel_vgpu_pin_mm(struct intel_vgpu_mm *mm)
 		if (ret)
 			return ret;
 
+		mutex_lock(&mm->vgpu->gvt->gtt_lock);
 		list_move_tail(&mm->ppgtt_mm.lru_list,
 			       &mm->vgpu->gvt->gtt.ppgtt_mm_lru_list_head);
-
+		mutex_unlock(&mm->vgpu->gvt->gtt_lock);
 	}
 
 	return 0;
@@ -1980,6 +1985,7 @@ static int reclaim_one_ppgtt_mm(struct intel_gvt *gvt)
 	struct intel_vgpu_mm *mm;
 	struct list_head *pos, *n;
 
+	mutex_lock(&gvt->gtt_lock);
 	list_for_each_safe(pos, n, &gvt->gtt.ppgtt_mm_lru_list_head) {
 		mm = container_of(pos, struct intel_vgpu_mm, ppgtt_mm.lru_list);
 
@@ -1987,9 +1993,11 @@ static int reclaim_one_ppgtt_mm(struct intel_gvt *gvt)
 			continue;
 
 		list_del_init(&mm->ppgtt_mm.lru_list);
+		mutex_unlock(&gvt->gtt_lock);
 		invalidate_ppgtt_mm(mm);
 		return 1;
 	}
+	mutex_unlock(&gvt->gtt_lock);
 	return 0;
 }
 
