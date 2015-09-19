@@ -34,6 +34,9 @@ wait_queue_head_t xen_pcibk_aer_wait_queue;
 static DECLARE_RWSEM(pcistub_sem);
 module_param_named(hide, pci_devs_to_hide, charp, 0444);
 
+bool disable_rp_fatal_err_reporting = true;
+module_param(disable_rp_fatal_err_reporting, bool, S_IRUGO);
+
 struct pcistub_device_id {
 	struct list_head slot_list;
 	int domain;
@@ -463,6 +466,7 @@ static int pcistub_init_device(struct pci_dev *dev)
 {
 	struct xen_pcibk_dev_data *dev_data;
 	int err = 0;
+	struct pci_dev *tmp = NULL;
 
 	dev_dbg(&dev->dev, "initializing...\n");
 
@@ -515,6 +519,37 @@ static int pcistub_init_device(struct pci_dev *dev)
 		if (err && err != -ENOSYS)
 			dev_err(&dev->dev, "MSI-X preparation failed (%d)\n",
 				err);
+	}
+
+	if (disable_rp_fatal_err_reporting) {
+		/* Find the root port for this device and disable AER reporting */
+		tmp = dev;
+		do {
+			struct pci_bus *bus = tmp->bus;
+
+			if (pci_is_root_bus(bus))
+				break;
+			while (!bus->self && bus->parent)
+				bus = bus->parent;
+			tmp = bus->self;
+		} while (tmp != NULL);
+
+		if ((tmp != dev) && (tmp != NULL)) {
+			uint16_t val;
+			pcie_capability_read_word(tmp, PCI_EXP_RTCTL, &val);
+			if ( val & (PCI_EXP_RTCTL_SECEE | PCI_EXP_RTCTL_SEFEE
+						| PCI_EXP_RTCTL_SENFEE)) {
+				dev_info(&dev->dev,
+					"Disabling System Error reporting on root port"
+					" %02x:%02x.%d\n",
+					tmp->bus->number, PCI_SLOT(tmp->devfn),
+					PCI_FUNC(tmp->devfn));
+				pcie_capability_clear_word(tmp, PCI_EXP_RTCTL,
+					   PCI_EXP_RTCTL_SEFEE |
+					   PCI_EXP_RTCTL_SENFEE |
+					   PCI_EXP_RTCTL_SECEE);
+			}
+		}
 	}
 
 	/* We need the device active to save the state. */
