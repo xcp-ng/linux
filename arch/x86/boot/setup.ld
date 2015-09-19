@@ -25,7 +25,11 @@ SECTIONS
 	.text32		: { *(.text32) }
 
 	.pecompat	: { *(.pecompat) }
-	PROVIDE(pecompat_fsize = setup_size - pecompat_fstart);
+	PROVIDE(pecompat_fsize = sbat_fstart - pecompat_fstart);
+
+	.sbat	: { *(.sbat) }
+	PROVIDE(sbat_fsize = 0x1000);
+	PROVIDE(sbat_fstart = CONFIG_EFI_STUB == 1 ? setup_size - sbat_fsize : setup_size);
 
 	. = ALIGN(16);
 	.rodata		: { *(.rodata*) }
@@ -43,7 +47,8 @@ SECTIONS
 		setup_sig = .;
 		LONG(0x5a5aaa55)
 
-		setup_size = ALIGN(ABSOLUTE(.), 4096);
+		setup_size = ALIGN(ABSOLUTE(.) + (CONFIG_EFI_STUB == 1 ? sbat_fsize : 0), 4096);
+
 		setup_sects = ABSOLUTE(setup_size / 512);
 	}
 
