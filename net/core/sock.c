@@ -1917,7 +1917,7 @@ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
 EXPORT_SYMBOL(sock_cmsg_send);
 
 /* On 32bit arches, an skb frag is limited to 2^15 */
-#define SKB_FRAG_PAGE_ORDER	get_order(32768)
+#define SKB_FRAG_PAGE_ORDER	get_order(4096)
 
 /**
  * skb_page_frag_refill - check that a page_frag contains enough room
