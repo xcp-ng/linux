@@ -1121,6 +1121,15 @@ static void pwq_activate_delayed_work(struct work_struct *work)
 {
 	struct pool_workqueue *pwq = get_work_pwq(work);
 
+	if (pwq == NULL) {
+		/* Need to figure out which work, got canceled here */
+		char symname[KSYM_NAME_LEN];
+
+		lookup_symbol_name(work->func, symname);
+		printk(KERN_WARNING "Trying to activate canceled work [%p], %s\n",
+			work, symname);
+		BUG();
+	}
 	trace_workqueue_activate_work(work);
 	move_linked_works(work, &pwq->pool->worklist, NULL);
 	__clear_bit(WORK_STRUCT_DELAYED_BIT, work_data_bits(work));
