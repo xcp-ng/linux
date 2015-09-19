@@ -60,8 +60,12 @@
 #include <uapi/linux/module.h>
 #include "internal.h"
 
+#include <crypto/sha2.h>
+#include <keys/system_keyring.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
+
 
 /*
  * Mutex protects:
@@ -1646,6 +1650,19 @@ static int validate_section_offset(struct load_info *info, Elf_Shdr *shdr)
 	return 0;
 }
 
+static int is_module_blacklisted(struct load_info *info)
+{
+	u8 hash[SHA256_DIGEST_SIZE];
+
+	/*
+	 * We use the direct sha256 API rather than the generic hash API to avoid
+	 * circular dependencies where the module loader calls the hash API which
+	 * then tries to load the relevant module.
+	 */
+	sha256((const u8*)info->hdr, info->len, hash);
+	return is_binary_blacklisted(hash, SHA256_DIGEST_SIZE);
+}
+
 /*
  * Check userspace passed ELF module against our expectations, and cache
  * useful variables for further processing as we go.
@@ -2837,6 +2854,10 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	bool module_allocated = false;
 	long err = 0;
 	char *after_dashes;
+
+	err = is_module_blacklisted(info);
+	if (err)
+		goto free_copy;
 
 	/*
 	 * Do the signature check (if any) first. All that
