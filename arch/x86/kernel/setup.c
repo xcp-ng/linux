@@ -838,6 +838,17 @@ static void __init x86_report_nx(void)
 	}
 }
 
+static bool lockdown_disabled;
+
+static int __init lockdown_disable_param(char *str)
+{
+	lockdown_disabled = true;
+
+	return 0;
+}
+
+early_param("lockdown_disable", lockdown_disable_param);
+
 /*
  * Determine if we were loaded by an EFI loader.  If so, then we have also been
  * passed the efi memmap, systab, etc., so we should use these data structures
@@ -1027,6 +1038,13 @@ void __init setup_arch(char **cmdline_p)
 
 	if (efi_enabled(EFI_BOOT))
 		efi_init();
+
+	if (boot_params.secure_boot == efi_secureboot_mode_enabled)
+		security_lock_kernel_down("EFI Secure Boot mode",
+					  LOCKDOWN_INTEGRITY_MAX);
+	else if (!lockdown_disabled)
+		security_lock_kernel_down("vendor policy",
+					  LOCKDOWN_INTEGRITY_MAX);
 
 	reserve_ibft_region();
 	x86_init.resources.dmi_setup();
