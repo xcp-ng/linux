@@ -94,7 +94,7 @@ void *xen_initial_gdt;
 static int xen_cpu_up_prepare_pv(unsigned int cpu);
 static int xen_cpu_dead_pv(unsigned int cpu);
 
-#ifndef CONFIG_PREEMPTION
+#ifndef CONFIG_PREEMPT
 /*
  * Some hypercalls issued by the toolstack can take many 10s of
  * seconds. Allow tasks running hypercalls via the privcmd driver to
@@ -746,7 +746,7 @@ __visible noinstr void xen_pv_evtchn_do_upcall(struct pt_regs *regs)
 
 	inhcall = get_and_clear_inhcall();
 	if (inhcall && !WARN_ON_ONCE(state.exit_rcu)) {
-		irqentry_exit_cond_resched();
+		raw_irqentry_exit_cond_resched();
 		instrumentation_end();
 		restore_inhcall(inhcall);
 	} else {
