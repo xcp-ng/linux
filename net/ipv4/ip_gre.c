@@ -527,6 +527,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 			 tunnel_id_to_key32(tun_info->key.tun_id),
 			 test_bit(IP_TUNNEL_SEQ_BIT, flags) ?
 			 htonl(atomic_fetch_inc(&tunnel->o_seqno)) : 0);
+	skb->ignore_df = 1;
 
 	ip_md_tunnel_xmit(skb, dev, IPPROTO_GRE, tunnel_hlen);
 
