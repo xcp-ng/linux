@@ -103,8 +103,9 @@ static struct pcistub_device *pcistub_device_alloc(struct pci_dev *dev)
 
 static int pcistub_reset_device_state(struct pci_dev *dev)
 {
-	__pci_reset_function_locked(dev);
 
+	if (__pci_reset_function_locked(dev) == 0 && dev->quarantined)
+		dev->unsafe = 0;
 	if (!xen_pv_domain())
 		return xen_reset_device(dev);
 	else

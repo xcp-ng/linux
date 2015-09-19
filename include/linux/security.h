@@ -140,6 +140,7 @@ enum lockdown_reason {
 	LOCKDOWN_BPF_WRITE_USER,
 	LOCKDOWN_DBG_WRITE_KERNEL,
 	LOCKDOWN_RTAS_ERROR_INJECTION,
+	LOCKDOWN_XEN_HYPERCALL,
 	LOCKDOWN_INTEGRITY_MAX,
 	LOCKDOWN_KCORE,
 	LOCKDOWN_KPROBES,
@@ -529,7 +530,10 @@ void security_bdev_free(struct block_device *bdev);
 int security_bdev_setintegrity(struct block_device *bdev,
 			       enum lsm_integrity_type type, const void *value,
 			       size_t size);
+
+int security_locked_down_nowarn(enum lockdown_reason what);
 int security_lock_kernel_down(const char *where, enum lockdown_reason level);
+
 #else /* CONFIG_SECURITY */
 
 static inline int call_blocking_lsm_notifier(enum lsm_event event, void *data)
@@ -1505,6 +1509,11 @@ static inline int security_locked_down(enum lockdown_reason what)
 {
 	return 0;
 }
+static inline int security_locked_down_nowarn(enum lockdown_reason what)
+{
+	return 0;
+}
+
 static inline int lsm_fill_user_ctx(struct lsm_ctx __user *uctx,
 				    u32 *uctx_len, void *val, size_t val_len,
 				    u64 id, u64 flags)
