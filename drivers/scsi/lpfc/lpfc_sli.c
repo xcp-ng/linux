@@ -5718,8 +5718,11 @@ lpfc_sli_hba_setup(struct lpfc_hba *phba)
 	/* Enable ISR already does config_port because of config_msi mbx */
 	if (phba->hba_flag & HBA_NEEDS_CFG_PORT) {
 		rc = lpfc_sli_config_port(phba, LPFC_SLI_REV3);
-		if (rc)
-			return -EIO;
+		if (rc) {
+			rc = lpfc_sli_config_port(phba, LPFC_SLI_REV2);
+			if (rc)
+				return -EIO;
+		}
 		phba->hba_flag &= ~HBA_NEEDS_CFG_PORT;
 	}
 	phba->fcp_embed_io = 0;	/* SLI4 FC support only */
