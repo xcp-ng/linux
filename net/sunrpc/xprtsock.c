@@ -2227,8 +2227,6 @@ static void xs_tcp_shutdown(struct rpc_xprt *xprt)
 		return;
 	}
 	switch (skst) {
-	case TCP_FIN_WAIT1:
-	case TCP_FIN_WAIT2:
 	case TCP_LAST_ACK:
 		break;
 	case TCP_ESTABLISHED:
