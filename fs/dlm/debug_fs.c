@@ -990,7 +990,7 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 	snprintf(name, sizeof(name), "%s_locks", ls->ls_name);
 
 	ls->ls_debug_locks_dentry = debugfs_create_file(name,
-							0644,
+							0444,
 							dlm_root,
 							ls,
 							&format2_fops);
@@ -1021,7 +1021,7 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 	snprintf(name, sizeof(name), "%s_waiters", ls->ls_name);
 
 	ls->ls_debug_waiters_dentry = debugfs_create_file(name,
-							  0644,
+							  0444,
 							  dlm_root,
 							  ls,
 							  &waiters_fops);
@@ -1032,7 +1032,7 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 	snprintf(name, sizeof(name), "%s_queued_asts", ls->ls_name);
 
 	ls->ls_debug_queued_asts_dentry = debugfs_create_file(name,
-							      0644,
+							      0444,
 							      dlm_root,
 							      ls,
 							      &format5_fops);
