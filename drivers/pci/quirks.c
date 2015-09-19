@@ -3817,6 +3817,18 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_MELLANOX, 0xcf6c, quirk_no_pm_reset);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_MELLANOX, 0xcf70, quirk_no_pm_reset);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_MELLANOX, 0xcf80, quirk_no_pm_reset);
 
+static void quirk_no_flr_reset(struct pci_dev *dev)
+{
+	dev->dev_flags |= PCI_DEV_FLAGS_NO_FLR_RESET;
+}
+
+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_LSI_LOGIC,
+			       PCI_DEVICE_ID_LSI_SAS3008,
+			       PCI_CLASS_STORAGE_SAS, 8, quirk_no_flr_reset);
+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_LSI_LOGIC,
+			       PCI_DEVICE_ID_LSI_MEGARAID_3108,
+			       PCI_CLASS_STORAGE_SAS, 8, quirk_no_flr_reset);
+
 /*
  * Thunderbolt controllers with broken MSI hotplug signaling:
  * Entire 1st generation (Light Ridge, Eagle Ridge, Light Peak) and part
