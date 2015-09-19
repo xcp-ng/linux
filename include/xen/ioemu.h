@@ -29,7 +29,9 @@
  */
 #ifndef _XEN_IOEMU_H
 #define _XEN_IOEMU_H
+#include <xen/interface/pv-iommu.h>
 
 int xen_ioemu_inject_msi(domid_t domid, uint64_t addr, uint32_t data);
+int xen_ioemu_map_foreign_gfn_to_bfn(struct pv_iommu_op *ops, int count);
 
 #endif /* #ifndef _XEN_IOEMU_H */
