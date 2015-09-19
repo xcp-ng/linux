@@ -83,4 +83,49 @@ int xen_ioemu_inject_msi(domid_t domid, uint64_t addr, uint32_t data)
 
 	return HYPERVISOR_dm_op(domid, 1, &op_buf);
 }
+
+/**
+ * xen_ioemu_map_foreign_gfn_to_bfn: Returns the BFN's corresponding to GFN's.
+ * @pv_iommu_ops: pv_iommu_ops contains the struct_ map_foreign_page
+ * that will be used for lookup for BFN.
+ * @count: count of struct pv_iommu_ops.
+ *
+ * Its a wrapper function for getting BFN from GFN using IOMMU hypercall.
+*/
+int xen_ioemu_map_foreign_gfn_to_bfn(struct pv_iommu_op *ops, int count)
+{
+        int i;
+        int rc = 0;
+        for (i = 0; i < count; i++)
+        {
+                ops[i].subop_id = IOMMUOP_lookup_foreign_page;
+                ops[i].flags |= IOMMU_OP_writeable;
+        }
+        rc = HYPERVISOR_iommu_op(ops, count);
+        return rc;
+}
+
+/**
+ * xen_ioemu_unmap_foreign_gfn_to_bfn: Unmap BFN's corresponding to GFN's.
+ * @pv_iommu_ops: pv_iommu_ops contains the struct unmap_foreign_page
+ * that will be used to unmap BFNs.
+ * @count: count of struct pv_iommu_ops.
+ *
+ * Its a wrapper function to unmap foreign GFN's to BFN's .
+*/
+int xen_ioemu_unmap_foreign_gfn_to_bfn(struct pv_iommu_op *ops, int count)
+{
+        int i;
+        int rc = 0;
+        for (i = 0; i < count; i++)
+        {
+                ops[i].subop_id = IOMMUOP_unmap_foreign_page;
+        }
+        rc = HYPERVISOR_iommu_op(ops, count);
+        return rc;
+
+
+}
 EXPORT_SYMBOL(xen_ioemu_inject_msi);
+EXPORT_SYMBOL(xen_ioemu_map_foreign_gfn_to_bfn);
+EXPORT_SYMBOL(xen_ioemu_unmap_foreign_gfn_to_bfn);
