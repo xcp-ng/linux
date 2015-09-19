@@ -234,10 +234,6 @@ struct ip_set {
 	spinlock_t lock;
 	/* References to the set */
 	u32 ref;
-	/* References to the set for netlink events like dump,
-	 * ref can be swapped out by ip_set_swap
-	 */
-	u32 ref_netlink;
 	/* The core set type */
 	struct ip_set_type *type;
 	/* The type variant doing the real job */
@@ -258,6 +254,19 @@ struct ip_set {
 	size_t offset[IPSET_EXT_ID_MAX];
 	/* The type specific data */
 	void *data;
+};
+
+/*
+ * An extended version of struct ip_set.
+ * It contains an extra member, similar to struct ip_set from Linux 4.6
+ * (although in a different order). It is used to maintain ABI compatibility.
+ */
+struct ip_set_46 {
+	struct ip_set set;
+	/* References to the set for netlink events like dump,
+	 * ref can be swapped out by ip_set_swap
+	 */
+	u32 ref_netlink;
 };
 
 static inline void
