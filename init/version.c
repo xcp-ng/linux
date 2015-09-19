@@ -51,4 +51,9 @@ const char linux_proc_banner[] =
 	" (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")"
 	" (" LINUX_COMPILER ") %s\n";
 
+const char xs_proc_banner[] =
+	"rpm_version " XS_VERSION "\n"
+	"base_commit " XS_BASE_COMMIT "\n"
+	"pq_commit   " XS_PQ_COMMIT "\n";
+
 BUILD_SALT;
