@@ -1197,6 +1197,8 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
 			queue->stats.tx_zerocopy_sent++;
 		}
 
+		skb_record_rx_queue(skb, queue->id);
+
 		netif_receive_skb(skb);
 	}
 
