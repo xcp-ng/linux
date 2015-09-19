@@ -35,7 +35,7 @@
 #include <linux/percpu.h>
 #include <linux/list_sort.h>
 #include <linux/lockref.h>
-#include <linux/rhashtable.h>
+#include <linux/xsrhashtable.h>
 
 #include "gfs2.h"
 #include "incore.h"
