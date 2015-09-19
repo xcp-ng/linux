@@ -181,5 +181,6 @@ SYM_FUNC_END(xen_hypercall_intel)
 		.long FEATURES_PV | FEATURES_PVH | FEATURES_DOM0)
 	ELFNOTE(Xen, XEN_ELFNOTE_LOADER,         .asciz "generic")
 	ELFNOTE(Xen, XEN_ELFNOTE_SUSPEND_CANCEL, .long 1)
+	ELFNOTE(XS, XS_ELFNOTE_PV_IOMMU, .long 1)
 
 #endif /*CONFIG_XEN */

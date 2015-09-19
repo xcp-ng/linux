@@ -20,6 +20,7 @@
 #include <linux/compiler.h>
 
 #include <linux/rcupdate.h>	/* rcu_expedited and rcu_normal */
+#include <xen/swiotlb-xen.h>
 
 #if defined(__LITTLE_ENDIAN)
 #define CPU_BYTEORDER_STRING	"little"
@@ -223,6 +224,14 @@ static ssize_t rcu_normal_store(struct kobject *kobj,
 KERNEL_ATTR_RW(rcu_normal);
 #endif /* #ifndef CONFIG_TINY_RCU */
 
+static ssize_t pv_iommu_ready_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", !pv_iommu_1_to_1_offset ||
+                       pv_iommu_1_to_1_setup_complete);
+}
+KERNEL_ATTR_RO(pv_iommu_ready);
+
 /*
  * Make /sys/kernel/notes give the raw contents of our kernel .notes section.
  */
@@ -275,6 +284,7 @@ static struct attribute * kernel_attrs[] = {
 	&rcu_expedited_attr.attr,
 	&rcu_normal_attr.attr,
 #endif
+	&pv_iommu_ready_attr.attr,
 	NULL
 };
 

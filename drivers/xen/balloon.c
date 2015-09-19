@@ -74,6 +74,7 @@
 #include <xen/features.h>
 #include <xen/page.h>
 #include <xen/mem-reservation.h>
+#include <xen/swiotlb-xen.h>
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "xen."
@@ -344,6 +345,17 @@ static void xen_online_page(struct page *page, unsigned int order)
 	struct page *p;
 
 	pr_debug("Online %lu pages starting at pfn 0x%lx\n", size, start_pfn);
+
+#ifdef CONFIG_XEN_HAVE_PVMMU
+	/*
+	 * Clear any existing IOMMU mappings of the BFN (== PFN) for
+	 * this page, so the correct IOMMU mapping can be created when
+	 * the page is returned.
+	 */
+	if (pv_iommu_1_to_1_offset)
+		xen_iommu_unmap_page(page_to_pfn(page));
+#endif
+
 	mutex_lock(&balloon_mutex);
 	for (i = 0; i < size; i++) {
 		p = pfn_to_page(start_pfn + i);
