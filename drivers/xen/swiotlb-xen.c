@@ -177,7 +177,7 @@ xen_swiotlb_fixup(void *buf, size_t size, unsigned long nslabs,
 static unsigned long xen_set_nslabs(unsigned long nr_tbl)
 {
 	if (!nr_tbl) {
-		xen_io_tlb_nslabs = (64 * 1024 * 1024 >> IO_TLB_SHIFT);
+		xen_io_tlb_nslabs = (128 * 1024 * 1024 >> IO_TLB_SHIFT);
 		xen_io_tlb_nslabs = ALIGN(xen_io_tlb_nslabs, IO_TLB_SEGSIZE);
 	} else
 		xen_io_tlb_nslabs = nr_tbl;
