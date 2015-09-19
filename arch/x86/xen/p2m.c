@@ -700,7 +700,6 @@ bool set_phys_to_machine(unsigned long pfn, unsigned long mfn)
 
 		return __set_phys_to_machine(pfn, mfn);
 	}
-
 	return true;
 }
 
