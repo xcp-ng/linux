@@ -1475,7 +1475,9 @@ static void handle_callback(struct gfs2_glock *gl, unsigned int state,
 	}
 	if (gl->gl_ops->go_callback)
 		gl->gl_ops->go_callback(gl, remote);
-	trace_gfs2_demote_rq(gl, remote);
+	trace_gfs2_demote_rq(gl, remote, delay);
+	if (remote && !delay)
+		gl->gl_last_demote = jiffies;
 }
 
 void gfs2_print_dbg(struct seq_file *seq, const char *fmt, ...)
@@ -1898,7 +1900,8 @@ void gfs2_glock_cb(struct gfs2_glock *gl, unsigned int state)
 	spin_lock(&gl->gl_lockref.lock);
 	holdtime = gl->gl_tchange + gl->gl_hold_time;
 	if (!list_empty(&gl->gl_holders) &&
-	    gl->gl_name.ln_type == LM_TYPE_INODE) {
+		(gl->gl_name.ln_type == LM_TYPE_INODE ||
+		 gl->gl_name.ln_type == LM_TYPE_RGRP)) {
 		if (time_before(now, holdtime))
 			delay = holdtime - now;
 		if (test_bit(GLF_REPLY_PENDING, &gl->gl_flags))
