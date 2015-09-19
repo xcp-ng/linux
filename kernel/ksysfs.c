@@ -161,6 +161,15 @@ static ssize_t rcu_expedited_store(struct kobject *kobj,
 }
 KERNEL_ATTR_RW(rcu_expedited);
 
+extern unsigned int xen_pv_iommu_is_ready(void);
+
+static ssize_t pv_iommu_ready_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", xen_pv_iommu_is_ready());
+}
+KERNEL_ATTR_RO(pv_iommu_ready);
+
 /*
  * Make /sys/kernel/notes give the raw contents of our kernel .notes section.
  */
@@ -203,6 +212,7 @@ static struct attribute * kernel_attrs[] = {
 	&vmcoreinfo_attr.attr,
 #endif
 	&rcu_expedited_attr.attr,
+	&pv_iommu_ready_attr.attr,
 	NULL
 };
 

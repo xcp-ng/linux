@@ -172,9 +172,6 @@ static int check_batch(int size)
 	return res;
 }
 
-
-
-
 static int pv_iommu_setup(void *data)
 {
 	int pfn, count = 0;
@@ -247,6 +244,11 @@ static int pv_iommu_setup(void *data)
 	printk(KERN_INFO "XEN-PV-IOMMU - completed setting up 1-1 mapping\n");
 	pv_iommu_1_to_1_setup_complete = true;
 	return 0;
+}
+
+unsigned int xen_pv_iommu_is_ready(void)
+{
+    return pv_iommu_1_to_1_setup_complete;
 }
 
 /*
