@@ -69,6 +69,7 @@ header-y += bcm933xx_hcs.h
 header-y += bfs_fs.h
 header-y += binfmts.h
 header-y += blkpg.h
+header-y += blktap.h
 header-y += blktrace_api.h
 header-y += bpf_common.h
 header-y += bpf.h
