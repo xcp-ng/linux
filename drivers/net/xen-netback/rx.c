@@ -250,6 +250,13 @@ struct xenvif_pkt_state {
 	unsigned int slot;
 };
 
+static unsigned int rx_coalesce_frags;
+module_param(rx_coalesce_frags, uint, 0644);
+MODULE_PARM_DESC(rx_coalesce_frags, "Linearize guest-bound skbs with at least this many frags in the RX kthread (0 = off)");
+static unsigned long rx_coalesced, rx_coalesce_fail;
+module_param(rx_coalesced, ulong, 0444);
+module_param(rx_coalesce_fail, ulong, 0444);
+
 static void xenvif_rx_next_skb(struct xenvif_queue *queue,
 			       struct xenvif_pkt_state *pkt)
 {
@@ -257,6 +264,18 @@ static void xenvif_rx_next_skb(struct xenvif_queue *queue,
 	unsigned int gso_type;
 
 	skb = xenvif_rx_dequeue(queue);
+
+	/* net-lab: coalesce many small fragments (NIC GRO skbs: one per wire
+	 * frame) into one linear buffer here, in the guest-RX kthread, so the
+	 * grant copies below use up-to-4 KiB ops instead of one op per frame.
+	 */
+	if (rx_coalesce_frags &&
+	    skb_shinfo(skb)->nr_frags >= READ_ONCE(rx_coalesce_frags)) {
+		if (skb_linearize(skb))
+			rx_coalesce_fail++;
+		else
+			rx_coalesced++;
+	}
 
 	queue->stats.tx_bytes += skb->len;
 	queue->stats.tx_packets++;
