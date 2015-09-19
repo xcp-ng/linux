@@ -718,7 +718,7 @@ static int xen_hvm_memory_mapping(domid_t vm_id, uint64_t first_gfn,
 {
 	struct xen_domctl arg;
 	int rc = 0, err = 0;
-	unsigned long done = 0, mapping_sz = 64;
+	unsigned long done = 0, mapping_sz = nr_mfns;
 
 	if (add_mapping) {
 		rc = xen_domain_iomem_perm(vm_id, first_mfn, nr_mfns, 1);
@@ -744,6 +744,10 @@ retry:
 			if (err == -E2BIG) {
 				mapping_sz /= 2;
 				goto retry;
+			}
+			if (err > 0) {
+				done += err;
+				continue;
 			}
 			//Save first error status.
 			if (!rc)
