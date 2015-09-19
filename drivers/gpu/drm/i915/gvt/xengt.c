@@ -34,6 +34,7 @@
 #include <linux/freezer.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/rbtree.h>
 
 #include <asm/xen/hypercall.h>
 #include <asm/xen/page.h>
@@ -57,6 +58,96 @@ MODULE_AUTHOR("Intel Corporation");
 MODULE_DESCRIPTION("XenGT mediated passthrough driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
+
+struct gvt_dma {
+	struct xengt_hvm_dev *info;
+	struct rb_node dma_addr_node;
+	dma_addr_t dma_addr;
+	struct kref ref;
+};
+
+static int xen_unmap_pfn(struct xengt_hvm_dev *info, unsigned long pfn);
+
+static struct gvt_dma *__gvt_cache_find_dma_addr(struct xengt_hvm_dev *info,
+                dma_addr_t dma_addr)
+{
+        struct rb_node *node = info->dma_addr_cache.rb_node;
+        struct gvt_dma *itr;
+
+        while (node) {
+                itr = rb_entry(node, struct gvt_dma, dma_addr_node);
+
+                if (dma_addr < itr->dma_addr)
+                        node = node->rb_left;
+                else if (dma_addr > itr->dma_addr)
+                        node = node->rb_right;
+                else
+                        return itr;
+        }
+        return NULL;
+}
+
+static void __gvt_cache_add(struct xengt_hvm_dev *info, dma_addr_t dma_addr)
+{
+        struct gvt_dma *new, *itr;
+        struct rb_node **link, *parent = NULL;
+
+        new = kzalloc(sizeof(struct gvt_dma), GFP_KERNEL);
+        if (!new)
+                return;
+
+        new->info = info;
+        new->dma_addr = dma_addr;
+        kref_init(&new->ref);
+
+        /* dma_addr_cache maps dma addr to struct gvt_dma. */
+        parent = NULL;
+        link = &info->dma_addr_cache.rb_node;
+        while (*link) {
+                parent = *link;
+                itr = rb_entry(parent, struct gvt_dma, dma_addr_node);
+
+                if (dma_addr < itr->dma_addr)
+                        link = &parent->rb_left;
+                else
+                        link = &parent->rb_right;
+        }
+        rb_link_node(&new->dma_addr_node, parent, link);
+        rb_insert_color(&new->dma_addr_node, &info->dma_addr_cache);
+}
+
+static void __gvt_dma_release(struct kref *ref)
+{
+	struct gvt_dma *entry = container_of(ref, typeof(*entry), ref);
+	struct xengt_hvm_dev *info = entry->info;
+
+	xen_unmap_pfn(info, entry->dma_addr >> PAGE_SHIFT);
+
+	rb_erase(&entry->dma_addr_node, &info->dma_addr_cache);
+	kfree(entry);
+}
+
+static void gvt_cache_init(struct xengt_hvm_dev *info)
+{
+	info->dma_addr_cache = RB_ROOT;
+	mutex_init(&info->cache_lock);
+}
+
+static void gvt_cache_destroy(struct xengt_hvm_dev *info)
+{
+	struct gvt_dma *entry;
+	struct rb_node *node = NULL;
+
+	mutex_lock(&info->cache_lock);
+	for (;;) {
+		node = rb_first(&info->dma_addr_cache);
+		if (!node)
+			break;
+		entry = rb_entry(node, struct gvt_dma, dma_addr_node);
+		kref_put(&entry->ref, __gvt_dma_release);
+	}
+	mutex_unlock(&info->cache_lock);
+}
 
 struct kobject *gvt_ctrl_kobj;
 static struct kset *gvt_kset;
@@ -498,6 +589,26 @@ static unsigned long xen_g2m_pfn(struct xengt_hvm_dev *info, unsigned long g_pfn
 	}
 
 	return iommu_op.u.lookup_foreign_page.bfn;
+}
+
+/* Unmaps machine pfn from VM's guest pfn it currently mapped to */
+static int xen_unmap_pfn(struct xengt_hvm_dev *info, unsigned long pfn)
+{
+	struct pv_iommu_op iommu_op;
+	int rc = 0;
+
+	if (info->vm_id == 0)
+		return rc;
+
+	iommu_op.flags = 0;
+	iommu_op.u.unmap_foreign_page.bfn = pfn;
+	iommu_op.u.unmap_foreign_page.ioserver = info->iosrv_id;
+
+	rc = xen_ioemu_unmap_foreign_gfn_to_bfn(&iommu_op, 1);
+	if (rc < 0 || iommu_op.status )
+		gvt_err("failed to unmap pfn 0x%lx: errno=%d status %d\n",
+			pfn, rc, iommu_op.status);
+	return rc;
 }
 
 static int xen_get_max_gpfn(domid_t vm_id)
@@ -1434,6 +1545,8 @@ void xengt_instance_destroy(struct intel_vgpu *vgpu)
 	if (info->emulation_thread != NULL)
 		kthread_stop(info->emulation_thread);
 
+	gvt_cache_destroy(info);
+
 	if (!info->nr_vcpu || info->evtchn_irq == NULL)
 		goto out1;
 
@@ -1537,6 +1650,8 @@ struct intel_vgpu *xengt_instance_create(domid_t vm_id,
 		}
 		info->evtchn_irq[vcpu] = irq;
 	}
+
+	gvt_cache_init(info);
 
 	thread = kthread_run(xengt_emulation_thread, vgpu,
 			"xengt_emulation:%d", vm_id);
@@ -1772,6 +1887,8 @@ static unsigned long xengt_gfn_to_pfn(unsigned long handle, unsigned long gfn)
 static int xengt_dma_map_guest_page(unsigned long handle, unsigned long gfn,
 			unsigned long size, dma_addr_t *dma_addr)
 {
+	struct xengt_hvm_dev *info = (struct xengt_hvm_dev *)handle;
+	struct gvt_dma *entry;
 	unsigned long pfn;
 
 	BUG_ON(size != PAGE_SIZE);
@@ -1782,12 +1899,31 @@ static int xengt_dma_map_guest_page(unsigned long handle, unsigned long gfn,
 
 	*dma_addr = pfn << PAGE_SHIFT;
 
+	mutex_lock(&info->cache_lock);
+	entry = __gvt_cache_find_dma_addr(info, *dma_addr);
+	if (!entry)
+		__gvt_cache_add(info, *dma_addr);
+	else
+		kref_get(&entry->ref);
+	mutex_unlock(&info->cache_lock);
+
 	return 0;
 }
 
 static void xengt_dma_unmap_guest_page(unsigned long handle,
 			dma_addr_t dma_addr)
 {
+	struct xengt_hvm_dev *info = (struct xengt_hvm_dev *)handle;
+	struct gvt_dma *entry;
+
+	if (!info)
+		return;
+
+	mutex_lock(&info->cache_lock);
+	entry = __gvt_cache_find_dma_addr(info, dma_addr);
+	if (entry)
+		kref_put(&entry->ref, __gvt_dma_release);
+	mutex_unlock(&info->cache_lock);
 }
 
 struct intel_gvt_mpt xengt_mpt = {
