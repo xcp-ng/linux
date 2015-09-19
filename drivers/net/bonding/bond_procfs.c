@@ -161,6 +161,11 @@ static void bond_info_show_master(struct seq_file *seq)
 			}
 		}
 	}
+
+	if (bond->params.mode == BOND_MODE_SLB) {
+		extern void bond_info_show_slb(struct seq_file *seq);
+		bond_info_show_slb(seq);
+	}
 }
 
 static void bond_info_show_slave(struct seq_file *seq,
@@ -185,6 +190,9 @@ static void bond_info_show_slave(struct seq_file *seq,
 
 	seq_printf(seq, "Permanent HW addr: %pM\n", slave->perm_hwaddr);
 	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
+
+	seq_printf(seq, "Promiscuity ref count: %i\n", slave->dev->promiscuity);
+	seq_printf(seq, "Flags: 0x%04X\n", slave->dev->flags);
 
 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
 		const struct port *port = &SLAVE_AD_INFO(slave)->port;
