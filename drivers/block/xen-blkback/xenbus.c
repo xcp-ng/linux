@@ -292,6 +292,7 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 			if (xspath)
 				cleanup_xs_pid(xspath, xspathsize,
 					       blkif->be->dev->nodename, r);
+			ring->xenblkd = NULL;
 			wake_up(&ring->shutdown_wq);
 		}
 
