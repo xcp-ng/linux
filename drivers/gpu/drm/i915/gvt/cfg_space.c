@@ -359,6 +359,11 @@ void intel_vgpu_init_cfg_space(struct intel_vgpu *vgpu,
 			INTEL_GVT_PCI_CLASS_VGA_OTHER;
 		vgpu_cfg_space(vgpu)[PCI_CLASS_PROG] =
 			INTEL_GVT_PCI_CLASS_VGA_OTHER;
+	} else {
+		vgpu_cfg_space(vgpu)[PCI_CLASS_DEVICE] =
+			INTEL_GVT_PCI_CLASS_VGA_COMPAT;
+		vgpu_cfg_space(vgpu)[PCI_CLASS_PROG] =
+			INTEL_GVT_PCI_CLASS_VGA_COMPAT;
 	}
 
 	/* Show guest that there isn't any stolen memory.*/
