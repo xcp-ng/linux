@@ -348,6 +348,14 @@ static int netback_probe(struct xenbus_device *dev,
 			goto abort_transaction;
 		}
 
+		/* net-lab: persistent RX grants. */
+		err = xenbus_printf(xbt, dev->nodename,
+				    "feature-rx-persistent", "%d", 1);
+		if (err) {
+			message = "writing feature-rx-persistent";
+			goto abort_transaction;
+		}
+
 		/* We support rx-copy path. */
 		err = xenbus_printf(xbt, dev->nodename,
 				    "feature-rx-copy", "%d", 1);
@@ -1186,6 +1194,15 @@ static int read_xenbus_vif_flags(struct backend_info *be)
 	 * TX spurious-interrupt fix).
 	 */
 	vif->tx_copy_all = !!xenbus_read_unsigned(dev->nodename, "tx-copy-all", 0);
+	vif->rx_persistent = !!xenbus_read_unsigned(dev->otherend, "feature-rx-persistent", 0);
+	/* The key lives in the frontend's node and survives a frontend driver
+	 * change (e.g. a guest going back to a netfront without this feature).
+	 * Consume it so that each connection must request it again.
+	 */
+	if (vif->rx_persistent)
+		xenbus_rm(XBT_NIL, dev->otherend, "feature-rx-persistent");
+	if (vif->rx_persistent)
+		pr_info("%s: frontend uses persistent RX grants\n", dev->nodename);
 	if (vif->tx_copy_all)
 		pr_info("%s: per-VIF TX copy mode enabled\n", dev->nodename);
 

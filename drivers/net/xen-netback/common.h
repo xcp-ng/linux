@@ -135,6 +135,15 @@ struct xenvif_copy_state {
 	struct sk_buff_head *completed;
 };
 
+/* net-lab: one persistently mapped guest RX page */
+#define XENVIF_RX_PERSIST_SLOTS 1024
+struct xenvif_rx_persist {
+	grant_ref_t ref;
+	grant_handle_t handle;
+	struct page *page;
+	bool used;
+};
+
 struct xenvif_queue { /* Per-queue data for xenvif */
 	unsigned int id; /* Queue ID, 0-based */
 	char name[QUEUE_NAME_SIZE]; /* DEVNAME-qN */
@@ -207,6 +216,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
 	bool stalled;
 
 	struct xenvif_copy_state rx_copy;
+	struct xenvif_rx_persist *rx_persist;	/* net-lab: persistent RX grant map cache */
 
 	/* Transmit shaping: allow 'credit_bytes' every 'credit_usec'. */
 	unsigned long   credit_bytes;
@@ -280,6 +290,7 @@ struct xenvif {
 	u8 ipv6_csum:1;
 	u8 multicast_control:1;
 	u8 tx_copy_all:1;	/* net-lab: per-VIF copy mode, xenstore backend key tx-copy-all */
+	u8 rx_persistent:1;	/* net-lab: frontend posts persistent RX grants */
 
 	/* Is this interface disabled? True when backend discovers
 	 * frontend is rogue.
@@ -332,6 +343,7 @@ struct xenvif *xenvif_alloc(struct device *parent,
 
 int xenvif_init_queue(struct xenvif_queue *queue);
 void xenvif_deinit_queue(struct xenvif_queue *queue);
+void xenvif_rx_persist_free(struct xenvif_queue *queue);
 
 int xenvif_connect_data(struct xenvif_queue *queue,
 			unsigned long tx_ring_ref,

@@ -823,6 +823,8 @@ void xenvif_disconnect_data(struct xenvif *vif)
 			queue->task = NULL;
 		}
 
+		xenvif_rx_persist_free(queue);	/* net-lab: RX thread is stopped */
+
 		if (queue->dealloc_task) {
 			kthread_stop(queue->dealloc_task);
 			queue->dealloc_task = NULL;

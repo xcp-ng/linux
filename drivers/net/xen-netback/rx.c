@@ -261,6 +261,87 @@ static void xenvif_rx_copy_flush(struct xenvif_queue *queue)
 	__skb_queue_purge(queue->rx_copy.completed);
 }
 
+/* net-lab: persistent RX grants. The frontend (feature-rx-persistent) keeps
+ * a fixed pool of granted RX pages and never revokes them while connected;
+ * we map each grant once and then write packet data with memcpy instead of
+ * a GNTTABOP_copy per chunk. Mappings are dropped at disconnect.
+ */
+static unsigned int rx_persistent_enable = 1;
+module_param(rx_persistent_enable, uint, 0644);
+static unsigned long rx_persist_hits, rx_persist_maps, rx_persist_map_fail, rx_persist_fallback;
+module_param(rx_persist_hits, ulong, 0444);
+module_param(rx_persist_maps, ulong, 0444);
+module_param(rx_persist_map_fail, ulong, 0444);
+module_param(rx_persist_fallback, ulong, 0444);
+
+static struct page *xenvif_rx_persist_get(struct xenvif_queue *queue,
+					  grant_ref_t ref)
+{
+	struct xenvif_rx_persist *e = NULL;
+	struct gnttab_map_grant_ref op;
+	struct page *page;
+	unsigned int h, i;
+
+	if (!queue->rx_persist) {
+		queue->rx_persist = kcalloc(XENVIF_RX_PERSIST_SLOTS,
+					    sizeof(*queue->rx_persist),
+					    GFP_KERNEL);
+		if (!queue->rx_persist)
+			return NULL;
+	}
+	h = ref & (XENVIF_RX_PERSIST_SLOTS - 1);
+	for (i = 0; i < XENVIF_RX_PERSIST_SLOTS; i++) {
+		e = &queue->rx_persist[(h + i) & (XENVIF_RX_PERSIST_SLOTS - 1)];
+		if (!e->used)
+			break;
+		if (e->ref == ref) {
+			rx_persist_hits++;
+			return e->page;
+		}
+	}
+	if (i == XENVIF_RX_PERSIST_SLOTS)
+		return NULL;
+
+	if (gnttab_alloc_pages(1, &page))
+		return NULL;
+	gnttab_set_map_op(&op, (unsigned long)pfn_to_kaddr(page_to_pfn(page)),
+			  GNTMAP_host_map, ref, queue->vif->domid);
+	if (gnttab_map_refs(&op, NULL, &page, 1) || op.status != GNTST_okay) {
+		gnttab_free_pages(1, &page);
+		rx_persist_map_fail++;
+		return NULL;
+	}
+	e->used = true;
+	e->ref = ref;
+	e->handle = op.handle;
+	e->page = page;
+	rx_persist_maps++;
+	return page;
+}
+
+void xenvif_rx_persist_free(struct xenvif_queue *queue)
+{
+	unsigned int i;
+
+	if (!queue->rx_persist)
+		return;
+	for (i = 0; i < XENVIF_RX_PERSIST_SLOTS; i++) {
+		struct xenvif_rx_persist *e = &queue->rx_persist[i];
+		struct gnttab_unmap_grant_ref uop;
+
+		if (!e->used)
+			continue;
+		gnttab_set_unmap_op(&uop,
+				    (unsigned long)pfn_to_kaddr(page_to_pfn(e->page)),
+				    GNTMAP_host_map, e->handle);
+		if (!gnttab_unmap_refs(&uop, NULL, &e->page, 1))
+			gnttab_free_pages(1, &e->page);
+		e->used = false;
+	}
+	kfree(queue->rx_persist);
+	queue->rx_persist = NULL;
+}
+
 static void xenvif_rx_copy_add(struct xenvif_queue *queue,
 			       struct xen_netif_rx_request *req,
 			       unsigned int offset, void *data, size_t len)
@@ -268,6 +349,16 @@ static void xenvif_rx_copy_add(struct xenvif_queue *queue,
 	struct gnttab_copy *op;
 	struct page *page;
 	struct xen_page_foreign *foreign;
+
+	if (queue->vif->rx_persistent && READ_ONCE(rx_persistent_enable)) {
+		struct page *pp = xenvif_rx_persist_get(queue, req->gref);
+
+		if (pp) {
+			memcpy(page_address(pp) + offset, data, len);
+			return;
+		}
+		rx_persist_fallback++;
+	}
 
 	if (queue->rx_copy.num >= min_t(unsigned int, COPY_BATCH_SIZE,
 					  max_t(unsigned int, 1, READ_ONCE(rx_copy_batch))))
