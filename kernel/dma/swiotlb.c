@@ -64,7 +64,10 @@ enum swiotlb_force swiotlb_force;
  * swiotlb_tbl_sync_single_*, to see if the memory was in fact allocated by this
  * API.
  */
-static phys_addr_t io_tlb_start, io_tlb_end;
+phys_addr_t io_tlb_start, io_tlb_end;
+
+EXPORT_SYMBOL_GPL(io_tlb_start);
+EXPORT_SYMBOL_GPL(io_tlb_end);
 
 /*
  * The number of IO TLB blocks (in groups of 64) between io_tlb_start and
