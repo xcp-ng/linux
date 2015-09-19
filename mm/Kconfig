@@ -476,6 +476,9 @@ config FRONTSWAP
 
 	  If unsure, say Y to enable frontswap.
 
+config HOLES_IN_ZONE
+        bool
+
 config CMA
 	bool "Contiguous Memory Allocator"
 	depends on HAVE_MEMBLOCK && MMU
