@@ -122,6 +122,11 @@ static void xen_update_blkif_status(struct xen_blkif *blkif)
 		xenbus_dev_error(blkif->be->dev, err, "start xenblkd");
 		return;
 	}
+
+	err = xenbus_printf(XBT_NIL, blkif->be->dev->nodename, "kthread-pid",
+			    "%d", blkif->xenblkd->pid);
+	if (err)
+		xenbus_dev_error(blkif->be->dev, err, "writing kthread-pid");
 }
 
 static struct xen_blkif *xen_blkif_alloc(domid_t domid)
@@ -221,6 +226,7 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 	int i = 0, j;
 
 	if (blkif->xenblkd) {
+		xenbus_rm(XBT_NIL,  blkif->be->dev->nodename, "kthread-pid");
 		kthread_stop(blkif->xenblkd);
 		wake_up(&blkif->shutdown_wq);
 		blkif->xenblkd = NULL;
