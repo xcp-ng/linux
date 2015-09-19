@@ -112,7 +112,8 @@ static int is_xen_swiotlb_buffer(struct device *dev, dma_addr_t dma_addr)
 }
 
 #ifdef CONFIG_X86
-int __init xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+int xen_swiotlb_fixup(void *buf, unsigned long nslabs,
+		unsigned long *contig_pages)
 {
 	int rc;
 	unsigned int order = get_order(IO_TLB_SEGSIZE << IO_TLB_SHIFT);
@@ -129,6 +130,8 @@ int __init xen_swiotlb_fixup(void *buf, unsigned long nslabs)
 			rc = xen_create_contiguous_region(
 				p + (i << IO_TLB_SHIFT), order,
 				dma_bits, &dma_handle);
+			if (rc == 0 && contig_pages != NULL)
+				*contig_pages += 1 << order;
 		} while (rc && dma_bits++ < MAX_DMA_BITS);
 		if (rc)
 			return rc;
