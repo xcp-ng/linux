@@ -15,9 +15,16 @@ static int version_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int xsversion_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, xs_proc_banner);
+	return 0;
+}
+
 static int __init proc_version_init(void)
 {
 	proc_create_single("version", 0, NULL, version_proc_show);
+	proc_create_single("xsversion", 0, NULL, xsversion_proc_show);
 	return 0;
 }
 fs_initcall(proc_version_init);
