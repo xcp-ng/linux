@@ -366,6 +366,8 @@ struct gfs2_glock {
 		     gl_reply:8;	/* Last reply from the dlm */
 
 	unsigned long gl_demote_time; /* time of first demote request */
+	unsigned long gl_last_demote; /* jiffies at last demote transition */
+
 	long gl_hold_time;
 	struct list_head gl_holders;
 
