@@ -13,6 +13,8 @@ extern const struct intel_gvt_ops *intel_gvt_ops;
 #define VMEM_BUCK_SIZE		(1ULL << VMEM_BUCK_SHIFT)
 #define VMEM_BUCK_MASK		(~(VMEM_BUCK_SIZE - 1))
 
+#define XEN_DOMCTL_SEARCH_RANGE 10
+
 /*
  * xengt_hvm_dev is a wrapper of a vGPU instance which is reprensented by the
  * intel_vgpu structure. Under xen hypervisor, the xengt_instance stands for a
