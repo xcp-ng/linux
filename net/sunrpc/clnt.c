@@ -2453,6 +2453,10 @@ call_status(struct rpc_task *task)
 		rpc_delay(task, 3*HZ);
 		fallthrough;
 	case -ETIMEDOUT:
+		if (!(task->tk_flags & RPC_TASK_NO_RETRANS_TIMEOUT)
+		    && task->tk_client->cl_discrtry)
+			xprt_conditional_disconnect(task->tk_rqstp->rq_xprt,
+					task->tk_rqstp->rq_connect_cookie);
 		break;
 	case -ECONNREFUSED:
 	case -ECONNRESET:
