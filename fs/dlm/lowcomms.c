@@ -1275,7 +1275,7 @@ static struct socket *tcp_create_listen_sock(struct connection *con,
 		log_print("Set keepalive failed: %d", result);
 	}
 
-	result = sock->ops->listen(sock, 5);
+	result = sock->ops->listen(sock, 128);
 	if (result < 0) {
 		log_print("Can't listen on port %d", dlm_config.ci_tcp_port);
 		sock_release(sock);
