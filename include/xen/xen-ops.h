@@ -194,18 +194,18 @@ bool xen_running_on_version_or_later(unsigned int major, unsigned int minor);
 void xen_efi_runtime_setup(void);
 
 
-#if defined(CONFIG_XEN_PV) && !defined(CONFIG_PREEMPTION)
+#if defined(CONFIG_XEN_PV) && !defined(CONFIG_PREEMPT)
 
 DECLARE_PER_CPU(bool, xen_in_preemptible_hcall);
 
 static inline void xen_preemptible_hcall_begin(void)
 {
-	__this_cpu_write(xen_in_preemptible_hcall, true);
+	raw_cpu_write(xen_in_preemptible_hcall, true);
 }
 
 static inline void xen_preemptible_hcall_end(void)
 {
-	__this_cpu_write(xen_in_preemptible_hcall, false);
+	raw_cpu_write(xen_in_preemptible_hcall, false);
 }
 
 #else
@@ -213,7 +213,7 @@ static inline void xen_preemptible_hcall_end(void)
 static inline void xen_preemptible_hcall_begin(void) { }
 static inline void xen_preemptible_hcall_end(void) { }
 
-#endif /* CONFIG_XEN_PV && !CONFIG_PREEMPTION */
+#endif /* CONFIG_XEN_PV && !CONFIG_PREEMPT */
 
 #ifdef CONFIG_XEN_GRANT_DMA_OPS
 bool xen_virtio_restricted_mem_acc(struct virtio_device *dev);
