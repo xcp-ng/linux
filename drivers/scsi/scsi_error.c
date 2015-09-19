@@ -465,7 +465,8 @@ static void scsi_report_sense(struct scsi_device *sdev,
 			sdev_printk(KERN_WARNING, sdev,
 				    "Inquiry data has changed");
 		} else if (sshdr->asc == 0x3f && sshdr->ascq == 0x0e) {
-			evt_type = SDEV_EVT_LUN_CHANGE_REPORTED;
+			if (!sdev->sdev_target->expecting_lun_change)
+				evt_type = SDEV_EVT_LUN_CHANGE_REPORTED;
 			scsi_report_lun_change(sdev);
 			sdev_printk(KERN_WARNING, sdev,
 				    "LUN assignments on this target have "
