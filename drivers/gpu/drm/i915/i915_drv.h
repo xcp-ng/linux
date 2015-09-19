@@ -2874,6 +2874,15 @@ int i915_gem_set_tiling_ioctl(struct drm_device *dev, void *data,
 			      struct drm_file *file_priv);
 int i915_gem_get_tiling_ioctl(struct drm_device *dev, void *data,
 			      struct drm_file *file_priv);
+#ifdef CONFIG_DRM_I915_GVT
+int i915_gem_vgtbuffer_ioctl(struct drm_device *dev, void *data,
+                             struct drm_file *file);
+#else
+static inline
+int i915_gem_vgtbuffer_ioctl(struct drm_device *dev, void *data,
+                             struct drm_file *file)
+{ return -ENOTTY; }
+#endif
 int i915_gem_init_userptr(struct drm_i915_private *dev_priv);
 void i915_gem_cleanup_userptr(struct drm_i915_private *dev_priv);
 int i915_gem_userptr_ioctl(struct drm_device *dev, void *data,
