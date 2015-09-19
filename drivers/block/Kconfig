@@ -547,4 +547,13 @@ config BLK_DEV_RSXX
 	  To compile this driver as a module, choose M here: the
 	  module will be called rsxx.
 
+config BLK_DEV_TAP
+       tristate "Blktap userspace devices"
+       help
+         The block tap driver allows block device requests to be
+         redirected to processes, through a device interface.
+         Doing so allows user-space development of high-performance
+         block storage backends, where disk images may be implemented
+         as files, in memory, or on other hosts across the network.
+
 endif # BLK_DEV
