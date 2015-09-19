@@ -99,7 +99,11 @@ static struct io_tlb_mem io_tlb_default_mem;
 
 #endif	/* CONFIG_SWIOTLB_DYNAMIC */
 
+#ifdef CONFIG_SWIOTLB_XEN
+static unsigned long default_nslabs = XEN_IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
+#else
 static unsigned long default_nslabs = IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
+#endif
 static unsigned long default_nareas;
 
 /**
