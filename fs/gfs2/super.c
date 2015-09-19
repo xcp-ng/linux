@@ -756,10 +756,14 @@ static int gfs2_write_inode(struct inode *inode, struct writeback_control *wbc)
 	int ret = 0;
 	bool flush_all = (wbc->sync_mode == WB_SYNC_ALL || gfs2_is_jdata(ip));
 
-	if (flush_all)
-		gfs2_log_flush(GFS2_SB(inode), ip->i_gl,
+	if (flush_all) {
+		ret = __gfs2_log_flush(GFS2_SB(inode), ip->i_gl,
 			       GFS2_LOG_HEAD_FLUSH_NORMAL |
-			       GFS2_LFC_WRITE_INODE);
+			       GFS2_LFC_WRITE_INODE,
+			       wbc->sync_mode == WB_SYNC_ALL);
+		if (ret)
+			return ret;
+	}
 	if (bdi->wb.dirty_exceeded)
 		gfs2_ail1_flush(sdp, wbc);
 	else

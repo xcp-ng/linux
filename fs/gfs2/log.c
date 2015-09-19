@@ -766,24 +766,29 @@ static void log_write_header(struct gfs2_sbd *sdp, u32 flags)
 }
 
 /**
- * gfs2_log_flush - flush incore transaction(s)
+ * __gfs2_log_flush - flush incore transaction(s)
  * @sdp: the filesystem
  * @gl: The glock structure to flush.  If NULL, flush the whole incore log
  * @flags: The log header flags: GFS2_LOG_HEAD_FLUSH_* and debug flags
+ * @wait: Wait for the sd_log_flush_lock
  *
  */
 
-void gfs2_log_flush(struct gfs2_sbd *sdp, struct gfs2_glock *gl, u32 flags)
+int __gfs2_log_flush(struct gfs2_sbd *sdp, struct gfs2_glock *gl, u32 flags,
+		      bool wait)
 {
 	struct gfs2_trans *tr;
 	enum gfs2_freeze_state state = atomic_read(&sdp->sd_freeze_state);
 
-	down_write(&sdp->sd_log_flush_lock);
+	if (wait)
+		down_write(&sdp->sd_log_flush_lock);
+	else if (!down_write_trylock(&sdp->sd_log_flush_lock))
+		return -EAGAIN;
 
 	/* Log might have been flushed while we waited for the flush lock */
 	if (gl && !test_bit(GLF_LFLUSH, &gl->gl_flags)) {
 		up_write(&sdp->sd_log_flush_lock);
-		return;
+		return 0;
 	}
 	trace_gfs2_log_flush(sdp, 1, flags);
 
@@ -857,6 +862,12 @@ void gfs2_log_flush(struct gfs2_sbd *sdp, struct gfs2_glock *gl, u32 flags)
 	up_write(&sdp->sd_log_flush_lock);
 
 	kfree(tr);
+	return 0;
+}
+
+void gfs2_log_flush(struct gfs2_sbd *sdp, struct gfs2_glock *gl, u32 flags)
+{
+	__gfs2_log_flush(sdp, gl, flags, true);
 }
 
 /**
