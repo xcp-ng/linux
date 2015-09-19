@@ -135,7 +135,14 @@ static struct gfs2_bufdata *gfs2_alloc_bufdata(struct gfs2_glock *gl,
 	bd->bd_ops = lops;
 	INIT_LIST_HEAD(&bd->bd_list);
 	bh->b_private = bd;
+	gfs2_glock_hold(gl);
 	return bd;
+}
+
+void gfs2_free_bufdata(struct gfs2_bufdata *bd)
+{
+	gfs2_glock_put(bd->bd_gl);
+	kmem_cache_free(gfs2_bufdata_cachep, bd);
 }
 
 /**
@@ -266,7 +273,7 @@ void gfs2_trans_add_unrevoke(struct gfs2_sbd *sdp, u64 blkno, unsigned int len)
 			list_del_init(&bd->bd_list);
 			gfs2_assert_withdraw(sdp, sdp->sd_log_num_revoke);
 			sdp->sd_log_num_revoke--;
-			kmem_cache_free(gfs2_bufdata_cachep, bd);
+			gfs2_free_bufdata(bd);
 			tr->tr_num_revoke_rm++;
 			if (--n == 0)
 				break;
