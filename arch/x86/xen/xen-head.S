@@ -21,6 +21,7 @@
 #include <xen/interface/xen.h>
 #include <xen/interface/xen-mca.h>
 #include <asm/xen/interface.h>
+#include <xen/filter-hypercall.h>
 
 #ifdef CONFIG_XEN_PV
 	__INIT
@@ -182,5 +183,6 @@ SYM_FUNC_END(xen_hypercall_intel)
 	ELFNOTE(Xen, XEN_ELFNOTE_LOADER,         .asciz "generic")
 	ELFNOTE(Xen, XEN_ELFNOTE_SUSPEND_CANCEL, .long 1)
 	ELFNOTE(XS, XS_ELFNOTE_PV_IOMMU, .long 1)
+	ELFNOTE(XS, XS_ELFNOTE_PRIVCMD_FILTERING, .long PRIVCMD_FILTERING_ABI_VERSION)
 
 #endif /*CONFIG_XEN */

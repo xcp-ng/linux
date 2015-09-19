@@ -31,8 +31,8 @@
 #include <linux/seq_file.h>
 #include <linux/miscdevice.h>
 #include <linux/moduleparam.h>
-#include <linux/notifier.h>
 #include <linux/security.h>
+#include <linux/notifier.h>
 #include <linux/wait.h>
 
 #include <asm/xen/hypervisor.h>
@@ -48,6 +48,7 @@
 #include <xen/xen-ops.h>
 #include <xen/balloon.h>
 #include <xen/xenbus.h>
+#include <xen/filter-hypercall.h>
 
 #include "privcmd.h"
 
@@ -90,6 +91,9 @@ static long privcmd_ioctl_hypercall(struct file *file, void __user *udata)
 	struct privcmd_data *data = file->private_data;
 	struct privcmd_hypercall hypercall;
 	long ret;
+	int ret2;
+	unsigned int i;
+	struct filtercall fc;
 
 	/* Disallow arbitrary hypercalls if restricted */
 	if (data->domid != DOMID_INVALID)
@@ -98,12 +102,41 @@ static long privcmd_ioctl_hypercall(struct file *file, void __user *udata)
 	if (copy_from_user(&hypercall, udata, sizeof(hypercall)))
 		return -EFAULT;
 
+	if (!security_locked_down_nowarn(LOCKDOWN_XEN_HYPERCALL)) {
+		xen_preemptible_hcall_begin();
+		ret = privcmd_call(hypercall.op,
+				   hypercall.arg[0], hypercall.arg[1],
+				   hypercall.arg[2], hypercall.arg[3],
+				   hypercall.arg[4]);
+		xen_preemptible_hcall_end();
+
+		return ret;
+	}
+
+	/* Store hypercall in a multicall buffer for convenience. */
+	fc.mc.op = hypercall.op;
+	for (i = 0; i < 5; i++)
+		fc.mc.args[i] = hypercall.arg[i];
+	fc.mc.args[5] = 0;
+
+	/* Stash original hypercall for copying back later */
+	fc.mc_orig = fc.mc;
+
+	ret = pre_hypercall(&fc);
+	if (ret)
+		return ret;
+
 	xen_preemptible_hcall_begin();
-	ret = privcmd_call(hypercall.op,
-			   hypercall.arg[0], hypercall.arg[1],
-			   hypercall.arg[2], hypercall.arg[3],
-			   hypercall.arg[4]);
+	ret = privcmd_call(fc.mc.op,
+			   fc.mc.args[0], fc.mc.args[1],
+			   fc.mc.args[2], fc.mc.args[3],
+			   fc.mc.args[4]);
 	xen_preemptible_hcall_end();
+
+	fc.mc.result = ret;
+	ret2 = post_hypercall(&fc);
+	if (ret2)
+		return ret2;
 
 	return ret;
 }
