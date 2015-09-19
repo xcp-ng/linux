@@ -224,6 +224,17 @@ static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
 				[skb_get_hash_raw(skb) % size];
 }
 
+/* net-lab: pull skbs with many small fragments (NIC GRO skbs carry one page
+ * fragment per wire frame) into one linear buffer before queueing them to the
+ * guest, so netback's grant copy uses ~4 KiB ops instead of one op per frame.
+ * Costs one dom0 memcpy. 0 = off (default). Lab only: tests the op-rate hypothesis.
+ */
+static unsigned int rx_linearize_frags;
+module_param(rx_linearize_frags, uint, 0644);
+static unsigned long rx_linearized, rx_linearize_fail;
+module_param(rx_linearized, ulong, 0444);
+module_param(rx_linearize_fail, ulong, 0444);
+
 static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct xenvif *vif = netdev_priv(dev);
@@ -262,6 +273,14 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		if (!xenvif_mcast_match(vif, eth->h_dest))
 			goto drop;
+	}
+
+	if (rx_linearize_frags &&
+	    skb_shinfo(skb)->nr_frags >= READ_ONCE(rx_linearize_frags)) {
+		if (skb_linearize(skb))
+			rx_linearize_fail++;
+		else
+			rx_linearized++;
 	}
 
 	cb = XENVIF_RX_CB(skb);
