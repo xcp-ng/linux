@@ -33,6 +33,14 @@ else
 	VERSION=$KBUILD_BUILD_VERSION
 fi
 
+if [ -f .xsversion ]; then
+    . ./.xsversion
+else
+    XS_VERSION=dev
+    XS_BASE_COMMIT=unknown
+    XS_PQ_COMMIT=unknown
+fi
+
 if [ -z "$KBUILD_BUILD_TIMESTAMP" ]; then
 	TIMESTAMP=`date`
 else
@@ -73,6 +81,10 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   echo \#define LINUX_COMPILE_HOST \"`echo $LINUX_COMPILE_HOST | $UTS_TRUNCATE`\"
 
   echo \#define LINUX_COMPILER \"`$CC -v 2>&1 | grep ' version ' | sed 's/[[:space:]]*$//'`\"
+
+  echo \#define XS_VERSION \"$XS_VERSION\"
+  echo \#define XS_BASE_COMMIT \"$XS_BASE_COMMIT\"
+  echo \#define XS_PQ_COMMIT \"$XS_PQ_COMMIT\"
 ) > .tmpcompile
 
 # Only replace the real compile.h if the new one is different,

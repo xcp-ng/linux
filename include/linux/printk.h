@@ -10,6 +10,7 @@
 
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
+extern const char xs_proc_banner[];
 
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 
