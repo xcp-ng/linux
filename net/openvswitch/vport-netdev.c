@@ -36,6 +36,10 @@
 #include "vport-internal_dev.h"
 #include "vport-netdev.h"
 
+static int ignore_fip_lldp = 0;
+module_param(ignore_fip_lldp, int, 0644);
+MODULE_PARM_DESC(ignore_fip_lldp, "Ignores FIP and LLDP packets from being processed by openvswitch. 0-Disable (default), 1-Enable");
+
 static struct vport_ops ovs_netdev_vport_ops;
 
 /* Must be called with rcu_read_lock. */
@@ -73,6 +77,16 @@ static rx_handler_result_t netdev_frame_hook(struct sk_buff **pskb)
 	struct sk_buff *skb = *pskb;
 
 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+		return RX_HANDLER_PASS;
+
+	/* This is hack to make ovs not process
+	 * FIP and LLDP packets, which is required for
+	 * FCoE.
+	 * ETH_P_LLDP (0x88cc) is not defined in kernel
+	 */
+	if ((ignore_fip_lldp) &&
+		(skb->protocol == cpu_to_be16(ETH_P_FIP) ||
+		skb->protocol == cpu_to_be16(0x88CC)))
 		return RX_HANDLER_PASS;
 
 	netdev_port_receive(skb);
