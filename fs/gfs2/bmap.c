@@ -1515,7 +1515,10 @@ static int sweep_bh_for_rgrps(struct gfs2_inode *ip, struct gfs2_holder *rd_gh,
 	s64 blen; /* needs to be s64 or gfs2_add_inode_blocks breaks */
 	int ret = 0;
 	bool buf_in_tr = false; /* buffer was added to transaction */
+	u64 isize_blks_track; /* Debug trying to track if the inode changed under us */
 
+	/* This is how many blocks it has when we started */
+	isize_blks_track = gfs2_get_inode_blocks(&ip->i_inode);
 more_rgrps:
 	rgd = NULL;
 	if (gfs2_holder_initialized(rd_gh)) {
@@ -1565,6 +1568,12 @@ more_rgrps:
 			jblocks_rqsted = rgd->rd_length + RES_DINODE +
 				RES_INDIRECT;
 			isize_blks = gfs2_get_inode_blocks(&ip->i_inode);
+
+			/* DEBUG */
+			if (unlikely(isize_blks != isize_blks_track))
+				fs_warn(GFS2_SB(&ip->i_inode), "block mismatch 1: %llu != %llu\n",
+					isize_blks, isize_blks_track);
+
 			if (isize_blks > atomic_read(&sdp->sd_log_thresh2))
 				jblocks_rqsted +=
 					atomic_read(&sdp->sd_log_thresh2);
@@ -1613,17 +1622,37 @@ more_rgrps:
 			continue;
 		}
 		if (bstart) {
+			/* DEBUG */
+			isize_blks = gfs2_get_inode_blocks(&ip->i_inode);
+			if (unlikely(isize_blks != isize_blks_track))
+				fs_warn(GFS2_SB(&ip->i_inode), "block mismatch 2: %llu != %llu\n",
+					isize_blks, isize_blks_track);
+			if (unlikely(blen > isize_blks))
+				fs_warn(GFS2_SB(&ip->i_inode), "block mismatch 2: %llu > %llu\n",
+					blen, isize_blks);
+
 			__gfs2_free_blocks(ip, bstart, (u32)blen, meta);
 			(*btotal) += blen;
 			gfs2_add_inode_blocks(&ip->i_inode, -blen);
+			isize_blks_track -= blen;
 		}
 		bstart = bn;
 		blen = 1;
 	}
 	if (bstart) {
+		/* DEBUG */
+		isize_blks = gfs2_get_inode_blocks(&ip->i_inode);
+		if (unlikely(isize_blks != isize_blks_track))
+			fs_warn(GFS2_SB(&ip->i_inode), "block mismatch 3: %llu != %llu\n",
+				isize_blks, isize_blks_track);
+		if (unlikely(blen > isize_blks))
+			fs_warn(GFS2_SB(&ip->i_inode), "block mismatch 3: %llu > %llu\n",
+				blen, isize_blks);
+
 		__gfs2_free_blocks(ip, bstart, (u32)blen, meta);
 		(*btotal) += blen;
 		gfs2_add_inode_blocks(&ip->i_inode, -blen);
+		isize_blks_track -= blen;
 	}
 out_unlock:
 	if (!ret && blks_outside_rgrp) { /* If buffer still has non-zero blocks
