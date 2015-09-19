@@ -33,7 +33,11 @@
 #include <xen/xen.h>
 #include <xen/privcmd.h>
 #include <xen/interface/xen.h>
+#include <xen/interface/sched.h>
+#include <xen/interface/memory.h>
+#include <xen/interface/domctl.h>
 #include <xen/interface/hvm/dm_op.h>
+#include <xen/interface/hvm/hvm_op.h>
 #include <xen/features.h>
 #include <xen/page.h>
 #include <xen/xen-ops.h>
@@ -58,6 +62,7 @@ MODULE_PARM_DESC(dm_op_buf_max_size,
 
 struct privcmd_data {
 	domid_t domid;
+	int legacy_restrict;
 };
 
 static int privcmd_vma_range_is_mapped(
@@ -67,16 +72,144 @@ static int privcmd_vma_range_is_mapped(
 
 static long privcmd_ioctl_hypercall(struct file *file, void __user *udata)
 {
+#define DOMID_AT(type, field) do { \
+	BUILD_BUG_ON(sizeof(type) > sizeof(u)); \
+	BUILD_BUG_ON(sizeof(((type*)0)->field) != sizeof(domid_t)); \
+	copy_back = sizeof(type); \
+	domid_offset = offsetof(type, field); \
+	} while(0)
+
+/* we copy from userspace and replace arguments to avoid unsafe data */
+#define FETCH_ARG(dest, arg_num, size) do { \
+	copy_ptr = (void *) (long) hypercall.arg[arg_num]; \
+	if (copy_from_user(dest, copy_ptr, size)) \
+		return -EFAULT; \
+	hypercall.arg[arg_num] = (long) dest; \
+	} while(0)
+
 	struct privcmd_data *data = file->private_data;
 	struct privcmd_hypercall hypercall;
+	unsigned copy_back = 0, domid_offset;
+	void __user *copy_ptr = NULL;
+	union {
+		struct sched_remote_shutdown remote_shutdown;
+		struct xen_memory_exchange mem_exchange;
+		struct xen_domctl domctl;
+		struct xen_hvm_track_dirty_vram hvm_track_dirty_vram;
+		unsigned char buf[1];
+	} u;
 	long ret;
-
-	/* Disallow arbitrary hypercalls if restricted */
-	if (data->domid != DOMID_INVALID)
-		return -EPERM;
 
 	if (copy_from_user(&hypercall, udata, sizeof(hypercall)))
 		return -EFAULT;
+
+	/* we must check domain we are using */
+	if (data->domid != DOMID_INVALID) {
+		/* default to invalid so on cases not handled we fail */
+		domid_t domid = DOMID_INVALID;
+
+		/* For non-legacy restrict, disallow all arbitrary hypercalls. */
+		if (!data->legacy_restrict)
+			return -EPERM;
+
+		switch (hypercall.op) {
+		case __HYPERVISOR_sched_op:
+			if (hypercall.arg[0] == SCHEDOP_remote_shutdown) {
+				FETCH_ARG(&u.remote_shutdown, 1, sizeof(u.remote_shutdown));
+				domid = u.remote_shutdown.domain_id;
+			}
+			break;
+
+		case __HYPERVISOR_domctl:
+			FETCH_ARG(&u.domctl, 0, sizeof(u.domctl));
+			copy_back = sizeof(u.domctl);
+			/* avoid to create a domain */
+			if (u.domctl.cmd == XEN_DOMCTL_createdomain)
+				return -EACCES;
+			/* limit versions to avoid possible future bigger buffer */
+			if (u.domctl.interface_version > XEN_DOMCTL_INTERFACE_VERSION)
+				return -EACCES;
+			domid = u.domctl.domain;
+			break;
+
+		case __HYPERVISOR_memory_op:
+			switch (hypercall.arg[0]) {
+			case XENMEM_increase_reservation:
+			case XENMEM_decrease_reservation:
+			case XENMEM_populate_physmap:
+				DOMID_AT(struct xen_memory_reservation, domid);
+				break;
+			case XENMEM_exchange:
+				DOMID_AT(struct xen_memory_exchange, in.domid);
+				break;
+			case XENMEM_current_reservation:
+			case XENMEM_maximum_reservation:
+			case XENMEM_maximum_gpfn:
+				copy_back = sizeof(domid);
+				domid_offset = 0;
+				break;
+			case XENMEM_add_to_physmap:
+				DOMID_AT(struct xen_add_to_physmap, domid);
+				break;
+			case XENMEM_set_memory_map:
+				DOMID_AT(struct xen_foreign_memory_map, domid);
+				break;
+			default:
+				return -EACCES;
+			}
+			FETCH_ARG(&u, 1, copy_back);
+			domid = *((domid_t*) &u.buf[domid_offset]);
+
+			/* extra check for XENMEM_exchange, exchange in the same domain */
+			if (hypercall.arg[0] == XENMEM_exchange &&
+			    u.mem_exchange.in.domid != u.mem_exchange.out.domid)
+				return -EACCES;
+			break;
+
+		case __HYPERVISOR_hvm_op:
+			switch (hypercall.arg[0]) {
+			case HVMOP_set_param:
+			case HVMOP_get_param:
+				DOMID_AT(struct xen_hvm_param, domid);
+				break;
+			case HVMOP_set_pci_intx_level:
+				DOMID_AT(struct xen_hvm_set_pci_intx_level, domid);
+				break;
+			case HVMOP_set_isa_irq_level:
+				DOMID_AT(struct xen_hvm_set_isa_irq_level, domid);
+				break;
+			case HVMOP_set_pci_link_route:
+				DOMID_AT(struct xen_hvm_set_pci_link_route, domid);
+				break;
+			case HVMOP_modified_memory:
+				DOMID_AT(struct xen_hvm_modified_memory, domid);
+				break;
+			case HVMOP_set_mem_type:
+				DOMID_AT(struct xen_hvm_set_mem_type, domid);
+				break;
+			case HVMOP_track_dirty_vram:
+				DOMID_AT(struct xen_hvm_track_dirty_vram, domid);
+				break;
+			default:
+				return -EACCES;
+			}
+			FETCH_ARG(&u, 1, copy_back);
+			domid = *((domid_t*) &u.buf[domid_offset]);
+
+			/* Check guest handles point to userspace
+			   buffers. */
+			if (hypercall.arg[0] == HVMOP_track_dirty_vram) {
+				if (!access_ok(VERIFY_WRITE,
+					       u.hvm_track_dirty_vram.dirty_bitmap,
+					       DIV_ROUND_UP(u.hvm_track_dirty_vram.nr, 8)))
+					return -EFAULT;
+			}
+			break;
+		}
+
+		if (domid != data->domid)
+			return -EACCES;
+	}
 
 	xen_preemptible_hcall_begin();
 	ret = privcmd_call(hypercall.op,
@@ -84,6 +217,10 @@ static long privcmd_ioctl_hypercall(struct file *file, void __user *udata)
 			   hypercall.arg[2], hypercall.arg[3],
 			   hypercall.arg[4]);
 	xen_preemptible_hcall_end();
+
+	if (copy_back && copy_ptr && ret >= 0)
+		if (copy_to_user(copy_ptr, &u, copy_back))
+			ret = -EFAULT;
 
 	return ret;
 }
@@ -754,6 +891,22 @@ static long privcmd_ioctl(struct file *file,
 
 	case IOCTL_PRIVCMD_RESTRICT:
 		ret = privcmd_ioctl_restrict(file, udata);
+		break;
+
+	case IOCTL_PRIVCMD_RESTRICT_DOMID: {
+		struct privcmd_data *data = file->private_data;
+		privcmd_restrict_domid_t prd;
+
+		if (data->domid != DOMID_INVALID)
+			return -EACCES;
+		if (copy_from_user(&prd, udata, sizeof(prd)))
+			return -EFAULT;
+		if (prd.domid >= DOMID_FIRST_RESERVED)
+			return -EINVAL;
+		data->domid = prd.domid;
+		data->legacy_restrict = 1;
+		ret = 0;
+		}
 		break;
 
 	default:
