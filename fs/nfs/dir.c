@@ -2586,6 +2586,8 @@ static int nfs_do_access(struct inode *inode, struct rpc_cred *cred, int mask)
 		status = nfs_access_get_cached(inode, cred, &cache, may_block);
 	if (status == 0)
 		goto out_cached;
+	else if (!(status == -ENOENT || status == -ECHILD))
+		goto out;
 
 	status = -ECHILD;
 	if (!may_block)
