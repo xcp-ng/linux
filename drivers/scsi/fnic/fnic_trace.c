@@ -32,7 +32,7 @@ static unsigned long fnic_trace_buf_p;
 static DEFINE_SPINLOCK(fnic_trace_lock);
 
 static fnic_trace_dbg_t fnic_trace_entries;
-int fnic_tracing_enabled = 1;
+int fnic_tracing_enabled = 0;
 
 /* static char *fnic_fc_ctlr_trace_buf_p; */
 
