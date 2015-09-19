@@ -1584,22 +1584,21 @@ static void xengt_logd_destroy(struct xengt_hvm_dev *info)
 
 void xengt_instance_destroy(struct intel_vgpu *vgpu)
 {
-	struct xengt_hvm_dev *info = NULL;
+	struct xengt_hvm_dev *info = (struct xengt_hvm_dev *)vgpu->handle;
 	int vcpu;
 
-	if (vgpu) {
-		info = (struct xengt_hvm_dev *)vgpu->handle;
-		intel_gvt_ops->vgpu_deactivate(vgpu);
-		intel_gvt_ops->vgpu_destroy(vgpu);
+	if (info) {
+		info->vgpu = NULL;
+		info->on_destroy = true;
+		if (info->emulation_thread != NULL)
+			kthread_stop(info->emulation_thread);
 	}
+
+	intel_gvt_ops->vgpu_release(vgpu);
+	intel_gvt_ops->vgpu_destroy(vgpu);
 
 	if (info == NULL)
 		return;
-
-	info->vgpu = NULL;
-	info->on_destroy = true;
-	if (info->emulation_thread != NULL)
-		kthread_stop(info->emulation_thread);
 
 	gvt_cache_destroy(info);
 
