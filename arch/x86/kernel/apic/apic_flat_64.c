@@ -211,6 +211,13 @@ static int physflat_acpi_madt_oem_check(char *oem_id, char *oem_table_id)
 {
 #ifdef CONFIG_ACPI
 	/*
+	 * Xen guests can never use physical flat mode, but the tests
+	 * below might force physflat mode on.
+	 */
+	if (xen_domain())
+		return 0;
+
+	/*
 	 * Quirk: some x86_64 machines can only use physical APIC mode
 	 * regardless of how many processors are present (x86_64 ES7000
 	 * is an example).
