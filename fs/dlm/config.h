@@ -39,6 +39,7 @@ struct dlm_config_info {
 	int ci_log_info;
 	int ci_protocol;
 	int ci_mark;
+	int ci_tcp_user_timeout_secs;
 	int ci_timewarn_cs;
 	int ci_waitwarn_us;
 	int ci_new_rsb_count;
