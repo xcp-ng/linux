@@ -774,8 +774,14 @@ char * __init xen_memory_setup(void)
 	 * UNUSABLE regions in domUs are not handled and will need
 	 * a patch in the future.
 	 */
-	if (xen_initial_domain())
+	if (xen_initial_domain()) {
 		xen_ignore_unusable();
+		/* Reserve 0.5 MiB to 1 MiB region so iBFT can be found */
+		xen_e820_table.entries[xen_e820_table.nr_entries].addr = 0x80000;
+		xen_e820_table.entries[xen_e820_table.nr_entries].size = 0x80000;
+		xen_e820_table.entries[xen_e820_table.nr_entries].type = E820_TYPE_RESERVED;
+		xen_e820_table.nr_entries++;
+	}
 
 	/* Make sure the Xen-supplied memory map is well-ordered. */
 	e820__update_table(&xen_e820_table);
