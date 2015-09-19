@@ -80,6 +80,7 @@ const char *const lockdown_reasons[LOCKDOWN_CONFIDENTIALITY_MAX + 1] = {
 	[LOCKDOWN_DBG_WRITE_KERNEL] = "use of kgdb/kdb to write kernel RAM",
 	[LOCKDOWN_RTAS_ERROR_INJECTION] = "RTAS error injection",
 	[LOCKDOWN_XEN_USER_ACTIONS] = "Xen guest user action",
+	[LOCKDOWN_XEN_HYPERCALL] = "raw Xen hypercall access",
 	[LOCKDOWN_INTEGRITY_MAX] = "integrity",
 	[LOCKDOWN_KCORE] = "/proc/kcore access",
 	[LOCKDOWN_KPROBES] = "use of kprobes",
@@ -5884,6 +5885,12 @@ int security_lock_kernel_down(const char *where, enum lockdown_reason level)
 	return call_int_hook(lock_kernel_down, where, level);
 }
 EXPORT_SYMBOL(security_lock_kernel_down);
+
+int security_locked_down_nowarn(enum lockdown_reason what)
+{
+	return call_int_hook(locked_down_nowarn, what);
+}
+EXPORT_SYMBOL(security_locked_down_nowarn);
 
 /**
  * security_bdev_alloc() - Allocate a block device LSM blob
