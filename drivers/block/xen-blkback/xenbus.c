@@ -44,6 +44,8 @@ static void backend_changed(struct xenbus_watch *, const char **,
 static void xen_blkif_free(struct xen_blkif *blkif);
 static void xen_vbd_free(struct xen_vbd *vbd);
 
+void blkif_notify_work(struct xen_blkif *blkif);
+
 struct xenbus_device *xen_blkbk_xenbus(struct backend_info *be)
 {
 	return be->dev;
@@ -335,6 +337,67 @@ static struct attribute_group xen_vbdstat_group = {
 VBD_SHOW(physical_device, "%x:%x\n", be->major, be->minor);
 VBD_SHOW(mode, "%s\n", be->mode);
 
+static ssize_t
+show_io_ring(struct device *dev, struct device_attribute *attr,
+	     char *buf)
+{
+	struct backend_info *be = dev_get_drvdata(dev);
+	struct xen_blkif *blkif = be->blkif;
+	struct blkif_common_back_ring *ring;
+	ssize_t rv = -ENXIO;
+
+	ring = &blkif->blk_rings.common;
+	if (ring->sring) {
+		rv = 0;
+
+		rv += sprintf(buf + rv,
+			      "nr_ents %u\n", ring->nr_ents);
+
+		rv += sprintf(buf + rv,
+			      "req prod %u cons %d event %u\n",
+			      ring->sring->req_prod, ring->req_cons,
+			      ring->sring->req_event);
+
+		rv += sprintf(buf + rv,
+			      "rsp prod %u pvt %d event %u\n",
+			      ring->sring->rsp_prod, ring->rsp_prod_pvt,
+			      ring->sring->rsp_event);
+	}
+
+	return rv;
+}
+
+static ssize_t
+store_io_ring(struct device *dev, struct device_attribute *attr,
+	      const char *buf, size_t count)
+{
+	struct backend_info *be = dev_get_drvdata(dev);
+	struct xen_blkif *blkif = be->blkif;
+	ssize_t rv = count;
+	int ok = 1;
+
+	if (!strncmp(buf, "poll", count)) {
+		blkif_notify_work(blkif);
+		goto done;
+	}
+
+	if (!strncmp(buf, "kick", count)) {
+		ok = !!blkif->irq;
+		if (ok)
+			notify_remote_via_irq(blkif->irq);
+		goto done;
+	}
+
+	rv = -EINVAL;
+done:
+	if (!ok)
+		rv = -ENXIO;
+
+	return rv;
+}
+
+static DEVICE_ATTR(io_ring, S_IRUGO|S_IWUSR, show_io_ring, store_io_ring);
+
 static int xenvbd_sysfs_addif(struct xenbus_device *dev)
 {
 	int error;
@@ -351,8 +414,13 @@ static int xenvbd_sysfs_addif(struct xenbus_device *dev)
 	if (error)
 		goto fail3;
 
+	error = device_create_file(&dev->dev, &dev_attr_io_ring);
+	if (error)
+		goto fail4;
+
 	return 0;
 
+fail4:	device_remove_file(&dev->dev, &dev_attr_io_ring);
 fail3:	sysfs_remove_group(&dev->dev.kobj, &xen_vbdstat_group);
 fail2:	device_remove_file(&dev->dev, &dev_attr_mode);
 fail1:	device_remove_file(&dev->dev, &dev_attr_physical_device);
@@ -364,6 +432,7 @@ static void xenvbd_sysfs_delif(struct xenbus_device *dev)
 	sysfs_remove_group(&dev->dev.kobj, &xen_vbdstat_group);
 	device_remove_file(&dev->dev, &dev_attr_mode);
 	device_remove_file(&dev->dev, &dev_attr_physical_device);
+    device_remove_file(&dev->dev, &dev_attr_io_ring);
 }
 
 
