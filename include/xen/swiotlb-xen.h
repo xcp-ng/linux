@@ -62,4 +62,6 @@ xen_swiotlb_set_dma_mask(struct device *dev, u64 dma_mask);
 extern u64
 xen_swiotlb_get_required_mask(struct device *dev);
 
+extern dma_addr_t pv_iommu_1_to_1_offset;
+
 #endif /* __LINUX_SWIOTLB_XEN_H */
