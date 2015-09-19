@@ -273,4 +273,13 @@
  */
 #define XEN_ELFNOTE_DUMPCORE_FORMAT_VERSION     0x2000003
 
+/*
+ * If this is present, Dom0 support hypercall filtering,
+ * needed for Secure Boot.
+ * The number contains a version of the filter.
+ */
+#define XS_ELFNOTE_PRIVCMD_FILTERING      1
+
+#define XS_ELFNOTE_MAX XS_ELFNOTE_PRIVCMD_FILTERING
+
 #endif /* __XEN_PUBLIC_ELFNOTE_H__ */
