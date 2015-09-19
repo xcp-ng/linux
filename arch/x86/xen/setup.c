@@ -25,6 +25,7 @@
 #include <xen/xen.h>
 #include <xen/page.h>
 #include <xen/interface/callback.h>
+#include <xen/interface/kexec.h>
 #include <xen/interface/memory.h>
 #include <xen/interface/physdev.h>
 #include <xen/features.h>
@@ -775,12 +776,27 @@ char * __init xen_memory_setup(void)
 	 * a patch in the future.
 	 */
 	if (xen_initial_domain()) {
+		xen_kexec_range_t range = { KEXEC_RANGE_MA_CRASH, 0 };
+
 		xen_ignore_unusable();
 		/* Reserve 0.5 MiB to 1 MiB region so iBFT can be found */
 		xen_e820_table.entries[xen_e820_table.nr_entries].addr = 0x80000;
 		xen_e820_table.entries[xen_e820_table.nr_entries].size = 0x80000;
 		xen_e820_table.entries[xen_e820_table.nr_entries].type = E820_TYPE_RESERVED;
 		xen_e820_table.nr_entries++;
+
+		/*
+		 * Reserve the crashkernel region to prevent outstanding DMA
+		 * ops overwriting the crashkernel after the IOMMU is disabled
+		 * while kexecing.
+		 */
+		rc = HYPERVISOR_kexec_op(KEXEC_CMD_kexec_get_range, &range);
+		if (rc == 0) {
+			xen_e820_table.entries[xen_e820_table.nr_entries].addr = range.start;
+			xen_e820_table.entries[xen_e820_table.nr_entries].size = range.size;
+			xen_e820_table.entries[xen_e820_table.nr_entries].type = E820_TYPE_RESERVED;
+			xen_e820_table.nr_entries++;
+		}
 	}
 
 	/* Make sure the Xen-supplied memory map is well-ordered. */
