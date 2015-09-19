@@ -128,6 +128,8 @@ static int pcistub_reset_function(struct pci_dev *dev)
 
 	device_lock(&dev->dev);
 	ret = __pcistub_reset_function(dev);
+	if (ret >= 0 && dev->quarantined)
+		dev->unsafe = 0;
 	device_unlock(&dev->dev);
 
 	return ret;

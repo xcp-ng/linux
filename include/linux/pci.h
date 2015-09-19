@@ -399,6 +399,9 @@ struct pci_dev {
 	unsigned int	pasid_no_tlp:1;		/* PASID works without TLP Prefix */
 	unsigned int	eetlp_prefix_path:1;	/* End-to-End TLP Prefix */
 
+	unsigned int	unsafe:1;		/* Device is unsafe for assignment to other domains */
+	unsigned int	quarantined:1;		/* Device is in quarantine */
+
 	pci_channel_state_t error_state;	/* Current connectivity state */
 	struct device	dev;			/* Generic device interface */
 

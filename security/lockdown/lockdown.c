@@ -71,8 +71,21 @@ static int lockdown_is_locked_down(enum lockdown_reason what)
 	return 0;
 }
 
+/*
+ * Like lockdown_is_locked_down but without generating a warning
+ * message if the kernel is locked down.
+ */
+static int lockdown_is_locked_down_nowarn(enum lockdown_reason what)
+{
+	if (kernel_locked_down >= what)
+		return -EPERM;
+
+	return 0;
+}
+
 static struct security_hook_list lockdown_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(locked_down, lockdown_is_locked_down),
+	LSM_HOOK_INIT(locked_down_nowarn, lockdown_is_locked_down_nowarn),
 	LSM_HOOK_INIT(lock_kernel_down, lock_kernel_down),
 };
 
