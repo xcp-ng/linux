@@ -35,6 +35,12 @@
 
 #include <linux/types.h>
 
+#ifdef __KERNEL__
+#include <linux/uio.h>
+#else
+#include <sys/uio.h>
+#endif
+
 struct ioctl_gntdev_grant_ref {
 	/* The domain ID of the grant to be mapped. */
 	__u32 domid;
@@ -142,6 +148,38 @@ struct ioctl_gntdev_unmap_notify {
 	__u32 action;
 	/* Event channel to notify */
 	__u32 event_channel_port;
+};
+
+struct gntdev_grant_copy_segment {
+	/*
+	 * source address and length
+	 */
+	struct iovec iov;
+
+	/* the granted page */
+	uint32_t ref;
+
+	/* offset in the granted page */
+	uint16_t offset;
+
+	/* grant copy result (GNTST_XXX) */
+	int16_t status;
+};
+
+#define IOCTL_GNTDEV_GRANT_COPY \
+_IOC(_IOC_NONE, 'G', 8, sizeof(struct ioctl_gntdev_grant_copy))
+struct ioctl_gntdev_grant_copy {
+	/*
+	 * copy direction: 0 to copy to guest, 1 to copy from guest
+	 */
+	int dir;
+
+	/* domain ID */
+	uint32_t domid;
+
+	unsigned int count;
+
+	struct gntdev_grant_copy_segment __user *segments;
 };
 
 /* Clear (set to zero) the byte specified by index */
