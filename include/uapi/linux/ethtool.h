@@ -1458,6 +1458,19 @@ enum ethtool_link_mode_bit_indices {
 	ETHTOOL_LINK_MODE_FEC_RS_BIT	= 50,
 	ETHTOOL_LINK_MODE_FEC_BASER_BIT	= 51,
 
+	ETHTOOL_LINK_MODE_50000baseKR_Full_BIT		 = 52,
+	ETHTOOL_LINK_MODE_50000baseSR_Full_BIT		 = 53,
+	ETHTOOL_LINK_MODE_50000baseCR_Full_BIT		 = 54,
+	ETHTOOL_LINK_MODE_50000baseDR_Full_BIT		 = 55,
+	ETHTOOL_LINK_MODE_100000baseKR2_Full_BIT	 = 56,
+	ETHTOOL_LINK_MODE_100000baseSR2_Full_BIT	 = 57,
+	ETHTOOL_LINK_MODE_100000baseCR2_Full_BIT	 = 58,
+	ETHTOOL_LINK_MODE_100000baseDR2_Full_BIT	 = 59,
+	ETHTOOL_LINK_MODE_200000baseKR4_Full_BIT	 = 60,
+	ETHTOOL_LINK_MODE_200000baseSR4_Full_BIT	 = 61,
+	ETHTOOL_LINK_MODE_200000baseDR4_Full_BIT	 = 62,
+	ETHTOOL_LINK_MODE_200000baseCR4_Full_BIT	 = 63,
+
 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
 	 * macro for bits > 31. The only way to use indices > 31 is to
@@ -1465,7 +1478,12 @@ enum ethtool_link_mode_bit_indices {
 	 */
 
 	__ETHTOOL_LINK_MODE_LAST
+#ifdef __GENKSYMS__
 	  = ETHTOOL_LINK_MODE_FEC_BASER_BIT,
+#else
+	  = ETHTOOL_LINK_MODE_200000baseCR4_Full_BIT,
+	  /* kABI: room exists only up to bit 63 */
+#endif
 };
 
 #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
@@ -1573,6 +1591,7 @@ enum ethtool_link_mode_bit_indices {
 #define SPEED_50000		50000
 #define SPEED_56000		56000
 #define SPEED_100000		100000
+#define SPEED_200000		200000
 
 #define SPEED_UNKNOWN		-1
 
