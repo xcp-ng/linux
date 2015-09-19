@@ -49,6 +49,8 @@
 #include <linux/slab.h>
 #endif
 
+#include <xen/xen.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/swiotlb.h>
 
@@ -58,8 +60,13 @@
  * Minimum IO TLB size to bother booting with.  Systems with mainly
  * 64bit capable cards will only lightly use the swiotlb.  If we can't
  * allocate a contiguous 1MB, we're probably in trouble anyway.
+ * Xen dom0: 1/8th of initial request, derived from old 4.19 code.
  */
+#ifdef CONFIG_SWIOTLB_XEN
+#define IO_TLB_MIN_SLABS ((XEN_IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT) >> 3)
+#else
 #define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
+#endif
 
 #define INVALID_PHYS_ADDR (~(phys_addr_t)0)
 
@@ -326,7 +333,8 @@ static void add_mem_pool(struct io_tlb_mem *mem, struct io_tlb_pool *pool)
 
 static void __init *swiotlb_memblock_alloc(unsigned long nslabs,
 		unsigned int flags,
-		int (*remap)(void *tlb, unsigned long nslabs))
+		int (*remap)(void *tlb, unsigned long nslabs,
+			     unsigned long *contig_pages))
 {
 	size_t bytes = PAGE_ALIGN(nslabs << IO_TLB_SHIFT);
 	void *tlb;
@@ -347,7 +355,7 @@ static void __init *swiotlb_memblock_alloc(unsigned long nslabs,
 		return NULL;
 	}
 
-	if (remap && remap(tlb, nslabs) < 0) {
+	if (remap && remap(tlb, nslabs, NULL) < 0) {
 		memblock_free(tlb, PAGE_ALIGN(bytes));
 		pr_warn("%s: Failed to remap %zu bytes\n", __func__, bytes);
 		return NULL;
@@ -361,7 +369,8 @@ static void __init *swiotlb_memblock_alloc(unsigned long nslabs,
  * structures for the software IO TLB used to implement the DMA API.
  */
 void __init swiotlb_init_remap(bool addressing_limit, unsigned int flags,
-		int (*remap)(void *tlb, unsigned long nslabs))
+		int (*remap)(void *tlb, unsigned long nslabs,
+			     unsigned long *contig_pages))
 {
 	struct io_tlb_pool *mem = &io_tlb_default_mem.defpool;
 	unsigned long nslabs;
@@ -390,32 +399,72 @@ void __init swiotlb_init_remap(bool addressing_limit, unsigned int flags,
 		swiotlb_adjust_nareas(num_possible_cpus());
 
 	nslabs = default_nslabs;
-	nareas = limit_nareas(default_nareas, nslabs);
-	while ((tlb = swiotlb_memblock_alloc(nslabs, flags, remap)) == NULL) {
-		if (nslabs <= IO_TLB_MIN_SLABS)
-			return;
-		nslabs = ALIGN(nslabs >> 1, IO_TLB_SEGSIZE);
-		nareas = limit_nareas(nareas, nslabs);
-	}
+	if (xen_initial_domain()) {
+		size_t bytes;
+		unsigned long contig_pages = 0;
+		/*
+		 * The loop condition is derived from the old (4.19) code, which
+		 * would retry three times, halving the allocation each time, so
+		 * that we would accept an allocation 1/8th of the originally
+		 * requested.  This thinking is also used in remapping below.
+		 */
+		
+		do {
+			bytes = PAGE_ALIGN(nslabs << IO_TLB_SHIFT);
+			if (flags & SWIOTLB_ANY)
+				tlb = memblock_alloc(bytes, PAGE_SIZE);
+			else
+				tlb = memblock_alloc_low(bytes, PAGE_SIZE);
+		} while (tlb == NULL && (nslabs >>= 1) > IO_TLB_MIN_SLABS);
+		if (tlb == NULL)
+			panic("%s: Cannot allocate Xen-SWIOTLB buffer", __func__);
 
-	if (default_nslabs != nslabs) {
-		pr_info("SWIOTLB bounce buffer size adjusted %lu -> %lu slabs",
-			default_nslabs, nslabs);
-		default_nslabs = nslabs;
+		if (remap && remap(tlb, nslabs, &contig_pages) < 0) {
+			alloc_size = contig_pages << PAGE_SHIFT;
+			if (alloc_size >> IO_TLB_SHIFT < IO_TLB_MIN_SLABS)
+				panic("%s: Xen remap insufficient, got %zu MB\n",
+				      __func__, alloc_size);
+			default_nslabs = nslabs = alloc_size >> IO_TLB_SHIFT;
+			memblock_free(tlb + alloc_size, bytes - alloc_size);
+		}
+		
+		/* use the calculated number of areas */
+		nareas = limit_nareas(default_nareas, nslabs);
+	} else {
+		nareas = limit_nareas(default_nareas, nslabs);
+		while ((tlb = swiotlb_memblock_alloc(nslabs, flags, remap)) == NULL) {
+			if (nslabs <= IO_TLB_MIN_SLABS)
+				return;
+			nslabs = ALIGN(nslabs >> 1, IO_TLB_SEGSIZE);
+			nareas = limit_nareas(nareas, nslabs);
+		}
+
+		if (default_nslabs != nslabs) {
+			pr_info("SWIOTLB bounce buffer size adjusted %lu -> %lu slabs",
+				default_nslabs, nslabs);
+			default_nslabs = nslabs;
+		}
 	}
 
 	alloc_size = PAGE_ALIGN(array_size(sizeof(*mem->slots), nslabs));
 	mem->slots = memblock_alloc(alloc_size, PAGE_SIZE);
 	if (!mem->slots) {
-		pr_warn("%s: Failed to allocate %zu bytes align=0x%lx\n",
-			__func__, alloc_size, PAGE_SIZE);
+		if (xen_initial_domain())
+			panic("%s: Failed to allocate %zu bytes align=0x%lx\n",
+			      __func__, alloc_size, PAGE_SIZE);
+		else
+			pr_warn("%s: Failed to allocate %zu bytes align=0x%lx\n",
+				__func__, alloc_size, PAGE_SIZE);
 		return;
 	}
 
 	mem->areas = memblock_alloc(array_size(sizeof(struct io_tlb_area),
 		nareas), SMP_CACHE_BYTES);
 	if (!mem->areas) {
-		pr_warn("%s: Failed to allocate mem->areas.\n", __func__);
+		if (xen_initial_domain())
+			panic("%s: Failed to allocate mem->areas.\n", __func__);
+		else
+			pr_warn("%s: Failed to allocate mem->areas.\n", __func__);
 		return;
 	}
 
@@ -437,7 +486,8 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
  * This should be just like above, but with some error catching.
  */
 int swiotlb_init_late(size_t size, gfp_t gfp_mask,
-		int (*remap)(void *tlb, unsigned long nslabs))
+		int (*remap)(void *tlb, unsigned long nslabs,
+			     unsigned long *contig_pages))
 {
 	struct io_tlb_pool *mem = &io_tlb_default_mem.defpool;
 	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
@@ -486,8 +536,33 @@ retry:
 	if (!vstart)
 		return -ENOMEM;
 
-	if (remap)
-		rc = remap(vstart, nslabs);
+	if (xen_initial_domain()) {
+		unsigned long contig_pages = 0;
+		split_page((struct page *)vstart, order);
+		if (remap && remap(vstart, nslabs, &contig_pages) < 0) {
+			unsigned long pg, pg_end;
+			size_t alloc_size = contig_pages << PAGE_SHIFT;
+			if (alloc_size >> IO_TLB_SHIFT < IO_TLB_MIN_SLABS) {
+				pr_warn("%s: Xen remap insufficient, got %zu MB\n",
+					__func__, alloc_size);
+				free_pages((unsigned long)vstart, order);
+				return -ENOMEM;
+			}
+			default_nslabs = nslabs = alloc_size >> IO_TLB_SHIFT;
+			pg = (unsigned long)vstart + alloc_size;
+			pg_end = pg + (1 << order) * PAGE_SIZE;
+			while (pg != pg_end) {
+				free_page(pg);
+				pg += PAGE_SIZE;
+			}
+		}
+
+	} else {
+
+		if (remap)
+			rc = remap(vstart, nslabs, NULL);
+	}
+
 	if (rc) {
 		free_pages((unsigned long)vstart, order);
 
