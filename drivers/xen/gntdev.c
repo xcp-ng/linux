@@ -748,6 +748,117 @@ static long gntdev_ioctl_notify(struct gntdev_priv *priv, void __user *u)
 	return rc;
 }
 
+/*
+ * Limit number of operations to simplify implementation. NB the API
+ * allows for an arbitrary number of operations.
+ */
+#define GNTDEV_GRANT_COPY_MAX_OPS 16
+
+static long gntdev_ioctl_grant_copy(struct gntdev_priv *priv, void __user *u)
+{
+	struct ioctl_gntdev_grant_copy op;
+	int err = 0, i;
+	unsigned int nr_pinned = 0;
+	struct gcopy_cb {
+		struct page *pages[GNTDEV_GRANT_COPY_MAX_OPS];
+		struct gnttab_copy batch[GNTDEV_GRANT_COPY_MAX_OPS];
+		struct gntdev_grant_copy_segment segments[GNTDEV_GRANT_COPY_MAX_OPS];
+	} *gcopy_cb = NULL;
+	struct gntdev_grant_copy_segment *segments;
+
+	if (copy_from_user(&op, u, sizeof(op))) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	if (!op.count) {
+		err = 0;
+		goto out;
+	}
+
+	if (op.count > GNTDEV_GRANT_COPY_MAX_OPS) {
+		pr_warn("copying more than %d segments not yet implemented\n",
+			GNTDEV_GRANT_COPY_MAX_OPS);
+		err = -ENOSYS;
+		goto out;
+	}
+
+	gcopy_cb = kmalloc(sizeof(*gcopy_cb), GFP_KERNEL);
+	if (!gcopy_cb) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	if (copy_from_user(gcopy_cb->segments, op.segments,
+			   sizeof(*op.segments) * op.count)) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	for (i = 0; i < op.count; i++) {
+
+		unsigned long start, offset;
+		struct gntdev_grant_copy_segment *seg = &gcopy_cb->segments[i];
+		xen_pfn_t pgaddr;
+
+		start = (unsigned long)seg->iov.iov_base & PAGE_MASK;
+		offset = (unsigned long)seg->iov.iov_base & ~PAGE_MASK;
+		if (offset + seg->iov.iov_len > PAGE_SIZE) {
+			pr_warn("segments crossing page boundarys not yet implemented\n");
+			err = -ENOSYS;
+			goto out;
+		}
+
+		err = get_user_pages_fast(start, 1, op.dir,
+					  &gcopy_cb->pages[i]);
+		if (err != 1) {
+			err = -EFAULT;
+			goto out;
+		}
+
+		nr_pinned++;
+
+		pgaddr = pfn_to_mfn(page_to_pfn(gcopy_cb->pages[i]));
+
+		gcopy_cb->batch[i].len = seg->iov.iov_len;
+		if (op.dir) {
+			/* copy from guest */
+			gcopy_cb->batch[i].source.u.ref = seg->ref;
+			gcopy_cb->batch[i].source.domid = op.domid;
+			gcopy_cb->batch[i].source.offset = seg->offset;
+			gcopy_cb->batch[i].dest.u.gmfn = pgaddr;
+			gcopy_cb->batch[i].dest.domid = DOMID_SELF;
+			gcopy_cb->batch[i].dest.offset = offset;
+			gcopy_cb->batch[i].flags = GNTCOPY_source_gref;
+		} else {
+			/* copy to guest */
+			gcopy_cb->batch[i].source.u.gmfn = pgaddr;
+			gcopy_cb->batch[i].source.domid = DOMID_SELF;
+			gcopy_cb->batch[i].source.offset = offset;
+			gcopy_cb->batch[i].dest.u.ref = seg->ref;
+			gcopy_cb->batch[i].dest.domid = op.domid;
+			gcopy_cb->batch[i].dest.offset = seg->offset;
+			gcopy_cb->batch[i].flags = GNTCOPY_dest_gref;
+		}
+	}
+
+	gnttab_batch_copy(gcopy_cb->batch, op.count);
+	segments = op.segments;
+	for (i = 0; i < op.count; i++) {
+		err = put_user(gcopy_cb->batch[i].status, &segments[i].status);
+		if (err)
+			goto out;
+	}
+
+out:
+	if (gcopy_cb) {
+		for (i = 0; i < nr_pinned; i++)
+			put_page(gcopy_cb->pages[i]);
+		kfree(gcopy_cb);
+	}
+	return err;
+}
+
 static long gntdev_ioctl(struct file *flip,
 			 unsigned int cmd, unsigned long arg)
 {
@@ -766,6 +877,9 @@ static long gntdev_ioctl(struct file *flip,
 
 	case IOCTL_GNTDEV_SET_UNMAP_NOTIFY:
 		return gntdev_ioctl_notify(priv, ptr);
+
+	case IOCTL_GNTDEV_GRANT_COPY:
+		return gntdev_ioctl_grant_copy(priv, ptr);
 
 	default:
 		pr_debug("priv %p, unknown cmd %x\n", priv, cmd);
