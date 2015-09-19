@@ -49,6 +49,7 @@
 #include <xen/interface/xen.h>
 #include <xen/interface/sched.h>
 #include <xen/interface/physdev.h>
+#include <xen/interface/pv-iommu.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/xen-mca.h>
 
@@ -322,6 +323,12 @@ static inline int
 HYPERVISOR_multicall(void *call_list, uint32_t nr_calls)
 {
 	return _hypercall2(int, multicall, call_list, nr_calls);
+}
+
+static inline int
+HYPERVISOR_iommu_op(void *uop, unsigned int count)
+{
+       return _hypercall2(int, iommu_op, uop, count);
 }
 
 static inline int
