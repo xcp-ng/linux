@@ -7,6 +7,7 @@
 #include <linux/efi.h>
 #include <linux/init.h>
 #include <linux/string.h>
+#include <linux/security.h>
 
 #include <xen/xen.h>
 #include <xen/xen-ops.h>
