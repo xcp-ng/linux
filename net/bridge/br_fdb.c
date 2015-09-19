@@ -561,6 +561,71 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 	return ret;
 }
 
+static int is_gratuitous_arp(struct sk_buff *skb)
+{
+	static const u8 bcast[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+#pragma pack(1)
+	struct arp_pkt {
+		u16     hw_addr_space;
+		u16     prot_addr_space;
+		u8      hw_addr_len;
+		u8      prot_addr_len;
+		u16     op_code;
+		u8      mac_src[ETH_ALEN];	/* sender hardware address */
+		u32     ip_src;			/* sender IP address */
+		u8      mac_dst[ETH_ALEN];	/* target hardware address */
+		u32     ip_dst;			/* target IP address */
+	};
+#pragma pack()
+	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
+
+	if (!ether_addr_equal(bcast, eth_hdr(skb)->h_dest))
+		return 0;
+
+	if (!arp)
+		return 0;
+
+	if (skb->len < sizeof(struct arp_pkt))
+		return 0;
+
+	if (eth_hdr(skb)->h_proto != htons(ETH_P_ARP))
+		return 0;
+
+	if (arp->hw_addr_space != htons(ARPHRD_ETHER)
+	    || arp->hw_addr_len != ETH_ALEN)
+		return 0;
+
+	if (arp->prot_addr_space != htons(ETH_P_IP)
+	    || arp->prot_addr_len != 4)
+		return 0;
+
+
+	switch (arp->op_code) {
+	case htons(ARPOP_REQUEST):
+		if (arp->ip_src != arp->ip_dst)
+			return 0;
+
+		break;
+
+	case htons(ARPOP_REPLY):
+		break;
+
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
+static int is_physical_port(struct net_bridge *br, struct net_bridge_port *port)
+{
+	extern struct net_bridge_port *br_locate_physical_port(struct net_bridge *br);
+
+	struct net_bridge_port *phys_port = br_locate_physical_port(br);
+
+	return phys_port && phys_port == port;
+}
+
 void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 		   const unsigned char *addr, u16 vid, bool added_by_user)
 {

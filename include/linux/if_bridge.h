@@ -76,4 +76,6 @@ static inline bool br_multicast_has_querier_adjacent(struct net_device *dev,
 }
 #endif
 
+extern void br_send_gratuitous_switch_learning_packet(struct net_device *dev);
+
 #endif
