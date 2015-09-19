@@ -181,8 +181,22 @@ pecompat_fstart:
 	.byte	0x0				# Sentinel
 	.popsection
 #else
-	.set	pecompat_fstart, setup_size
+	.set	pecompat_fstart, sbat_fstart
 #endif
+
+	.ascii	".sbat\0\0\0"
+	.long	sbat_fsize	                    # VirtualSize
+	.long	sbat_fstart	                    # VirtualAddress
+	.long	sbat_fsize	                    # SizeOfRawData
+	.long	sbat_fstart	                    # PointerToRawData
+	.long	0	                              # PointerToRelocations
+	.long	0	                              # PointerToLineNumbers
+	.word	0	                              # NumberOfRelocations
+	.word	0	                              # NumberOfLineNumbers
+	.long	IMAGE_SCN_CNT_INITIALIZED_DATA	| \
+		IMAGE_SCN_MEM_READ                  | \
+		IMAGE_SCN_ALIGN_16BYTES             # Characteristics
+
 	.ascii	".text"
 	.byte	0
 	.byte	0
