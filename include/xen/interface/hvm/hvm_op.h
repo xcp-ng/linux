@@ -32,6 +32,72 @@ struct xen_hvm_param {
 };
 DEFINE_GUEST_HANDLE_STRUCT(xen_hvm_param);
 
+#define HVMOP_set_pci_intx_level  2
+struct xen_hvm_set_pci_intx_level {
+    /* Domain to be updated. */
+    domid_t  domid;
+    /* PCI INTx identification in PCI topology (domain:bus:device:intx). */
+    uint8_t  domain, bus, device, intx;
+    /* Assertion level (0 = unasserted, 1 = asserted). */
+    uint8_t  level;
+};
+
+#define HVMOP_set_isa_irq_level   3
+struct xen_hvm_set_isa_irq_level {
+    /* Domain to be updated. */
+    domid_t  domid;
+    /* ISA device identification, by ISA IRQ (0-15). */
+    uint8_t  isa_irq;
+    /* Assertion level (0 = unasserted, 1 = asserted). */
+    uint8_t  level;
+};
+
+#define HVMOP_set_pci_link_route  4
+struct xen_hvm_set_pci_link_route {
+    /* Domain to be updated. */
+    domid_t  domid;
+    /* PCI link identifier (0-3). */
+    uint8_t  link;
+    /* ISA IRQ (1-15), or 0 (disable link). */
+    uint8_t  isa_irq;
+};
+
+#define HVMOP_track_dirty_vram    6
+struct xen_hvm_track_dirty_vram {
+    /* Domain to be tracked. */
+    domid_t  domid;
+    /* First pfn to track. */
+    aligned_u64 first_pfn;
+    /* Number of pages to track. */
+    aligned_u64 nr;
+    /* OUT variable. */
+    /* Dirty bitmap buffer. */
+    aligned_u64 dirty_bitmap;
+};
+
+#define HVMOP_modified_memory    7
+struct xen_hvm_modified_memory {
+    /* Domain to be updated. */
+    domid_t  domid;
+    /* First pfn. */
+    aligned_u64 first_pfn;
+    /* Number of pages. */
+    aligned_u64 nr;
+};
+
+#define HVMOP_set_mem_type    8
+/* Notify that a region of memory is to be treated in a specific way. */
+struct xen_hvm_set_mem_type {
+    /* Domain to be updated. */
+    domid_t domid;
+    /* Memory type */
+    uint16_t hvmmem_type;
+    /* Number of pages. */
+    uint32_t nr;
+    /* First pfn. */
+    aligned_u64 first_pfn;
+};
+
 /* Hint from PV drivers for pagetable destruction. */
 #define HVMOP_pagetable_dying       9
 struct xen_hvm_pagetable_dying {
