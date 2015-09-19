@@ -3279,7 +3279,7 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
 				     PKT_HASH_TYPE_L3);
 
 		skb_record_rx_queue(skb, bnapi - &bp->bnx2_napi[0]);
-		napi_gro_receive(&bnapi->napi, skb);
+		netif_receive_skb(skb);
 		rx_pkt++;
 
 next_rx:
