@@ -200,4 +200,9 @@ enum {
 };
 #define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
 
+#ifdef __KERNEL_
+extern struct net_device *br_locate_physical_device(struct net_device *dev);
+extern void br_send_gratuitous_switch_learning_packet(struct net_device *dev);
+#endif
+
 #endif /* _UAPI_LINUX_IF_BRIDGE_H */
