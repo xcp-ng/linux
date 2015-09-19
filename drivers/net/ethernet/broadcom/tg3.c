@@ -8502,7 +8502,7 @@ static int tg3_rx_prodring_init(struct tg3 *tp,
 	tpr->rx_std = dma_alloc_coherent(&tp->pdev->dev,
 					 TG3_RX_STD_RING_BYTES(tp),
 					 &tpr->rx_std_mapping,
-					 GFP_KERNEL);
+					 GFP_KERNEL | __GFP_RETRY_MAYFAIL);
 	if (!tpr->rx_std)
 		goto err_out;
 
@@ -8515,7 +8515,7 @@ static int tg3_rx_prodring_init(struct tg3 *tp,
 		tpr->rx_jmb = dma_alloc_coherent(&tp->pdev->dev,
 						 TG3_RX_JMB_RING_BYTES(tp),
 						 &tpr->rx_jmb_mapping,
-						 GFP_KERNEL);
+						 GFP_KERNEL | __GFP_RETRY_MAYFAIL);
 		if (!tpr->rx_jmb)
 			goto err_out;
 	}
@@ -8702,7 +8702,7 @@ static int tg3_mem_rx_acquire(struct tg3 *tp)
 		tnapi->rx_rcb = dma_alloc_coherent(&tp->pdev->dev,
 						   TG3_RX_RCB_RING_BYTES(tp),
 						   &tnapi->rx_rcb_mapping,
-						   GFP_KERNEL);
+						   GFP_KERNEL | __GFP_RETRY_MAYFAIL);
 		if (!tnapi->rx_rcb)
 			goto err_out;
 	}
