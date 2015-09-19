@@ -451,7 +451,8 @@ static void __init xen_init_cpuid_mask(void)
 	if ((cx & xsave_mask) != xsave_mask)
 		cpuid_leaf1_ecx_mask &= ~xsave_mask; /* disable XSAVE & OSXSAVE */
 	if (xen_check_mwait())
-		cpuid_leaf1_ecx_set_mask = (1 << (X86_FEATURE_MWAIT % 32));
+		cpuid_leaf1_ecx_set_mask = (1 << (X86_FEATURE_MWAIT % 32)
+					   | 1 << (X86_FEATURE_EST % 32));
 }
 
 static void xen_set_debugreg(int reg, unsigned long val)
