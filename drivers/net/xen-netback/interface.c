@@ -167,7 +167,8 @@ irqreturn_t xenvif_interrupt(int irq, void *dev_id)
 	WARN(old, "Interrupt while EOI pending\n");
 
 	/* Use bitwise or as we need to call both functions. */
-	if ((!xenvif_handle_tx_interrupt(queue) |
+	/* XCP-ng: it need to be bitwise and actually (because of the negation?) */
+	if ((!xenvif_handle_tx_interrupt(queue) &
 	     !xenvif_handle_rx_interrupt(queue))) {
 		atomic_andnot(NETBK_COMMON_EOI, &queue->eoi_pending);
 		xen_irq_lateeoi(irq, XEN_EOI_FLAG_SPURIOUS);
