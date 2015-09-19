@@ -1070,6 +1070,12 @@ static int accept_from_sock(struct listen_connection *con)
 
 	sock_set_mark(newsock->sk, mark);
 
+	/* set the socket options explicitly instead of relying on them being
+	 * inherited from the listening socket, so that an accepted socket
+	 * picks up the current configuration
+	 */
+	dlm_proto_ops->sockopts(newsock);
+
 	mutex_lock(&newcon->sock_mutex);
 	if (newcon->sock) {
 		struct connection *othercon = newcon->othercon;
@@ -1890,8 +1896,22 @@ static int dlm_tcp_listen_validate(void)
 
 static void dlm_tcp_sockopts(struct socket *sock)
 {
+	unsigned int timeout_secs;
+
 	/* Turn off Nagle's algorithm */
 	tcp_sock_set_nodelay(sock->sk);
+
+	/* Bound the time a message may stay unacknowledged on a silently
+	 * broken flow. Without this DLM only finds out that a connection is
+	 * dead once TCP gives up after tcp_retries2, which is roughly 15
+	 * minutes with the default value of 15, and every lockspace user
+	 * waiting on a lock held by that node stalls for as long. On expiry
+	 * the socket is aborted, the error report path resends the
+	 * unacknowledged messages and lowcomms reconnects.
+	 */
+	timeout_secs = READ_ONCE(dlm_config.ci_tcp_user_timeout_secs);
+	if (timeout_secs)
+		tcp_sock_set_user_timeout(sock->sk, timeout_secs * MSEC_PER_SEC);
 }
 
 static void dlm_tcp_listen_sockopts(struct socket *sock)

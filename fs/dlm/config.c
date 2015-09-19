@@ -77,6 +77,7 @@ struct dlm_cluster {
 	unsigned int cl_log_info;
 	unsigned int cl_protocol;
 	unsigned int cl_mark;
+	unsigned int cl_tcp_user_timeout_secs;
 	unsigned int cl_timewarn_cs;
 	unsigned int cl_waitwarn_us;
 	unsigned int cl_new_rsb_count;
@@ -109,6 +110,7 @@ enum {
 	CLUSTER_ATTR_NEW_RSB_COUNT,
 	CLUSTER_ATTR_RECOVER_CALLBACKS,
 	CLUSTER_ATTR_CLUSTER_NAME,
+	CLUSTER_ATTR_TCP_USER_TIMEOUT_SECS,
 };
 
 static ssize_t cluster_cluster_name_show(struct config_item *item, char *buf)
@@ -208,6 +210,17 @@ static int dlm_check_zero(unsigned int x)
 	return 0;
 }
 
+static int dlm_check_tcp_user_timeout_secs(unsigned int x)
+{
+	/* zero disables the timeout, anything else must survive the
+	 * conversion to the milliseconds tcp_sock_set_user_timeout() takes
+	 */
+	if (x > INT_MAX / MSEC_PER_SEC)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int dlm_check_buffer_size(unsigned int x)
 {
 	if (x < DLM_MAX_SOCKET_BUFSIZE)
@@ -226,6 +239,7 @@ CLUSTER_ATTR(log_debug, NULL);
 CLUSTER_ATTR(log_info, NULL);
 CLUSTER_ATTR(protocol, dlm_check_protocol_and_dlm_running);
 CLUSTER_ATTR(mark, NULL);
+CLUSTER_ATTR(tcp_user_timeout_secs, dlm_check_tcp_user_timeout_secs);
 CLUSTER_ATTR(timewarn_cs, dlm_check_zero);
 CLUSTER_ATTR(waitwarn_us, NULL);
 CLUSTER_ATTR(new_rsb_count, NULL);
@@ -247,6 +261,7 @@ static struct configfs_attribute *cluster_attrs[] = {
 	[CLUSTER_ATTR_NEW_RSB_COUNT] = &cluster_attr_new_rsb_count,
 	[CLUSTER_ATTR_RECOVER_CALLBACKS] = &cluster_attr_recover_callbacks,
 	[CLUSTER_ATTR_CLUSTER_NAME] = &cluster_attr_cluster_name,
+	[CLUSTER_ATTR_TCP_USER_TIMEOUT_SECS] = &cluster_attr_tcp_user_timeout_secs,
 	NULL,
 };
 
@@ -434,6 +449,7 @@ static struct config_group *make_cluster(struct config_group *g,
 	cl->cl_log_debug = dlm_config.ci_log_debug;
 	cl->cl_log_info = dlm_config.ci_log_info;
 	cl->cl_protocol = dlm_config.ci_protocol;
+	cl->cl_tcp_user_timeout_secs = dlm_config.ci_tcp_user_timeout_secs;
 	cl->cl_timewarn_cs = dlm_config.ci_timewarn_cs;
 	cl->cl_waitwarn_us = dlm_config.ci_waitwarn_us;
 	cl->cl_new_rsb_count = dlm_config.ci_new_rsb_count;
@@ -956,6 +972,7 @@ int dlm_our_addr(struct sockaddr_storage *addr, int num)
 #define DEFAULT_LOG_INFO           1
 #define DEFAULT_PROTOCOL           DLM_PROTO_TCP
 #define DEFAULT_MARK               0
+#define DEFAULT_TCP_USER_TIMEOUT_SECS 30
 #define DEFAULT_TIMEWARN_CS      500 /* 5 sec = 500 centiseconds */
 #define DEFAULT_WAITWARN_US	   0
 #define DEFAULT_NEW_RSB_COUNT    128
@@ -973,6 +990,7 @@ struct dlm_config_info dlm_config = {
 	.ci_log_info = DEFAULT_LOG_INFO,
 	.ci_protocol = DEFAULT_PROTOCOL,
 	.ci_mark = DEFAULT_MARK,
+	.ci_tcp_user_timeout_secs = DEFAULT_TCP_USER_TIMEOUT_SECS,
 	.ci_timewarn_cs = DEFAULT_TIMEWARN_CS,
 	.ci_waitwarn_us = DEFAULT_WAITWARN_US,
 	.ci_new_rsb_count = DEFAULT_NEW_RSB_COUNT,
