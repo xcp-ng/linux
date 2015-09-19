@@ -1045,7 +1045,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
 			data_len = txreq.size;
 
 		skb = NULL;
-		if (tx_copy_all) {
+		if (tx_copy_all || queue->vif->tx_copy_all) {
 			unsigned int total = txreq.size;
 			int i;
 

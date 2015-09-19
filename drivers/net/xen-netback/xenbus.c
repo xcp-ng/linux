@@ -1181,6 +1181,14 @@ static int read_xenbus_vif_flags(struct backend_info *be)
 	unsigned int rx_copy;
 	int err;
 
+	/* net-lab: per-VIF copy mode, set by the toolstack in the backend node
+	 * before the frontend connects (e.g. for guests without the netfront
+	 * TX spurious-interrupt fix).
+	 */
+	vif->tx_copy_all = !!xenbus_read_unsigned(dev->nodename, "tx-copy-all", 0);
+	if (vif->tx_copy_all)
+		pr_info("%s: per-VIF TX copy mode enabled\n", dev->nodename);
+
 	err = xenbus_scanf(XBT_NIL, dev->otherend, "request-rx-copy", "%u",
 			   &rx_copy);
 	if (err == -ENOENT) {
