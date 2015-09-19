@@ -144,6 +144,8 @@ struct alb_bond_info {
 	u32			unbalanced_load;
 	int			tx_rebalance_counter;
 	int			lp_counter;
+	/* -------- slb parameters -------- */
+	int slb_enabled;
 	/* -------- rlb parameters -------- */
 	int rlb_enabled;
 	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
@@ -166,7 +168,7 @@ struct alb_bond_info {
 						 */
 };
 
-int bond_alb_initialize(struct bonding *bond, int rlb_enabled);
+int bond_alb_initialize(struct bonding *bond, int mode);
 void bond_alb_deinitialize(struct bonding *bond);
 int bond_alb_init_slave(struct bonding *bond, struct slave *slave);
 void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave);

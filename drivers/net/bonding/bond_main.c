@@ -137,7 +137,7 @@ module_param(mode, charp, 0);
 MODULE_PARM_DESC(mode, "Mode of operation; 0 for balance-rr, "
 		       "1 for active-backup, 2 for balance-xor, "
 		       "3 for broadcast, 4 for 802.3ad, 5 for balance-tlb, "
-		       "6 for balance-alb");
+		       "6 for balance-alb, 7 for balance-slb");
 module_param(primary, charp, 0);
 MODULE_PARM_DESC(primary, "Primary network device to use");
 module_param(primary_reselect, charp, 0);
@@ -224,9 +224,10 @@ const char *bond_mode_name(int mode)
 		[BOND_MODE_8023AD] = "IEEE 802.3ad Dynamic link aggregation",
 		[BOND_MODE_TLB] = "transmit load balancing",
 		[BOND_MODE_ALB] = "adaptive load balancing",
+		[BOND_MODE_SLB] = "source load balancing",
 	};
 
-	if (mode < BOND_MODE_ROUNDROBIN || mode > BOND_MODE_ALB)
+	if (mode < BOND_MODE_ROUNDROBIN || mode > BOND_MODE_SLB)
 		return "unknown";
 
 	return names[mode];
@@ -488,7 +489,7 @@ static int bond_set_promiscuity(struct bonding *bond, int inc)
 	struct list_head *iter;
 	int err = 0;
 
-	if (bond_uses_primary(bond)) {
+	if (bond_uses_primary(bond) && BOND_MODE(bond) != BOND_MODE_SLB) {
 		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
 
 		if (curr_active)
@@ -578,8 +579,10 @@ static void bond_hw_addr_swap(struct bonding *bond, struct slave *new_active,
 			      struct slave *old_active)
 {
 	if (old_active) {
-		if (bond->dev->flags & IFF_PROMISC)
+		if (bond->dev->flags & IFF_PROMISC &&
+		    bond->params.mode != BOND_MODE_SLB) {
 			dev_set_promiscuity(old_active->dev, -1);
+		}
 
 		if (bond->dev->flags & IFF_ALLMULTI)
 			dev_set_allmulti(old_active->dev, -1);
@@ -589,8 +592,10 @@ static void bond_hw_addr_swap(struct bonding *bond, struct slave *new_active,
 
 	if (new_active) {
 		/* FIXME: Signal errors upstream. */
-		if (bond->dev->flags & IFF_PROMISC)
+		if (bond->dev->flags & IFF_PROMISC &&
+		    bond->params.mode != BOND_MODE_SLB) {
 			dev_set_promiscuity(new_active->dev, 1);
+		}
 
 		if (bond->dev->flags & IFF_ALLMULTI)
 			dev_set_allmulti(new_active->dev, 1);
@@ -1135,7 +1140,8 @@ static bool bond_should_deliver_exact_match(struct sk_buff *skb,
 					    struct bonding *bond)
 {
 	if (bond_is_slave_inactive(slave)) {
-		if (BOND_MODE(bond) == BOND_MODE_ALB &&
+		if ((BOND_MODE(bond) == BOND_MODE_ALB ||
+		     BOND_MODE(bond) == BOND_MODE_SLB) &&
 		    skb->pkt_type != PACKET_BROADCAST &&
 		    skb->pkt_type != PACKET_MULTICAST)
 			return false;
@@ -1667,6 +1673,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
 		break;
 	case BOND_MODE_TLB:
 	case BOND_MODE_ALB:
+	case BOND_MODE_SLB:
 		bond_set_active_slave(new_slave);
 		bond_set_slave_inactive_flags(new_slave, BOND_SLAVE_NOTIFY_NOW);
 		break;
@@ -3352,7 +3359,7 @@ static int bond_open(struct net_device *bond_dev)
 		/* bond_alb_initialize must be called before the timer
 		 * is started.
 		 */
-		if (bond_alb_initialize(bond, (BOND_MODE(bond) == BOND_MODE_ALB)))
+		if (bond_alb_initialize(bond, BOND_MODE(bond)))
 			return -ENOMEM;
 		if (bond->params.tlb_dynamic_lb || BOND_MODE(bond) == BOND_MODE_ALB)
 			queue_delayed_work(bond->wq, &bond->alb_work, 0);
@@ -4147,6 +4154,7 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
 	case BOND_MODE_BROADCAST:
 		return bond_xmit_broadcast(skb, dev);
 	case BOND_MODE_ALB:
+	case BOND_MODE_SLB:
 		return bond_alb_xmit(skb, dev);
 	case BOND_MODE_TLB:
 		return bond_tlb_xmit(skb, dev);
@@ -4353,7 +4361,7 @@ static int bond_check_params(struct bond_params *params)
 	u16 ad_user_port_key = 0;
 	__be32 arp_target[BOND_MAX_ARP_TARGETS] = { 0 };
 	int arp_ip_count;
-	int bond_mode	= BOND_MODE_ROUNDROBIN;
+	int bond_mode	= BOND_MODE_SLB;
 	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
 	int lacp_fast = 0;
 	int tlb_dynamic_lb;
