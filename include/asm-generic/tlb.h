@@ -338,6 +338,13 @@ struct mmu_gather {
 	unsigned int		vma_huge : 1;
 	unsigned int		vma_pfn  : 1;
 
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 8ce720d5b (mm/hugetlb: fix excessive IPI broadcasts
+	 * when unsharing PMD tables using mmu_gather)
+	 * The added new fields happens in hole, ignore it
+	 */
+
 	/*
 	 * Did we unshare (unmap) any shared page tables? For now only
 	 * used for hugetlb PMD table sharing.
@@ -351,6 +358,7 @@ struct mmu_gather {
 	 * for hugetlb PMD table sharing.
 	 */
 	unsigned int		fully_unshared_tables : 1;
+#endif
 
 	unsigned int		batch_count;
 
@@ -364,6 +372,12 @@ struct mmu_gather {
 #endif
 #endif
 };
+
+#ifndef __GENKSYMS__
+#define MMU_GATHER_KABI_V1_SIZE 128
+static_assert(sizeof(struct mmu_gather) == MMU_GATHER_KABI_V1_SIZE,
+	"mmu_gather kABI size changed");
+#endif
 
 void tlb_flush_mmu(struct mmu_gather *tlb);
 

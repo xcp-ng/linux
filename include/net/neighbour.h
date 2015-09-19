@@ -183,9 +183,20 @@ struct pneigh_entry {
 	netdevice_tracker	dev_tracker;
 	u32			flags;
 	u8			protocol;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 7c299d0 (neighbour: add support for NUD_PERMANENT proxy entries)
+	 * Happens in a hole, ignore it
+	 */
 	bool			permanent;
+#endif
 	u32			key[];
 };
+
+#ifndef __GENKSYMS__
+#define PNEIGH_ENTRY_KABI_V1_SIZE 32
+static_assert(sizeof(struct pneigh_entry) == PNEIGH_ENTRY_KABI_V1_SIZE, "pneigh_entry kABI size changed");
+#endif
 
 /*
  *	neighbour table manipulation

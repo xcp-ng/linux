@@ -760,9 +760,15 @@ struct task_struct {
 	struct thread_info		thread_info;
 #endif
 	unsigned int			__state;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 8afa818 (sched/core: Remove ifdeffery for saved_state)
+	 * Happens in hole, just ignore it
+	 */
 
 	/* saved state for "spinlock sleepers" */
 	unsigned int			saved_state;
+#endif
 
 	/*
 	 * This begins the randomizable portion of task_struct. Only
@@ -1566,6 +1572,11 @@ struct task_struct {
 	 * Do not put anything below here!
 	 */
 };
+
+#ifndef __GENKSYMS__
+#define TASK_STRUCT_KABI_V1_SIZE 11648
+static_assert(sizeof(struct task_struct) == TASK_STRUCT_KABI_V1_SIZE, "task_struct kABI size changed");
+#endif
 
 static inline struct pid *task_pid(struct task_struct *task)
 {

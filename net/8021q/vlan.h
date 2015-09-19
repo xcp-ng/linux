@@ -33,9 +33,21 @@ struct vlan_info {
 	struct vlan_group	grp;
 	struct list_head	vid_list;
 	unsigned int		nr_vids;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in bb515c4 (net: vlan: fix VLAN 0 refcount imbalance
+	 * of toggling filtering during runtime)
+	 * Happens in a hole, ignore it
+	 */
 	bool			auto_vid0;
+#endif
 	struct rcu_head		rcu;
 };
+
+#ifndef __GENKSYMS__
+#define VLAN_INFO_KABI_V1_SIZE 200
+static_assert(sizeof(struct vlan_info) == 200, "vlan_info kABI size changed");
+#endif
 
 static inline int vlan_proto_idx(__be16 proto)
 {

@@ -1559,6 +1559,7 @@ sd_init(struct sched_domain_topology_level *tl,
 {
 	struct sd_data *sdd = &tl->data;
 	struct sched_domain *sd = *per_cpu_ptr(sdd->sd, cpu);
+	struct sched_domain_kabi_ext *sd_ext;
 	int sd_id, sd_weight, sd_flags = 0;
 	struct cpumask *sd_span;
 
@@ -1576,6 +1577,14 @@ sd_init(struct sched_domain_topology_level *tl,
 	if (WARN_ONCE(sd_flags & ~TOPOLOGY_SD_FLAGS,
 			"wrong sd_flags in topology description\n"))
 		sd_flags &= TOPOLOGY_SD_FLAGS;
+
+	/*
+	 * sd_init() is invoked once per (re)build of the domain hierarchy and
+	 * re-initialises *sd via designated initialiser, which would clobber
+	 * xs_kabi_padding. Preserve the pre-allocated extension across the
+	 * wipe so its fields can be (re)seeded below.
+	 */
+	sd_ext = sd_kabi(sd);
 
 	*sd = (struct sched_domain){
 		.min_interval		= sd_weight,
@@ -1601,10 +1610,7 @@ sd_init(struct sched_domain_topology_level *tl,
 		.last_balance		= jiffies,
 		.balance_interval	= sd_weight,
 
-		/* 50% success rate */
-		.newidle_call		= 512,
-		.newidle_success	= 256,
-		.newidle_ratio		= 512,
+		.xs_kabi_padding	= sd_ext,
 
 		.max_newidle_lb_cost	= 0,
 		.last_decay_max_lb_cost	= jiffies,
@@ -1613,6 +1619,11 @@ sd_init(struct sched_domain_topology_level *tl,
 		.name			= tl->name,
 #endif
 	};
+
+	/* Seed the kABI extension. 50% success rate. */
+	sd_ext->newidle_call	= 512;
+	sd_ext->newidle_success	= 256;
+	sd_ext->newidle_ratio	= 512;
 
 	sd_span = sched_domain_span(sd);
 	cpumask_and(sd_span, cpu_map, tl->mask(cpu));
@@ -2219,6 +2230,7 @@ static int __sdt_alloc(const struct cpumask *cpu_map)
 
 		for_each_cpu(j, cpu_map) {
 			struct sched_domain *sd;
+			struct sched_domain_kabi_ext *sd_ext;
 			struct sched_domain_shared *sds;
 			struct sched_group *sg;
 			struct sched_group_capacity *sgc;
@@ -2227,6 +2239,19 @@ static int __sdt_alloc(const struct cpumask *cpu_map)
 					GFP_KERNEL, cpu_to_node(j));
 			if (!sd)
 				return -ENOMEM;
+
+			/*
+			 * Allocate the kABI extension carrying fields that cannot
+			 * be added inline. Attached via xs_kabi_padding; freed by
+			 * __sdt_free() in lock-step with sd itself.
+			 */
+			sd_ext = kzalloc_node(sizeof(*sd_ext),
+					      GFP_KERNEL, cpu_to_node(j));
+			if (!sd_ext) {
+				kfree(sd);
+				return -ENOMEM;
+			}
+			sd->xs_kabi_padding = sd_ext;
 
 			*per_cpu_ptr(sdd->sd, j) = sd;
 
@@ -2277,6 +2302,8 @@ static void __sdt_free(const struct cpumask *cpu_map)
 				sd = *per_cpu_ptr(sdd->sd, j);
 				if (sd && (sd->flags & SD_OVERLAP))
 					free_sched_groups(sd->groups, 0);
+				if (sd && sd->xs_kabi_padding)
+					kfree(sd->xs_kabi_padding);
 				kfree(*per_cpu_ptr(sdd->sd, j));
 			}
 

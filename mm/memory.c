@@ -67,7 +67,14 @@
 #include <linux/gfp.h>
 #include <linux/migrate.h>
 #include <linux/string.h>
+/*
+ * Included in 7e23967 (mm/memory: do not populate page table entries beyond i_size)
+ * This will lead to kABI change as now gensyms has the detailed type info
+ * Exclude it from gensymbs to keep kABI
+ */
+#ifndef __GENKSYMS__
 #include <linux/shmem_fs.h>
+#endif
 #include <linux/memory-tiers.h>
 #include <linux/debugfs.h>
 #include <linux/userfaultfd_k.h>

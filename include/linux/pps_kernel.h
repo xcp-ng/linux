@@ -52,15 +52,26 @@ struct pps_device {
 	int current_mode;			/* PPS mode at event time */
 
 	unsigned int last_ev;			/* last PPS event id */
-	unsigned int last_fetched_ev;		/* last fetched PPS event id */
 	wait_queue_head_t queue;		/* PPS event queue */
 
 	unsigned int id;			/* PPS source unique ID */
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 7ed42b7 (pps: fix poll support)
+	 * Moved into hole
+	 */
+	unsigned int last_fetched_ev;		/* last fetched PPS event id */
+#endif
 	void const *lookup_cookie;		/* For pps_lookup_dev() only */
 	struct device dev;
 	struct fasync_struct *async_queue;	/* fasync method */
 	spinlock_t lock;
 };
+
+#ifndef __GENKSYMS__
+#define PPS_DEVICE_KABI_V1_SIZE 1000
+static_assert(sizeof(struct pps_device) == PPS_DEVICE_KABI_V1_SIZE, "pps_device kABI size changed");
+#endif
 
 /*
  * Global variables

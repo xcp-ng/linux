@@ -105,10 +105,12 @@ struct sched_domain {
 	unsigned int balance_interval;	/* initialise to 1. units in ms. */
 	unsigned int nr_balance_failed; /* initialise to 0 */
 
-	/* idle_balance() stats */
-	unsigned int newidle_call;
-	unsigned int newidle_success;
-	unsigned int newidle_ratio;
+	/*
+	 * newidle_call/_success/_ratio used to live inline here.
+	 * They were moved out into struct sched_domain_kabi_ext,
+	 * accessed via xs_kabi_padding, to preserve struct sched_domain's
+	 * kABI. See sd_kabi() and __sdt_alloc().
+	 */
 	u64 max_newidle_lb_cost;
 	unsigned long last_decay_max_lb_cost;
 
@@ -166,6 +168,23 @@ struct sched_domain {
 	 */
 	unsigned long span[];
 };
+
+/*
+ * Out-of-line extension for kABI-stable additions to struct sched_domain.
+ * Reached via the pre-existing void *xs_kabi_padding on every sched_domain.
+ * Allocated in __sdt_alloc() and released in __sdt_free().
+ */
+struct sched_domain_kabi_ext {
+	unsigned int newidle_call;
+	unsigned int newidle_success;
+	unsigned int newidle_ratio;
+};
+
+static inline struct sched_domain_kabi_ext *
+sd_kabi(struct sched_domain *sd)
+{
+	return sd->xs_kabi_padding;
+}
 
 static inline struct cpumask *sched_domain_span(struct sched_domain *sd)
 {

@@ -1147,6 +1147,12 @@ out:
 #ifdef CONFIG_NET_NS
 static void __init netns_ipv4_struct_check(void)
 {
+	/*
+	 * 8dacf34 (netns-ipv4: reorganize netns_ipv4 fast path variables)
+	 * reorganize fields and add cache line. Reverted in our patchqueue
+	 * to keep kABI, so skip the check
+	 */
+#if 0
 	/* TX readonly hotpath cache lines */
 	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_tx,
 				      sysctl_tcp_early_retrans);
@@ -1185,6 +1191,7 @@ static void __init netns_ipv4_struct_check(void)
 	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_rx,
 				      sysctl_tcp_rmem);
 	CACHELINE_ASSERT_GROUP_SIZE(struct netns_ipv4, netns_ipv4_read_rx, 18);
+#endif
 }
 #endif
 

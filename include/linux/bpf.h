@@ -310,15 +310,40 @@ struct bpf_map {
 	};
 	struct mutex freeze_mutex;
 	atomic64_t writecnt;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in dbd8ec2 (bpf: Move bpf map owner out of common struct)
+	 * Just ignore as no OOT driver access it
+	 */
 	spinlock_t owner_lock;
 	struct bpf_map_owner *owner;
+#else
+	/* 'Ownership' of program-containing map is claimed by the first program
+	 * that is going to use this map or by the first program which FD is
+	 * stored in the map to make sure that all callers and callees have the
+	 * same prog type, JITed flag and xdp_has_frags flag.
+	 */
+	struct {
+		const struct btf_type *attach_func_proto;
+		spinlock_t lock;
+		enum bpf_prog_type type;
+		bool jited;
+		bool xdp_has_frags;
+	} owner;
+#endif
 	bool bypass_spec_v1;
 	bool frozen; /* write-once; write-protected by freeze_mutex */
 	bool free_after_mult_rcu_gp;
 	bool free_after_rcu_gp;
 	atomic64_t sleepable_refcnt;
 	s64 __percpu *elem_count;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 3eeefeb (bpf: Add cookie object to bpf maps)
+	 * Just ignore it as no OOT driver access it
+	 */
 	u64 cookie; /* write-once */
+#endif
 };
 
 static inline const char *btf_field_type_name(enum btf_field_type type)

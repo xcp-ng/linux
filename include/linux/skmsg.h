@@ -93,8 +93,15 @@ struct sk_psock {
 	struct sk_buff_head		ingress_skb;
 	struct list_head		ingress_msg;
 	spinlock_t			ingress_lock;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 9681044 (bpf, sockmap: Fix FIONREAD for sockmap)
+	 * Happens in a hole, ignore it
+	 */
+
 	/** @msg_tot_len: Total bytes queued in ingress_msg list. */
 	u32				msg_tot_len;
+#endif
 	unsigned long			state;
 	struct list_head		link;
 	spinlock_t			link_lock;
@@ -113,6 +120,13 @@ struct sk_psock {
 	struct sock			*sk_pair;
 	struct rcu_work			rwork;
 };
+
+
+#ifndef __GENKSYMS__
+#define SK_PSOCK_KABI_V1_SIZE 680
+static_assert(sizeof(struct sk_psock) == SK_PSOCK_KABI_V1_SIZE,
+	"sk_psock kABI size changed");
+#endif
 
 int sk_msg_alloc(struct sock *sk, struct sk_msg *msg, int len,
 		 int elem_first_coalesce);

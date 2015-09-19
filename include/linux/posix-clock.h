@@ -47,7 +47,24 @@ struct posix_clock_operations {
 
 	int  (*clock_settime)(struct posix_clock *pc,
 			      const struct timespec64 *ts);
+#ifdef __GENKSYMS__
+	/*
+	 * Added in 221e4d1 (posix-clock: introduce posix_clock_context concept)
+	 * No OOT driver access it, just ignore it
+	 */
+	long (*ioctl)(struct posix_clock *pc, unsigned int cmd,
+		      unsigned long arg);
 
+	int (*open)(struct posix_clock *pc, fmode_t f_mode);
+
+	__poll_t (*poll)(struct posix_clock *pc, struct file *file,
+			 poll_table *wait);
+
+	int (*release)(struct posix_clock *pc);
+
+	ssize_t (*read)(struct posix_clock *pc, uint flags,
+			char __user *buf, size_t cnt);
+#else
 	/*
 	 * Optional character device methods:
 	 */
@@ -63,6 +80,7 @@ struct posix_clock_operations {
 
 	ssize_t (*read)(struct posix_clock_context *pccontext, uint flags,
 			char __user *buf, size_t cnt);
+#endif
 };
 
 /**

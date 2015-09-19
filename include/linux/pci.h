@@ -455,7 +455,6 @@ struct pci_dev {
 	unsigned int	is_physfn:1;
 	unsigned int	is_virtfn:1;
 	unsigned int	is_hotplug_bridge:1;
-	unsigned int	is_pciehp:1;
 	unsigned int	shpc_managed:1;		/* SHPC owned by shpchp */
 	unsigned int	is_thunderbolt:1;	/* Thunderbolt controller */
 	/*
@@ -482,6 +481,13 @@ struct pci_dev {
 	unsigned int	no_command_memory:1;	/* No PCI_COMMAND_MEMORY */
 	unsigned int	rom_bar_overlap:1;	/* ROM BAR disable broken */
 	unsigned int	rom_attr_enabled:1;	/* Display of ROM attribute enabled? */
+#ifndef __GENKSYMS__
+	/*
+	 *  Added in 6cff20ce3b92 (PCI/ACPI: Fix runtime PM ref imbalance on Hot-Plug Capable ports)
+	 *  Moved into hole
+	 */
+	unsigned int	is_pciehp:1;
+#endif
 	pci_dev_flags_t dev_flags;
 	atomic_t	enable_cnt;	/* pci_enable_device has been called */
 
@@ -549,6 +555,11 @@ struct pci_dev {
 
 	void	*xs_kabi_padding;
 };
+
+#ifndef __GENKSYMS__
+#define PCI_DEV_KABI_SIZE 2656
+static_assert(sizeof(struct pci_dev) == PCI_DEV_KABI_SIZE, "pci_dev kABI size changed");
+#endif
 
 static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
 {

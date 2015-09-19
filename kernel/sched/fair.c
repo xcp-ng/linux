@@ -11712,13 +11712,15 @@ void update_max_interval(void)
 
 static inline void update_newidle_stats(struct sched_domain *sd, unsigned int success)
 {
-	sd->newidle_call++;
-	sd->newidle_success += success;
+	struct sched_domain_kabi_ext *ext = sd_kabi(sd);
 
-	if (sd->newidle_call >= 1024) {
-		sd->newidle_ratio = sd->newidle_success;
-		sd->newidle_call /= 2;
-		sd->newidle_success /= 2;
+	ext->newidle_call++;
+	ext->newidle_success += success;
+
+	if (ext->newidle_call >= 1024) {
+		ext->newidle_ratio = ext->newidle_success;
+		ext->newidle_call /= 2;
+		ext->newidle_success /= 2;
 	}
 }
 
@@ -12425,7 +12427,7 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
 				 * rate.
 				 */
 				u32 d1k = sched_rng() % 1024;
-				weight = 1 + sd->newidle_ratio;
+				weight = 1 + sd_kabi(sd)->newidle_ratio;
 				if (d1k > weight) {
 					update_newidle_stats(sd, 0);
 					continue;

@@ -22,15 +22,29 @@ struct nf_conntrack_expect {
 	/* Hash member */
 	struct hlist_node hnode;
 
+#ifndef __GENKSYMS__
+	/*
+	 *  Added in a76157a (netfilter: nf_conntrack_expect:
+	 *  store netns and zone in expectation)
+	 *  Just ignore as no OOT driver access it
+	 */
 	/* Network namespace */
 	possible_net_t net;
+#endif
 
 	/* We expect this tuple, with the following mask */
 	struct nf_conntrack_tuple tuple;
 	struct nf_conntrack_tuple_mask mask;
 
+#ifndef __GENKSYMS__
+	/*
+	 *  Added in a76157a (netfilter: nf_conntrack_expect:
+	 *  store netns and zone in expectation)
+	 *  Just ignore as no OOT driver access it
+	 */
 #ifdef CONFIG_NF_CONNTRACK_ZONES
 	struct nf_conntrack_zone zone;
+#endif
 #endif
 	/* Usage count. */
 	refcount_t use;
@@ -45,8 +59,18 @@ struct nf_conntrack_expect {
 	void (*expectfn)(struct nf_conn *new,
 			 struct nf_conntrack_expect *this);
 
+#ifndef __GENKSYMS__
+	/*
+	 * Added in d81c320 (netfilter: nf_conntrack_expect:
+	 * honor expectation helper field)
+	 * Just ignore as no OOT driver access it
+	 */
+
 	/* Helper to assign to new connection */
 	struct nf_conntrack_helper __rcu *helper;
+#else
+	struct nf_conntrack_helper *helper;
+#endif
 
 	/* The conntrack of the master connection */
 	struct nf_conn *master;

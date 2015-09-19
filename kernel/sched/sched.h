@@ -1018,6 +1018,12 @@ struct rq {
 	struct list_head	*tmp_alone_branch;
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 496efa2 (sched: Change nr_uninterruptible type to unsigned long)
+	 * Happens in hole, just ignore it
+	 */
+
 	/*
 	 * This is part of a global counter where only the total sum
 	 * over all CPUs matters. A task can increase this counter on
@@ -1025,6 +1031,9 @@ struct rq {
 	 * it on another CPU. Always updated under the runqueue lock:
 	 */
 	unsigned long 		nr_uninterruptible;
+#else
+	unsigned int		nr_uninterruptible;
+#endif
 
 	struct task_struct __rcu	*curr;
 	struct task_struct	*idle;
@@ -1182,6 +1191,11 @@ struct rq {
 
 	void		*xs_kabi_padding;
 };
+
+#ifndef __GENKSYMS__
+#define RQ_KABI_V1_SIZE 3648
+static_assert(sizeof(struct rq) == RQ_KABI_V1_SIZE, "rq kABI size changed");
+#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 

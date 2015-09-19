@@ -28,7 +28,20 @@ struct xdp_buff_xsk {
 	dma_addr_t frame_dma;
 	struct xsk_buff_pool *pool;
 	u64 orig_addr;
+	/*
+	 * Renamed in eb66c67b0847 ("xsk: s/free_list_node/list_node/")
+	 * Revert the name as genksyms hash the field name as well
+	 */
+#ifndef __GENKSYMS__
 	struct list_head list_node;
+#else
+	struct list_head free_list_node;
+#endif
+	/*
+	 * Removed in 560c974 (xsk: Get rid of xdp_buff_xsk::xskb_list_node)
+	 * Put here for kABI stable
+	 */
+	struct list_head xskb_list_node;
 };
 
 #define XSK_CHECK_PRIV_TYPE(t) BUILD_BUG_ON(sizeof(t) > offsetofend(struct xdp_buff_xsk, cb))
@@ -53,12 +66,18 @@ struct xsk_buff_pool {
 	refcount_t users;
 	struct xdp_umem *umem;
 	struct work_struct work;
-	/* Protects generic receive in shared and non-shared umem mode. */
-	spinlock_t rx_lock;
 	struct list_head free_list;
 	struct list_head xskb_list;
 	u32 heads_cnt;
 	u16 queue_id;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in b6978c5 (xsk: Fix race condition in AF_XDP generic RX path)
+	 * Moved into hole to keep kABI
+	 */
+	/* Protects generic receive in shared and non-shared umem mode. */
+	spinlock_t rx_lock;
+#endif
 
 	/* Data path members as close to free_heads at the end as possible. */
 	struct xsk_queue *fq ____cacheline_aligned_in_smp;
@@ -91,6 +110,12 @@ struct xsk_buff_pool {
 	void *xs_kabi_padding;
 	struct xdp_buff_xsk *free_heads[];
 };
+
+#ifndef __GENKSYMS__
+#define XSK_BUFF_POLL_KABI_V1_SIZE 256
+static_assert(sizeof(struct xsk_buff_pool) == XSK_BUFF_POLL_KABI_V1_SIZE,
+		"xsk_buff_pool kABI size changed");
+#endif
 
 /* Masks for xdp_umem_page flags.
  * The low 12-bits of the addr will be 0 since this is the page address, so we

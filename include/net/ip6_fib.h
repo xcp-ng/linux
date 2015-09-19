@@ -180,7 +180,14 @@ struct fib6_info {
 	refcount_t			fib6_ref;
 	unsigned long			expires;
 
+#ifndef __GENKSYMS__
+	/*
+	 * Added in bd12abe (net/ipv6: Remove expired routes with a separated list of routes)
+	 * Although we have xs_kabi_padding, does not use it as it is complicated and hard to maintain
+	 * Just ignore it as we already ignore fib6_table and no OOT drivers access it
+	 */
 	struct hlist_node		gc_link;
+#endif
 
 	struct dst_metrics		*fib6_metrics;
 #define fib6_pmtu		fib6_metrics->metrics[RTAX_MTU-1]
@@ -404,7 +411,13 @@ struct fib6_table {
 	struct inet_peer_base	tb6_peers;
 	unsigned int		flags;
 	unsigned int		fib_seq;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in bd12abe (net/ipv6: Remove expired routes with a separated list of routes
+	 * No OOT driver access it, just ignore it
+	 */
 	struct hlist_head       tb6_gc_hlist;	/* GC candidates */
+#endif
 #define RT6_TABLE_HAS_DFLT_ROUTER	BIT(0)
 };
 
