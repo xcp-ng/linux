@@ -84,6 +84,7 @@ static struct notifier_block panic_block = {
 
 static void check_hung_task(struct task_struct *t, unsigned long timeout)
 {
+	struct io_context *ioc;
 	unsigned long switch_count = t->nvcsw + t->nivcsw;
 
 	/*
@@ -108,6 +109,19 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 	}
 	if (time_is_after_jiffies(t->last_switch_time + timeout * HZ))
 		return;
+
+	if (t->policy == SCHED_IDLE)
+		return;
+
+	ioc = get_task_io_context(t, GFP_ATOMIC, NUMA_NO_NODE);
+	if (ioc) {
+		int ioprio = ioc->ioprio;
+
+		put_io_context(ioc);
+
+		if (IOPRIO_PRIO_CLASS(ioprio) == IOPRIO_CLASS_IDLE)
+			return;
+	}
 
 	trace_sched_process_hang(t);
 
