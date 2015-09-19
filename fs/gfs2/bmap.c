@@ -1111,8 +1111,11 @@ static int gfs2_iomap_begin_write(struct inode *inode, loff_t pos,
 		gfs2_trans_end(sdp);
 	}
 
-	if (gfs2_is_stuffed(ip) || gfs2_is_jdata(ip))
-		iomap->page_ops = &gfs2_iomap_page_ops;
+	if (gfs2_is_stuffed(ip) || gfs2_is_jdata(ip)) {
+		iomap->flags |= IOMAP_F_PAGE_OPS;
+		iomap->page_done = (void (*)(struct inode *, loff_t, unsigned,
+			struct page *, struct iomap *))&gfs2_iomap_page_ops;
+	}
 	return 0;
 
 out_trans_end:
