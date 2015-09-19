@@ -26,6 +26,7 @@ int pci_iov_virtfn_bus(struct pci_dev *dev, int vf_id)
 	return dev->bus->number + ((dev->devfn + dev->sriov->offset +
 				    dev->sriov->stride * vf_id) >> 8);
 }
+EXPORT_SYMBOL(pci_iov_virtfn_bus);
 
 int pci_iov_virtfn_devfn(struct pci_dev *dev, int vf_id)
 {
@@ -34,6 +35,7 @@ int pci_iov_virtfn_devfn(struct pci_dev *dev, int vf_id)
 	return (dev->devfn + dev->sriov->offset +
 		dev->sriov->stride * vf_id) & 0xff;
 }
+EXPORT_SYMBOL(pci_iov_virtfn_devfn);
 
 /*
  * Per SR-IOV spec sec 3.3.10 and 3.3.11, First VF Offset and VF Stride may
@@ -388,7 +390,8 @@ static int sriov_init(struct pci_dev *dev, int pos)
 	struct pci_dev *pdev;
 
 	if (pci_pcie_type(dev) != PCI_EXP_TYPE_RC_END &&
-	    pci_pcie_type(dev) != PCI_EXP_TYPE_ENDPOINT)
+	    pci_pcie_type(dev) != PCI_EXP_TYPE_ENDPOINT &&
+	    pci_pcie_type(dev) != PCI_EXP_TYPE_LEG_END)
 		return -ENODEV;
 
 	pci_read_config_word(dev, pos + PCI_SRIOV_CTRL, &ctrl);
