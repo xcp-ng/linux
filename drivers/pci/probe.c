@@ -2427,9 +2427,6 @@ static void pci_init_capabilities(struct pci_dev *dev)
 	pci_aer_init(dev);
 
 	pcie_report_downtraining(dev);
-
-	if (pci_probe_reset_function(dev) == 0)
-		dev->reset_fn = 1;
 }
 
 /*
