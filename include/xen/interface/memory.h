@@ -248,6 +248,14 @@ DEFINE_GUEST_HANDLE_STRUCT(xen_memory_map);
  */
 extern spinlock_t xen_reservation_lock;
 
+#define XENMEM_set_memory_map       13
+struct xen_foreign_memory_map {
+    domid_t domid;
+    struct xen_memory_map map;
+};
+
+#define XENMEM_maximum_gpfn         14
+
 /*
  * Unmaps the page appearing at a particular GPFN from the specified guest's
  * pseudophysical address space.
