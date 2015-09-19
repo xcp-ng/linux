@@ -257,6 +257,47 @@ static unsigned long rx_coalesced, rx_coalesce_fail;
 module_param(rx_coalesced, ulong, 0444);
 module_param(rx_coalesce_fail, ulong, 0444);
 
+static unsigned int rx_coalesce_mode = 1;
+module_param(rx_coalesce_mode, uint, 0644);
+MODULE_PARM_DESC(rx_coalesce_mode, "1 = linearize, 2 = copy into whole page-aligned 4 KiB pages");
+
+/* net-lab: copy skb data into freshly allocated, page-aligned pages attached
+ * as frags, so every grant copy to the guest is a full page at offset 0.
+ * Returns NULL (caller keeps the original skb) on any failure.
+ */
+static struct sk_buff *xenvif_rx_coalesce_pages(struct sk_buff *skb)
+{
+	unsigned int len = skb->len, off = 0, i = 0;
+	struct sk_buff *nskb;
+
+	if (DIV_ROUND_UP(len, PAGE_SIZE) > MAX_SKB_FRAGS)
+		return NULL;
+	nskb = alloc_skb(0, GFP_ATOMIC | __GFP_NOWARN);
+	if (!nskb)
+		return NULL;
+	while (off < len) {
+		unsigned int chunk = min_t(unsigned int, len - off, PAGE_SIZE);
+		struct page *page = alloc_page(GFP_ATOMIC | __GFP_NOWARN);
+
+		if (!page)
+			goto fail;
+		if (skb_copy_bits(skb, off, page_address(page), chunk)) {
+			__free_page(page);
+			goto fail;
+		}
+		skb_fill_page_desc(nskb, i++, page, 0, chunk);
+		nskb->len += chunk;
+		nskb->data_len += chunk;
+		nskb->truesize += PAGE_SIZE;
+		off += chunk;
+	}
+	skb_copy_header(nskb, skb);
+	return nskb;
+fail:
+	kfree_skb(nskb);
+	return NULL;
+}
+
 static void xenvif_rx_next_skb(struct xenvif_queue *queue,
 			       struct xenvif_pkt_state *pkt)
 {
@@ -271,10 +312,21 @@ static void xenvif_rx_next_skb(struct xenvif_queue *queue,
 	 */
 	if (rx_coalesce_frags &&
 	    skb_shinfo(skb)->nr_frags >= READ_ONCE(rx_coalesce_frags)) {
-		if (skb_linearize(skb))
+		if (READ_ONCE(rx_coalesce_mode) == 2) {
+			struct sk_buff *nskb = xenvif_rx_coalesce_pages(skb);
+
+			if (nskb) {
+				consume_skb(skb);
+				skb = nskb;
+				rx_coalesced++;
+			} else {
+				rx_coalesce_fail++;
+			}
+		} else if (skb_linearize(skb)) {
 			rx_coalesce_fail++;
-		else
+		} else {
 			rx_coalesced++;
+		}
 	}
 
 	queue->stats.tx_bytes += skb->len;
