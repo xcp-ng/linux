@@ -458,6 +458,13 @@ HYPERVISOR_hvm_op(int op, void *arg)
        return _hypercall2(unsigned long, hvm_op, op, arg);
 }
 
+static inline int __must_check
+HYPERVISOR_kexec_op(
+        unsigned long op, void *args)
+{
+	return _hypercall2(int, kexec_op, op, args);
+}
+
 static inline int
 HYPERVISOR_tmem_op(
 	struct tmem_op *op)
