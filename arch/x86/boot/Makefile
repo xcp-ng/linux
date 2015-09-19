@@ -77,7 +77,7 @@ $(obj)/bzImage: asflags-y  := $(SVGA_MODE)
 quiet_cmd_image = BUILD   $@
 silent_redirect_image = >/dev/null
 cmd_image = $(obj)/tools/build $(obj)/setup.bin $(obj)/vmlinux.bin \
-			       $(obj)/zoffset.h $@ $($(quiet)redirect_image)
+			       $(obj)/zoffset.h $@ $($(quiet)redirect_image) $(srctree)/arch/x86/boot/sbat.csv
 
 $(obj)/bzImage: $(obj)/setup.bin $(obj)/vmlinux.bin $(obj)/tools/build FORCE
 	$(call if_changed,image)
@@ -102,7 +102,7 @@ $(obj)/zoffset.h: $(obj)/compressed/vmlinux FORCE
 AFLAGS_header.o += -I$(objtree)/$(obj)
 $(obj)/header.o: $(obj)/zoffset.h
 
-LDFLAGS_setup.elf	:= -m elf_i386 -z noexecstack -T
+LDFLAGS_setup.elf	:= --defsym CONFIG_EFI_STUB=$(if $(CONFIG_EFI_STUB),1,0) -m elf_i386 -z noexecstack -T
 $(obj)/setup.elf: $(src)/setup.ld $(SETUP_OBJS) FORCE
 	$(call if_changed,ld)
 
