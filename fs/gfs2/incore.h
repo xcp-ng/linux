@@ -22,7 +22,7 @@
 #include <linux/ktime.h>
 #include <linux/percpu.h>
 #include <linux/lockref.h>
-#include <linux/rhashtable.h>
+#include <linux/xsrhashtable.h>
 
 #define DIO_WAIT	0x00000010
 #define DIO_METADATA	0x00000020
