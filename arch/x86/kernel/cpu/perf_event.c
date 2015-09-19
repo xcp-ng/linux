@@ -1596,13 +1596,12 @@ ssize_t events_sysfs_show(struct device *dev, struct device_attribute *attr,
 {
 	struct perf_pmu_events_attr *pmu_attr = \
 		container_of(attr, struct perf_pmu_events_attr, attr);
-	u64 config = x86_pmu.event_map(pmu_attr->id);
 
 	/* string trumps id */
 	if (pmu_attr->event_str)
 		return sprintf(page, "%s", pmu_attr->event_str);
 
-	return x86_pmu.events_sysfs_show(page, config);
+	return x86_pmu.events_sysfs_show(page, x86_pmu.event_map(pmu_attr->id));
 }
 
 EVENT_ATTR(cpu-cycles,			CPU_CYCLES		);
