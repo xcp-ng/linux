@@ -126,7 +126,7 @@ struct xenvif_stats {
 	unsigned long tx_frag_overflow;
 };
 
-#define COPY_BATCH_SIZE 64
+#define COPY_BATCH_SIZE 256 /* net-lab: array size; effective batch = rx_copy_batch */
 
 struct xenvif_copy_state {
 	struct gnttab_copy op[COPY_BATCH_SIZE];

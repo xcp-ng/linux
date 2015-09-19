@@ -30,6 +30,9 @@
 
 #include <linux/kthread.h>
 #include <linux/sched/clock.h>
+#include <linux/workqueue.h>
+#include <linux/completion.h>
+static unsigned int rx_copy_batch;
 
 #include <xen/xen.h>
 #include <xen/events.h>
@@ -157,12 +160,79 @@ static void xenvif_rx_queue_drop_expired(struct xenvif_queue *queue)
 	}
 }
 
+/* net-lab: effective copy batch (array holds COPY_BATCH_SIZE) and parallel
+ * copy helpers. rx_copy_workers >= 2 splits each flush into that many chunks,
+ * all but one run by high-priority workqueue items on other CPUs; responses
+ * are still pushed once, in order, after every chunk has completed.
+ */
+static unsigned int rx_copy_batch = 64;
+module_param(rx_copy_batch, uint, 0644);
+MODULE_PARM_DESC(rx_copy_batch, "Grant-copy ops per RX flush (max 256, default 64)");
+static unsigned int rx_copy_workers;
+module_param(rx_copy_workers, uint, 0644);
+MODULE_PARM_DESC(rx_copy_workers, "Split each RX grant-copy flush over this many CPUs (0/1 = off, max 8)");
+static unsigned int rx_copy_min_chunk = 16;
+module_param(rx_copy_min_chunk, uint, 0644);
+static unsigned long rx_parallel_flushes, rx_serial_flushes;
+module_param(rx_parallel_flushes, ulong, 0444);
+module_param(rx_serial_flushes, ulong, 0444);
+
+struct xenvif_rx_copy_work {
+	struct work_struct work;
+	struct gnttab_copy *op;
+	unsigned int n;
+	struct completion done;
+};
+
+static void xenvif_rx_copy_work_fn(struct work_struct *w)
+{
+	struct xenvif_rx_copy_work *rw =
+		container_of(w, struct xenvif_rx_copy_work, work);
+
+	gnttab_batch_copy(rw->op, rw->n);
+	complete(&rw->done);
+}
+
+static void xenvif_rx_batch_copy(struct xenvif_queue *queue)
+{
+	struct xenvif_rx_copy_work rw[8];
+	unsigned int num = queue->rx_copy.num;
+	unsigned int nw = min_t(unsigned int, READ_ONCE(rx_copy_workers), 8);
+	unsigned int per, k, used = 0, self = smp_processor_id(), cpu = self;
+
+	if (nw < 2 || num < nw * max_t(unsigned int, 1, READ_ONCE(rx_copy_min_chunk))) {
+		rx_serial_flushes++;
+		gnttab_batch_copy(queue->rx_copy.op, num);
+		return;
+	}
+	per = DIV_ROUND_UP(num, nw);
+	for (k = 1; k < nw && k * per < num; k++) {
+		rw[k].op = queue->rx_copy.op + k * per;
+		rw[k].n = min(per, num - k * per);
+		init_completion(&rw[k].done);
+		INIT_WORK_ONSTACK(&rw[k].work, xenvif_rx_copy_work_fn);
+		do {
+			cpu = cpumask_next(cpu, cpu_online_mask);
+			if (cpu >= nr_cpu_ids)
+				cpu = cpumask_first(cpu_online_mask);
+		} while (cpu == self && num_online_cpus() > 1);
+		queue_work_on(cpu, system_highpri_wq, &rw[k].work);
+		used = k;
+	}
+	gnttab_batch_copy(queue->rx_copy.op, min(per, num));
+	for (k = 1; k <= used; k++) {
+		wait_for_completion(&rw[k].done);
+		destroy_work_on_stack(&rw[k].work);
+	}
+	rx_parallel_flushes++;
+}
+
 static void xenvif_rx_copy_flush(struct xenvif_queue *queue)
 {
 	unsigned int i;
 	int notify;
 
-	gnttab_batch_copy(queue->rx_copy.op, queue->rx_copy.num);
+	xenvif_rx_batch_copy(queue);
 
 	for (i = 0; i < queue->rx_copy.num; i++) {
 		struct gnttab_copy *op;
@@ -199,7 +269,8 @@ static void xenvif_rx_copy_add(struct xenvif_queue *queue,
 	struct page *page;
 	struct xen_page_foreign *foreign;
 
-	if (queue->rx_copy.num == COPY_BATCH_SIZE)
+	if (queue->rx_copy.num >= min_t(unsigned int, COPY_BATCH_SIZE,
+					  max_t(unsigned int, 1, READ_ONCE(rx_copy_batch))))
 		xenvif_rx_copy_flush(queue);
 
 	op = &queue->rx_copy.op[queue->rx_copy.num];
