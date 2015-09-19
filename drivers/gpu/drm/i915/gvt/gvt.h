@@ -310,6 +310,10 @@ struct intel_gvt {
 	struct mutex lock;
 	/* scheduler scope lock, protect gvt and vgpu schedule related data */
 	struct mutex sched_lock;
+	/* GVT scope lock, protect gtt related structures,
+	 * only ppgtt_mm_lru_list_head for now while oos SPTs are disabled
+	 */
+	struct mutex gtt_lock;
 
 	struct drm_i915_private *dev_priv;
 	struct idr vgpu_idr;	/* vGPU IDR pool */
