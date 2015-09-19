@@ -498,6 +498,8 @@ void gfs2_recover_func(struct work_struct *work)
 			goto fail_gunlock_thaw;
 		}
 
+		down_write(&sdp->sd_log_flush_lock);
+
 		t_tlck = ktime_get();
 		fs_info(sdp, "jid=%u: Replaying journal...\n", jd->jd_jid);
 
@@ -511,6 +513,8 @@ void gfs2_recover_func(struct work_struct *work)
 		}
 
 		clean_journal(jd, &head);
+
+		up_write(&sdp->sd_log_flush_lock);
 
 		gfs2_glock_dq_uninit(&thaw_gh);
 		t_rep = ktime_get();
