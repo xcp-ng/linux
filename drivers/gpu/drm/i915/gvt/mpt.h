@@ -347,4 +347,19 @@ static inline bool intel_gvt_hypervisor_is_valid_gfn(
 	return intel_gvt_host.mpt->is_valid_gfn(vgpu->handle, gfn);
 }
 
+/**
+ * intel_gvt_hypervisor_vgpu_from_vm_id - translate external VM id into vgpu
+ * @vm_id: a VM id
+ *
+ * Returns:
+ * vgpu pointer on success, NULL if failed
+ */
+static inline struct intel_vgpu *intel_gvt_hypervisor_vgpu_from_vm_id(int vm_id)
+{
+	if (!intel_gvt_host.mpt->vgpu_from_vm_id)
+		return NULL;
+
+	return intel_gvt_host.mpt->vgpu_from_vm_id(vm_id);
+}
+
 #endif /* _GVT_MPT_H_ */
