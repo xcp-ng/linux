@@ -664,7 +664,7 @@ static void revoke_lo_after_commit(struct gfs2_sbd *sdp, struct gfs2_trans *tr)
 		gl = bd->bd_gl;
 		atomic_dec(&gl->gl_revokes);
 		clear_bit(GLF_LFLUSH, &gl->gl_flags);
-		kmem_cache_free(gfs2_bufdata_cachep, bd);
+		gfs2_free_bufdata(bd);
 	}
 }
 

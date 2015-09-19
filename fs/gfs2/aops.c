@@ -868,9 +868,8 @@ int gfs2_releasepage(struct page *page, gfp_t gfp_mask)
 			gfs2_assert_warn(sdp, bd->bd_bh == bh);
 			if (!list_empty(&bd->bd_list))
 				list_del_init(&bd->bd_list);
-			bd->bd_bh = NULL;
 			bh->b_private = NULL;
-			kmem_cache_free(gfs2_bufdata_cachep, bd);
+			gfs2_free_bufdata(bd);
 		}
 
 		bh = bh->b_this_page;

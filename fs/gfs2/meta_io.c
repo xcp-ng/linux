@@ -355,7 +355,7 @@ void gfs2_remove_from_journal(struct buffer_head *bh, int meta)
 			gfs2_trans_add_revoke(sdp, bd);
 		} else if (was_pinned) {
 			bh->b_private = NULL;
-			kmem_cache_free(gfs2_bufdata_cachep, bd);
+			gfs2_free_bufdata(bd);
 		}
 		spin_unlock(&sdp->sd_ail_lock);
 	}
