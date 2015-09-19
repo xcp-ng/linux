@@ -1303,8 +1303,9 @@ __init void prefill_possible_map(void)
 
 	/* nr_cpu_ids could be reduced via nr_cpus= */
 	if (possible > nr_cpu_ids) {
-		pr_warn("%d Processors exceeds NR_CPUS limit of %d\n",
-			possible, nr_cpu_ids);
+		if (!xen_initial_domain())
+			pr_warn("%d Processors exceeds NR_CPUS limit of %d\n",
+				possible, nr_cpu_ids);
 		possible = nr_cpu_ids;
 	}
 
