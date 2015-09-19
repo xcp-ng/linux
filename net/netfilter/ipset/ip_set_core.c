@@ -497,6 +497,16 @@ __ip_set_put(struct ip_set *set)
 	write_unlock_bh(&ip_set_ref_lock);
 }
 
+/*
+ * Helper to get access to the ref_netlink member beyond the end of
+ * struct ip_set.
+ */
+static inline u32 *
+ip_set_46_ref_netlink(struct ip_set *set)
+{
+	return &((struct ip_set_46 *)set)->ref_netlink;
+}
+
 /* set->ref can be swapped out by ip_set_swap, netlink events (like dump) need
  * a separate reference counter
  */
@@ -504,7 +514,7 @@ static inline void
 __ip_set_get_netlink(struct ip_set *set)
 {
 	write_lock_bh(&ip_set_ref_lock);
-	set->ref_netlink++;
+	++*ip_set_46_ref_netlink(set);
 	write_unlock_bh(&ip_set_ref_lock);
 }
 
@@ -512,8 +522,8 @@ static inline void
 __ip_set_put_netlink(struct ip_set *set)
 {
 	write_lock_bh(&ip_set_ref_lock);
-	BUG_ON(set->ref_netlink == 0);
-	set->ref_netlink--;
+	BUG_ON(*ip_set_46_ref_netlink(set) == 0);
+	--*ip_set_46_ref_netlink(set);
 	write_unlock_bh(&ip_set_ref_lock);
 }
 
@@ -887,7 +897,7 @@ ip_set_create(struct sock *ctnl, struct sk_buff *skb,
 	/* First, and without any locks, allocate and initialize
 	 * a normal base set structure.
 	 */
-	set = kzalloc(sizeof(*set), GFP_KERNEL);
+	set = kzalloc(sizeof(struct ip_set_46), GFP_KERNEL);
 	if (!set)
 		return -ENOMEM;
 	spin_lock_init(&set->lock);
@@ -1026,7 +1036,7 @@ ip_set_destroy(struct sock *ctnl, struct sk_buff *skb,
 	if (!attr[IPSET_ATTR_SETNAME]) {
 		for (i = 0; i < inst->ip_set_max; i++) {
 			s = ip_set(inst, i);
-			if (s && (s->ref || s->ref_netlink)) {
+			if (s && (s->ref || *ip_set_46_ref_netlink(s))) {
 				ret = -IPSET_ERR_BUSY;
 				goto out;
 			}
@@ -1048,7 +1058,7 @@ ip_set_destroy(struct sock *ctnl, struct sk_buff *skb,
 		if (!s) {
 			ret = -ENOENT;
 			goto out;
-		} else if (s->ref || s->ref_netlink) {
+		} else if (s->ref || *ip_set_46_ref_netlink(s)) {
 			ret = -IPSET_ERR_BUSY;
 			goto out;
 		}
@@ -1200,7 +1210,7 @@ ip_set_swap(struct sock *ctnl, struct sk_buff *skb,
 
 	write_lock_bh(&ip_set_ref_lock);
 
-	if (from->ref_netlink || to->ref_netlink) {
+	if (*ip_set_46_ref_netlink(from) || *ip_set_46_ref_netlink(to)) {
 		write_unlock_bh(&ip_set_ref_lock);
 		return -EBUSY;
 	}
@@ -1361,7 +1371,7 @@ dump_last:
 		if (!cb->args[IPSET_CB_ARG0]) {
 			/* Start listing: make sure set won't be destroyed */
 			pr_debug("reference set\n");
-			set->ref_netlink++;
+			++*ip_set_46_ref_netlink(set);
 		}
 		write_unlock_bh(&ip_set_ref_lock);
 		nlh = start_msg(skb, NETLINK_CB(cb->skb).portid,
