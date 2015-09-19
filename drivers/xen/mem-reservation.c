@@ -14,6 +14,7 @@
 
 #include <xen/interface/memory.h>
 #include <xen/mem-reservation.h>
+#include <xen/swiotlb-xen.h>
 #include <linux/moduleparam.h>
 
 bool __read_mostly xen_scrub_pages = IS_ENABLED(CONFIG_XEN_SCRUB_PAGES_DEFAULT);
@@ -47,6 +48,22 @@ void __xenmem_reservation_va_mapping_update(unsigned long count,
 
 		set_phys_to_machine(pfn, frames[i]);
 
+		/*
+		 * Update the IOMMU mapping for this BFN (== PFN) now that we
+		 * have the new MFN.
+		 *
+		 * If this fails, leak the page as its not safe to use it (any
+		 * DMA will go somewhere unexpected causing memory corruption).
+		 */
+		if (pv_iommu_1_to_1_offset) {
+			ret = xen_iommu_map_page(pfn, frames[i]);
+			if (ret < 0) {
+				pr_err("leaking pfn %lx (iommu map failed: %d)\n",
+				       pfn, ret);
+				continue;
+			}
+		}
+
 		ret = HYPERVISOR_update_va_mapping(
 				(unsigned long)__va(pfn << PAGE_SHIFT),
 				mfn_pte(frames[i], PAGE_KERNEL), 0);
@@ -77,6 +94,8 @@ void __xenmem_reservation_va_mapping_reset(unsigned long count,
 		BUG_ON(ret);
 
 		__set_phys_to_machine(pfn, INVALID_P2M_ENTRY);
+		if (pv_iommu_1_to_1_offset)
+			xen_iommu_unmap_page(pfn);
 	}
 }
 EXPORT_SYMBOL_GPL(__xenmem_reservation_va_mapping_reset);

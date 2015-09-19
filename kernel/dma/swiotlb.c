@@ -118,6 +118,11 @@ struct io_tlb_area {
 	spinlock_t lock;
 };
 
+struct io_tlb_mem *get_io_tlb_default_mem_addr(void)
+{
+	return &io_tlb_default_mem;
+}
+
 /*
  * Round up number of slabs to the next power of 2. The last area is going
  * be smaller than the rest if default_nslabs is not power of two.

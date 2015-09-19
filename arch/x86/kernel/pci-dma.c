@@ -18,6 +18,9 @@
 #include <xen/xen.h>
 #include <xen/swiotlb-xen.h>
 
+void pci_xen_pv_iommu_late_init(void);
+int pci_xen_swiotlb_pviommu_detect(void);
+
 static bool disable_dac_quirk __read_mostly;
 
 const struct dma_map_ops *dma_ops;
@@ -83,9 +86,13 @@ static void __init pci_xen_swiotlb_init(void)
 	if (!xen_swiotlb_enabled())
 		return;
 	x86_swiotlb_enable = true;
-	x86_swiotlb_flags |= SWIOTLB_ANY;
+	if (!pv_iommu_1_to_1_offset)
+		x86_swiotlb_flags |= SWIOTLB_ANY;
+
 	swiotlb_init_remap(true, x86_swiotlb_flags, xen_swiotlb_fixup);
-	dma_ops = &xen_swiotlb_dma_ops;
+
+	if (!pv_iommu_1_to_1_offset)
+		dma_ops = &xen_swiotlb_dma_ops;
 	if (IS_ENABLED(CONFIG_PCI))
 		pci_request_acs();
 }
@@ -98,14 +105,20 @@ static inline void __init pci_xen_swiotlb_init(void)
 void __init pci_iommu_alloc(void)
 {
 	if (xen_pv_domain()) {
+		bool pviommu = pci_xen_swiotlb_pviommu_detect();
 		pci_xen_swiotlb_init();
-		return;
+		if (!pviommu)
+			return;
 	}
 	pci_swiotlb_detect();
 	gart_iommu_hole_init();
 	amd_iommu_detect();
 	detect_intel_iommu();
 	swiotlb_init(x86_swiotlb_enable, x86_swiotlb_flags);
+	if (pv_iommu_1_to_1_offset) {
+		printk(KERN_INFO "XEN-PV-IOMMU: "
+		       "Using software bounce buffering for IO on 32bit DMA devices (SWIOTLB)\n");
+        }
 }
 
 /*
@@ -180,6 +193,9 @@ static int __init pci_iommu_init(void)
 #ifdef CONFIG_SWIOTLB
 	/* An IOMMU turned us off. */
 	if (x86_swiotlb_enable) {
+		/* if PV-IOMMU enabled, call late init too */
+		pci_xen_pv_iommu_late_init();
+
 		pr_info("PCI-DMA: Using software bounce buffering for IO (SWIOTLB)\n");
 		swiotlb_print_info();
 	} else {

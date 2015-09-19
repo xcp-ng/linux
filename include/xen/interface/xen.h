@@ -76,6 +76,7 @@
 #define __HYPERVISOR_arch_6               54
 #define __HYPERVISOR_arch_7               55
 
+#define __HYPERVISOR_iommu_op             56
 /*
  * VIRTUAL INTERRUPTS
  *

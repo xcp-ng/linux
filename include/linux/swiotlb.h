@@ -154,6 +154,8 @@ static inline struct io_tlb_pool *swiotlb_find_pool(struct device *dev,
 
 #endif
 
+struct io_tlb_mem *get_io_tlb_default_mem_addr(void);
+
 /**
  * is_swiotlb_buffer() - check if a physical address belongs to a swiotlb
  * @dev:        Device which has mapped the buffer.

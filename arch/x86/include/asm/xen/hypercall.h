@@ -51,6 +51,7 @@
 #include <xen/interface/xen.h>
 #include <xen/interface/sched.h>
 #include <xen/interface/physdev.h>
+#include <xen/interface/pv-iommu.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/xen-mca.h>
 
@@ -327,6 +328,12 @@ MULTI_fpu_taskswitch(struct multicall_entry *mcl, int set)
 	mcl->args[0] = set;
 
 	trace_xen_mc_entry(mcl, 1);
+}
+
+static inline int
+HYPERVISOR_iommu_op(void *uop, unsigned int count)
+{
+       return _hypercall2(int, iommu_op, uop, count);
 }
 
 static inline void

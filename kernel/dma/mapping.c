@@ -14,6 +14,7 @@
 #include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <xen/pv-iommu.h>
 #include "debug.h"
 #include "direct.h"
 
@@ -150,17 +151,23 @@ dma_addr_t dma_map_page_attrs(struct device *dev, struct page *page,
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 	dma_addr_t addr;
+	bool pviommu = false;
 
 	BUG_ON(!valid_dma_direction(dir));
 
 	if (WARN_ON_ONCE(!dev->dma_mask))
 		return DMA_MAPPING_ERROR;
 
-	if (dma_map_direct(dev, ops) ||
-	    arch_dma_map_page_direct(dev, page_to_phys(page) + offset + size))
-		addr = dma_direct_map_page(dev, page, offset, size, dir, attrs);
-	else
-		addr = ops->map_page(dev, page, offset, size, dir, attrs);
+	if ((pv_iommu_1_to_1_offset) && ((!dev) || (!dev->dma_ops)))
+		pviommu = xen_pv_iommu_map_page(dev, page, offset, size, dir, attrs, &addr);
+
+	if (!pviommu) {
+		if (dma_map_direct(dev, ops) ||
+		    arch_dma_map_page_direct(dev, page_to_phys(page) + offset + size))
+			addr = dma_direct_map_page(dev, page, offset, size, dir, attrs);
+		else
+			addr = ops->map_page(dev, page, offset, size, dir, attrs);
+	}
 	kmsan_handle_dma(page, offset, size, dir);
 	debug_dma_map_page(dev, page, offset, size, dir, addr, attrs);
 
@@ -233,7 +240,10 @@ unsigned int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 {
 	int ret;
 
-	ret = __dma_map_sg_attrs(dev, sg, nents, dir, attrs);
+	if (pv_iommu_1_to_1_offset)
+		ret = xen_pv_iommu_map_sg_attrs(dev, sg, nents, dir, attrs);
+	else
+		ret = __dma_map_sg_attrs(dev, sg, nents, dir, attrs);
 	if (ret < 0)
 		return 0;
 	return ret;
