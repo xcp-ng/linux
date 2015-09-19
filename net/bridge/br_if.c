@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
+#include <linux/pkt_sched.h>
 #include <linux/etherdevice.h>
 #include <linux/netpoll.h>
 #include <linux/ethtool.h>
@@ -343,6 +344,153 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
 	return p;
 }
 
+struct net_bridge_port *br_locate_physical_port(struct net_bridge *br)
+{
+	struct net_bridge_port *p;
+	if (!br->phys_port) {
+		list_for_each_entry(p, &br->port_list, list) {
+			if (ether_addr_equal(br->dev->dev_addr, p->dev->dev_addr)) {
+				br->phys_port = p;
+				break;
+			}
+		}
+	}
+	return br->phys_port;
+}
+
+struct net_device *br_locate_physical_device(struct net_device *dev)
+{
+	struct net_bridge *br;
+	const struct net_bridge_port *p;
+
+	if (!(dev->priv_flags & IFF_EBRIDGE))
+		return dev;
+
+	br = netdev_priv(dev);
+	p = br_locate_physical_port(br);
+
+	return p ? p->dev : dev;
+}
+EXPORT_SYMBOL(br_locate_physical_device);
+
+static struct sk_buff *create_switch_learning_packet(struct net_device *dev, unsigned char *src_hw)
+{
+	const char *signature = "Citrix XenServer Failover";
+#pragma pack(1)
+	struct learning_pkt {
+		/* 802.2 header */
+		u8 mac_dst[ETH_ALEN];
+		u8 mac_src[ETH_ALEN];
+		u16 mac_len;
+
+		/* LLC header */
+		u8 llc_dsap;
+		u8 llc_ssap;
+		u8 llc_cntl;
+
+		/* SNAP header */
+		u8 snap_org[3];
+		u16 snap_type;
+
+		/* Payload */
+		u8 payload[strlen(signature) + 1 + 2*ETH_ALEN]; /* Sig + NULL + VIF MAC + Host MAC */
+	};
+#pragma pack()
+	struct sk_buff *skb;
+	struct learning_pkt pkt;
+	int size = sizeof(struct learning_pkt);
+	char *data;
+	int len;
+	const unsigned char dest_hw[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	memset(&pkt, 0, size);
+
+	/* 802.2 header */
+	memcpy(pkt.mac_dst, dest_hw, ETH_ALEN);
+	memcpy(pkt.mac_src, src_hw, ETH_ALEN);
+	pkt.mac_len = __constant_htons(size);
+
+	/*  LLC header */
+	pkt.llc_dsap = 0xaa;
+	pkt.llc_ssap = 0xaa;
+	pkt.llc_cntl = 0x3;
+
+	/* SNAP header */
+	pkt.snap_org[0] = 0x00;
+	pkt.snap_org[1] = 0x16;
+	pkt.snap_org[2] = 0x3e;
+	pkt.snap_type = __constant_htons(0x2134);
+
+	/* Payload */
+	len = sprintf(&pkt.payload[0], signature);
+	len++; /* NULL */
+	memcpy(&pkt.payload[len], src_hw, ETH_ALEN); len += ETH_ALEN;
+	memcpy(&pkt.payload[len], dev->dev_addr, ETH_ALEN); len += ETH_ALEN;
+
+	skb = dev_alloc_skb(size);
+	if (!skb)
+		return NULL;
+
+	data = skb_put(skb, size);
+	memcpy(data, &pkt, size);
+
+	skb->protocol = pkt.mac_len;
+	skb->priority = TC_PRIO_CONTROL;
+	skb->dev = dev;
+
+	return skb;
+}
+
+void br_send_gratuitous_switch_learning_packet(struct net_device *dev)
+{
+	struct net_bridge *br;
+	struct net_bridge_port *br_port;
+	struct sk_buff *skb;
+	int i;
+
+	rcu_read_lock();
+
+	br_port = br_port_get_rcu(dev);
+	
+	if (!br_port)
+		goto out;
+	if (!br_port->br)
+		goto out;
+
+	br = br_port->br;
+
+	for (i = 0; i < BR_HASH_SIZE; i++) {
+		struct net_bridge_fdb_entry *f;
+
+		hlist_for_each_entry_rcu(f, &br->hash[i], hlist) {
+			/* ignore pseudo entry for local MAC address */
+			if (!f->dst)
+				continue;
+
+			if (f->dst != br_port &&
+			    f->dst->dev->addr_len == ETH_ALEN &&
+			    memcmp(&f->dst->dev->dev_addr[0], &f->addr.addr[0], ETH_ALEN) != 0) {
+				skb = create_switch_learning_packet(dev, f->addr.addr);
+
+				if (skb == NULL)
+					goto out;
+
+				dev_queue_xmit(skb);
+
+				f->updated = jiffies;
+			}
+		}
+	}
+
+	skb = create_switch_learning_packet(dev, dev->dev_addr);
+	if (skb)
+		dev_queue_xmit(skb);
+
+out:
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL(br_send_gratuitous_switch_learning_packet);
+
 int br_add_bridge(struct net *net, const char *name)
 {
 	struct net_device *dev;
@@ -560,6 +708,9 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
 	p = br_port_get_rtnl(dev);
 	if (!p || p->br != br)
 		return -EINVAL;
+
+	if (p == br->phys_port)
+		br->phys_port = NULL;
 
 	/* Since more than one interface can be attached to a bridge,
 	 * there still maybe an alternate path for netconsole to use;

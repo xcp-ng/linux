@@ -278,12 +278,14 @@ static inline bool bond_should_override_tx_queue(struct bonding *bond)
 static inline bool bond_is_lb(const struct bonding *bond)
 {
 	return BOND_MODE(bond) == BOND_MODE_TLB ||
-	       BOND_MODE(bond) == BOND_MODE_ALB;
+	       BOND_MODE(bond) == BOND_MODE_ALB ||
+	       BOND_MODE(bond) == BOND_MODE_SLB;
 }
 
 static inline bool bond_is_nondyn_tlb(const struct bonding *bond)
 {
-	return (BOND_MODE(bond) == BOND_MODE_TLB)  &&
+	return (BOND_MODE(bond) == BOND_MODE_TLB
+		|| BOND_MODE(bond) == BOND_MODE_SLB) &&
 	       (bond->params.tlb_dynamic_lb == 0);
 }
 
