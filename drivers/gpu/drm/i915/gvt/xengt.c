@@ -1998,6 +1998,7 @@ struct intel_gvt_mpt xengt_mpt = {
 	.dma_unmap_guest_page = xengt_dma_unmap_guest_page,
 	.map_gfn_to_mfn = xengt_map_gfn_to_mfn,
 	.set_trap_area = xengt_set_trap_area,
+	.vgpu_from_vm_id = vgpu_from_vm_id,
 };
 EXPORT_SYMBOL_GPL(xengt_mpt);
 
