@@ -16,6 +16,10 @@
 #include <xen/mem-reservation.h>
 #include <linux/moduleparam.h>
 
+extern int xen_iommu_map_page(unsigned long pfn, unsigned long mfn);
+extern int xen_iommu_unmap_page(unsigned long pfn);
+extern dma_addr_t pv_iommu_1_to_1_offset;
+
 bool __read_mostly xen_scrub_pages = IS_ENABLED(CONFIG_XEN_SCRUB_PAGES_DEFAULT);
 core_param(xen_scrub_pages, xen_scrub_pages, bool, 0);
 
@@ -35,6 +39,7 @@ void __xenmem_reservation_va_mapping_update(unsigned long count,
 	for (i = 0; i < count; i++) {
 		struct page *page = pages[i];
 		unsigned long pfn = page_to_pfn(page);
+		int ret;
 
 		BUG_ON(!page);
 
@@ -46,10 +51,24 @@ void __xenmem_reservation_va_mapping_update(unsigned long count,
 
 		set_phys_to_machine(pfn, frames[i]);
 
+		/*
+		 * Update the IOMMU mapping for this BFN (== PFN) now that we
+		 * have the new MFN.
+		 *
+		 * If this fails, leak the page as its not safe to use it (any
+		 * DMA will go somewhere unexpected causing memory corruption).
+		 */
+		if (pv_iommu_1_to_1_offset) {
+			ret = xen_iommu_map_page(pfn, frames[i]);
+			if (ret < 0) {
+				pr_err("leaking pfn %lx (iommu map failed: %d)\n",
+				       pfn, ret);
+				continue;
+			}
+		}
+
 		/* Link back into the page tables if not highmem. */
 		if (!PageHighMem(page)) {
-			int ret;
-
 			ret = HYPERVISOR_update_va_mapping(
 					(unsigned long)__va(pfn << PAGE_SHIFT),
 					mfn_pte(frames[i], PAGE_KERNEL),
@@ -84,6 +103,8 @@ void __xenmem_reservation_va_mapping_reset(unsigned long count,
 			BUG_ON(ret);
 		}
 		__set_phys_to_machine(pfn, INVALID_P2M_ENTRY);
+		if (pv_iommu_1_to_1_offset)
+			xen_iommu_unmap_page(pfn);
 	}
 }
 EXPORT_SYMBOL_GPL(__xenmem_reservation_va_mapping_reset);
