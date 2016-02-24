@@ -733,6 +733,7 @@ static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
 
 #define MLX4_EN_WOL_DO_MODIFY (1ULL << 63)
 
+void mlx4_en_init_ptys2ethtool_map(void);
 void mlx4_en_update_loopback_state(struct net_device *dev,
 				   netdev_features_t features);
 
