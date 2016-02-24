@@ -989,6 +989,9 @@ ip_set_destroy(struct sock *ctnl, struct sk_buff *skb,
 	if (unlikely(protocol_failed(attr)))
 		return -IPSET_ERR_PROTOCOL;
 
+	/* Must wait for flush to be really finished in list:set */
+	rcu_barrier();
+
 	/* Commands are serialized and references are
 	 * protected by the ip_set_ref_lock.
 	 * External systems (i.e. xt_set) must call
