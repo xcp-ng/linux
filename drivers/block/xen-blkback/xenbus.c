@@ -841,12 +841,6 @@ again:
 
 	xen_blkbk_barrier(xbt, be, be->blkif->vbd.flush_support);
 
-	err = xenbus_printf(xbt, dev->nodename, "feature-persistent", "%u", 1);
-	if (err) {
-		xenbus_dev_fatal(dev, err, "writing %s/feature-persistent",
-				 dev->nodename);
-		goto abort;
-	}
 	err = xenbus_printf(xbt, dev->nodename, "feature-max-indirect-segments", "%u",
 			    MAX_INDIRECT_SEGMENTS);
 	if (err)
@@ -906,7 +900,6 @@ static int connect_ring(struct backend_info *be)
 	struct xenbus_device *dev = be->dev;
 	unsigned int ring_ref[XENBUS_MAX_RING_GRANTS];
 	unsigned int evtchn, nr_grefs, ring_page_order;
-	unsigned int pers_grants;
 	char protocol[64] = "";
 	struct pending_req *req, *n;
 	int err, i, j;
@@ -980,19 +973,13 @@ static int connect_ring(struct backend_info *be)
 		xenbus_dev_fatal(dev, err, "unknown fe protocol %s", protocol);
 		return -1;
 	}
-	err = xenbus_gather(XBT_NIL, dev->otherend,
-			    "feature-persistent", "%u",
-			    &pers_grants, NULL);
-	if (err)
-		pers_grants = 0;
 
-	be->blkif->vbd.feature_gnt_persistent = pers_grants;
+	be->blkif->vbd.feature_gnt_persistent = 0;
 	be->blkif->vbd.overflow_max_grants = 0;
 	be->blkif->nr_ring_pages = nr_grefs;
 
-	pr_info("ring-pages:%d, event-channel %d, protocol %d (%s) %s\n",
-		nr_grefs, evtchn, be->blkif->blk_protocol, protocol,
-		pers_grants ? "persistent grants" : "");
+	pr_info("ring-pages:%d, event-channel %d, protocol %d (%s)\n",
+		nr_grefs, evtchn, be->blkif->blk_protocol, protocol);
 
 	for (i = 0; i < nr_grefs * XEN_BLKIF_REQS_PER_PAGE; i++) {
 		req = kzalloc(sizeof(*req), GFP_KERNEL);
