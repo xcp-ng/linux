@@ -1284,6 +1284,8 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 	vol->ops = &smb1_operations;
 	vol->vals = &smb1_values;
 
+	vol->echo_interval = SMB_ECHO_INTERVAL_DEFAULT;
+
 	if (!mountdata)
 		goto cifs_parse_mount_err;
 
@@ -2105,7 +2107,7 @@ static int match_server(struct TCP_Server_Info *server, struct smb_vol *vol)
 	if (!match_security(server, vol))
 		return 0;
 
-	if (server->echo_interval != vol->echo_interval)
+	if (server->echo_interval != vol->echo_interval * HZ)
 		return 0;
 
 	return 1;
