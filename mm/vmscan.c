@@ -2529,8 +2529,13 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 		if (!populated_zone(zone))
 			continue;
 
+		if (!managed_zone(zone))
+			continue;
+
 		classzone_idx = requested_highidx;
 		while (!populated_zone(zone->zone_pgdat->node_zones +
+							classzone_idx) ||
+		       !managed_zone(zone->zone_pgdat->node_zones +
 							classzone_idx))
 			classzone_idx--;
 
@@ -2695,7 +2700,7 @@ static bool pfmemalloc_watermark_ok(pg_data_t *pgdat)
 
 	for (i = 0; i <= ZONE_NORMAL; i++) {
 		zone = &pgdat->node_zones[i];
-		if (!populated_zone(zone) ||
+		if (!populated_zone(zone) || !managed_zone(zone) ||
 		    zone_reclaimable_pages(zone) == 0)
 			continue;
 
@@ -2994,6 +2999,9 @@ static bool pgdat_balanced(pg_data_t *pgdat, int order, int classzone_idx)
 		if (!populated_zone(zone))
 			continue;
 
+		if (!managed_zone(zone))
+			continue;
+
 		managed_pages += zone->managed_pages;
 
 		/*
@@ -3178,6 +3186,9 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 			if (!populated_zone(zone))
 				continue;
 
+			if (!managed_zone(zone))
+				continue;
+
 			if (sc.priority != DEF_PRIORITY &&
 			    !zone_reclaimable(zone))
 				continue;
@@ -3221,6 +3232,9 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 			if (!populated_zone(zone))
 				continue;
 
+			if (!managed_zone(zone))
+				continue;
+
 			/*
 			 * If any zone is currently balanced then kswapd will
 			 * not call compaction as it is expected that the
@@ -3253,6 +3267,9 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 			struct zone *zone = pgdat->node_zones + i;
 
 			if (!populated_zone(zone))
+				continue;
+
+			if (!managed_zone(zone))
 				continue;
 
 			if (sc.priority != DEF_PRIORITY &&
@@ -3504,6 +3521,9 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 	pg_data_t *pgdat;
 
 	if (!populated_zone(zone))
+		return;
+
+	if (!managed_zone(zone))
 		return;
 
 	if (!cpuset_zone_allowed(zone, GFP_KERNEL | __GFP_HARDWALL))
