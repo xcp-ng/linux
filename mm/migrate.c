@@ -1561,6 +1561,9 @@ static bool migrate_balanced_pgdat(struct pglist_data *pgdat,
 		if (!populated_zone(zone))
 			continue;
 
+		if (!managed_zone(zone))
+			continue;
+
 		if (!zone_reclaimable(zone))
 			continue;
 
