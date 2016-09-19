@@ -244,6 +244,9 @@ void reset_isolation_suitable(pg_data_t *pgdat)
 		if (!populated_zone(zone))
 			continue;
 
+		if (!managed_zone(zone))
+			continue;
+
 		/* Only flush if a full compaction finished recently */
 		if (zone->compact_blockskip_flush)
 			__reset_isolation_suitable(zone);
@@ -1625,6 +1628,9 @@ static void __compact_pgdat(pg_data_t *pgdat, struct compact_control *cc)
 
 		zone = &pgdat->node_zones[zoneid];
 		if (!populated_zone(zone))
+			continue;
+
+		if (!managed_zone(zone))
 			continue;
 
 		cc->nr_freepages = 0;

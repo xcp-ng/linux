@@ -785,6 +785,11 @@ static inline int populated_zone(struct zone *zone)
 	return (!!zone->present_pages);
 }
 
+static inline int managed_zone(struct zone *zone)
+{
+	return !!zone->managed_pages;
+}
+
 extern int movable_zone;
 
 #ifdef CONFIG_HIGHMEM
