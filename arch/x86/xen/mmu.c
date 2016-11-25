@@ -2084,7 +2084,7 @@ static phys_addr_t __init xen_early_virt_to_phys(unsigned long vaddr)
  * Find a new area for the hypervisor supplied p2m list and relocate the p2m to
  * this area.
  */
-void __init xen_relocate_p2m(void)
+void __init xen_relocate_p2m(phys_addr_t cur_start, phys_addr_t cur_size)
 {
 	phys_addr_t size, new_area, pt_phys, pmd_phys, pud_phys;
 	unsigned long p2m_pfn, p2m_pfn_end, n_frames, pfn, pfn_end;
@@ -2102,7 +2102,7 @@ void __init xen_relocate_p2m(void)
 	n_pud = roundup(size, PGDIR_SIZE) >> PGDIR_SHIFT;
 	n_frames = n_pte + n_pt + n_pmd + n_pud;
 
-	new_area = xen_find_free_area(PFN_PHYS(n_frames));
+	new_area = xen_find_free_area(PFN_PHYS(n_frames), cur_start, cur_size);
 	if (!new_area) {
 		xen_raw_console_write("Can't find new memory area for p2m needed due to E820 map conflict\n");
 		BUG();
