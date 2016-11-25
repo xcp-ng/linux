@@ -634,14 +634,15 @@ bool __init xen_is_e820_reserved(phys_addr_t start, phys_addr_t size)
 }
 
 /*
- * Find a free area in physical memory not yet reserved and compliant with
- * E820 map.
+ * Find a free area in physical memory not yet reserved, compliant with the
+ * E820 map and not overlapping with the pre-allocated area.
  * Used to relocate pre-allocated areas like initrd or p2m list which are in
  * conflict with the to be used E820 map.
  * In case no area is found, return 0. Otherwise return the physical address
  * of the area which is already reserved for convenience.
  */
-phys_addr_t __init xen_find_free_area(phys_addr_t size)
+phys_addr_t __init xen_find_free_area(phys_addr_t size, phys_addr_t cur_start,
+				      phys_addr_t cur_size)
 {
 	unsigned mapcnt;
 	phys_addr_t addr, start;
@@ -652,7 +653,8 @@ phys_addr_t __init xen_find_free_area(phys_addr_t size)
 			continue;
 		start = entry->addr;
 		for (addr = start; addr < start + size; addr += PAGE_SIZE) {
-			if (!memblock_is_reserved(addr))
+			if (!memblock_is_reserved(addr) &&
+			    (addr < cur_start || addr >= cur_start + cur_size))
 				continue;
 			start = addr + PAGE_SIZE;
 			if (start + size > entry->addr + entry->size)
@@ -726,7 +728,7 @@ static void __init xen_reserve_xen_mfnlist(void)
 	xen_raw_console_write("Xen hypervisor allocated p2m list conflicts with E820 map\n");
 	BUG();
 #else
-	xen_relocate_p2m();
+	xen_relocate_p2m(start, size);
 #endif
 }
 
@@ -887,7 +889,9 @@ char * __init xen_memory_setup(void)
 				 boot_params.hdr.ramdisk_size)) {
 		phys_addr_t new_area, start, size;
 
-		new_area = xen_find_free_area(boot_params.hdr.ramdisk_size);
+		new_area = xen_find_free_area(boot_params.hdr.ramdisk_size,
+					      boot_params.hdr.ramdisk_image,
+					      boot_params.hdr.ramdisk_size);
 		if (!new_area) {
 			xen_raw_console_write("Can't find new memory area for initrd needed due to E820 map conflict\n");
 			BUG();
