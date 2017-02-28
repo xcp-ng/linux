@@ -85,6 +85,11 @@ MODULE_PARM_DESC(debug_libiscsi_eh,
 					     __func__, ##arg);		\
 	} while (0);
 
+inline spinlock_t *iscsi_conn_taskqueuelock(struct iscsi_conn *conn)
+{
+	return &conn[1];
+}
+
 inline void iscsi_conn_queue_work(struct iscsi_conn *conn)
 {
 	struct Scsi_Host *shost = conn->session->host;
@@ -560,8 +565,12 @@ static void iscsi_complete_task(struct iscsi_task *task, int state)
 	WARN_ON_ONCE(task->state == ISCSI_TASK_FREE);
 	task->state = state;
 
-	if (!list_empty(&task->running))
+	spin_lock_bh(iscsi_conn_taskqueuelock(conn));
+	if (!list_empty(&task->running)) {
+		pr_debug_once("%s while task on list", __func__);
 		list_del_init(&task->running);
+	}
+	spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 
 	if (conn->task == task)
 		conn->task = NULL;
@@ -783,7 +792,9 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
 		if (session->tt->xmit_task(task))
 			goto free_task;
 	} else {
+		spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 		list_add_tail(&task->running, &conn->mgmtqueue);
+		spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 		iscsi_conn_queue_work(conn);
 	}
 
@@ -1474,8 +1485,10 @@ void iscsi_requeue_task(struct iscsi_task *task)
 	 * this may be on the requeue list already if the xmit_task callout
 	 * is handling the r2ts while we are adding new ones
 	 */
+	spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 	if (list_empty(&task->running))
 		list_add_tail(&task->running, &conn->requeue);
+	spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 	iscsi_conn_queue_work(conn);
 }
 EXPORT_SYMBOL_GPL(iscsi_requeue_task);
@@ -1512,22 +1525,26 @@ static int iscsi_data_xmit(struct iscsi_conn *conn)
 	 * only have one nop-out as a ping from us and targets should not
 	 * overflow us with nop-ins
 	 */
+	spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 check_mgmt:
 	while (!list_empty(&conn->mgmtqueue)) {
 		conn->task = list_entry(conn->mgmtqueue.next,
 					 struct iscsi_task, running);
 		list_del_init(&conn->task->running);
+		spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 		if (iscsi_prep_mgmt_task(conn, conn->task)) {
 			/* regular RX path uses back_lock */
 			spin_lock_bh(&conn->session->back_lock);
 			__iscsi_put_task(conn->task);
 			spin_unlock_bh(&conn->session->back_lock);
 			conn->task = NULL;
+			spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 			continue;
 		}
 		rc = iscsi_xmit_task(conn);
 		if (rc)
 			goto done;
+		spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 	}
 
 	/* process pending command queue */
@@ -1535,19 +1552,24 @@ check_mgmt:
 		conn->task = list_entry(conn->cmdqueue.next, struct iscsi_task,
 					running);
 		list_del_init(&conn->task->running);
+		spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 		if (conn->session->state == ISCSI_STATE_LOGGING_OUT) {
 			fail_scsi_task(conn->task, DID_IMM_RETRY);
+			spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 			continue;
 		}
 		rc = iscsi_prep_scsi_cmd_pdu(conn->task);
 		if (rc) {
 			if (rc == -ENOMEM || rc == -EACCES) {
+				spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 				list_add_tail(&conn->task->running,
 					      &conn->cmdqueue);
 				conn->task = NULL;
+				spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 				goto done;
 			} else
 				fail_scsi_task(conn->task, DID_ABORT);
+			spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 			continue;
 		}
 		rc = iscsi_xmit_task(conn);
@@ -1558,6 +1580,7 @@ check_mgmt:
 		 * we need to check the mgmt queue for nops that need to
 		 * be sent to aviod starvation
 		 */
+		spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 		if (!list_empty(&conn->mgmtqueue))
 			goto check_mgmt;
 	}
@@ -1577,12 +1600,15 @@ check_mgmt:
 		conn->task = task;
 		list_del_init(&conn->task->running);
 		conn->task->state = ISCSI_TASK_RUNNING;
+		spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 		rc = iscsi_xmit_task(conn);
 		if (rc)
 			goto done;
+		spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 		if (!list_empty(&conn->mgmtqueue))
 			goto check_mgmt;
 	}
+	spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 	spin_unlock_bh(&conn->session->frwd_lock);
 	return -ENODATA;
 
@@ -1738,7 +1764,9 @@ int iscsi_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *sc)
 			goto prepd_reject;
 		}
 	} else {
+		spin_lock_bh(iscsi_conn_taskqueuelock(conn));
 		list_add_tail(&task->running, &conn->cmdqueue);
+		spin_unlock_bh(iscsi_conn_taskqueuelock(conn));
 		iscsi_conn_queue_work(conn);
 	}
 
@@ -2878,14 +2906,15 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
 	struct iscsi_cls_conn *cls_conn;
 	char *data;
 
-	cls_conn = iscsi_create_conn(cls_session, sizeof(*conn) + dd_size,
+	cls_conn = iscsi_create_conn(cls_session, sizeof(*conn) +
+				     sizeof(spinlock_t) + dd_size,
 				     conn_idx);
 	if (!cls_conn)
 		return NULL;
 	conn = cls_conn->dd_data;
-	memset(conn, 0, sizeof(*conn) + dd_size);
+	memset(conn, 0, sizeof(*conn) + sizeof(spinlock_t) + dd_size);
 
-	conn->dd_data = cls_conn->dd_data + sizeof(*conn);
+	conn->dd_data = cls_conn->dd_data + sizeof(*conn) + sizeof(spinlock_t);
 	conn->session = session;
 	conn->cls_conn = cls_conn;
 	conn->c_stage = ISCSI_CONN_INITIAL_STAGE;
@@ -2900,6 +2929,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
 	INIT_LIST_HEAD(&conn->mgmtqueue);
 	INIT_LIST_HEAD(&conn->cmdqueue);
 	INIT_LIST_HEAD(&conn->requeue);
+	spin_lock_init(iscsi_conn_taskqueuelock(conn));
 	INIT_WORK(&conn->xmitwork, iscsi_xmitworker);
 
 	/* allocate login_task used for the login/text sequences */
