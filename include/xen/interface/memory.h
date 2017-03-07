@@ -243,12 +243,41 @@ DEFINE_GUEST_HANDLE_STRUCT(xen_memory_map);
  */
 #define XENMEM_machine_memory_map   10
 
+/*
+ * Translate the given guest PFNs to MFNs
+ */
+#define XENMEM_get_mfn_from_pfn    25
+struct xen_get_mfn_from_pfn {
+    /*
+     * Pointer to buffer to fill with list of pfn.
+     * for IN, it contains the guest PFN that need to translated
+     * for OUT, it contains the translated MFN. or INVALID_MFN if no valid translation
+     */
+    GUEST_HANDLE(ulong) pfn_list;
+
+    /*
+     * IN: Size of the pfn_array.
+     */
+    unsigned int nr_pfns;
+
+    /* IN: which domain */
+    domid_t domid;
+};
+DEFINE_GUEST_HANDLE_STRUCT(xen_get_mfn_from_pfn);
 
 /*
  * Prevent the balloon driver from changing the memory reservation
  * during a driver critical region.
  */
 extern spinlock_t xen_reservation_lock;
+
+#define XENMEM_set_memory_map       13
+struct xen_foreign_memory_map {
+    domid_t domid;
+    struct xen_memory_map map;
+};
+
+#define XENMEM_maximum_gpfn         14
 
 /*
  * Unmaps the page appearing at a particular GPFN from the specified guest's
