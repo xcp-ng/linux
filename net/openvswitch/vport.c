@@ -503,6 +503,7 @@ void ovs_vport_send(struct vport *vport, struct sk_buff *skb)
 	}
 
 	skb->dev = vport->dev;
+	skb_sender_cpu_clear(skb);
 	vport->ops->send(skb);
 	return;
 
