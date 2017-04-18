@@ -36,27 +36,6 @@
 
 #include <asm/xen/hypercall.h>
 
-/*
- * XEN_DMOP_inject_msi: Inject an MSI for an emulated device.
- */
-#define XEN_DMOP_inject_msi 14
-
-struct xen_dm_op_inject_msi {
-	/* IN - MSI data (lower 32 bits) */
-	uint32_t data;
-	uint32_t pad;
-	/* IN - MSI address (0xfeexxxxx) */
-	uint64_t __attribute__((aligned(8))) addr;
-};
-
-struct xen_dm_op {
-	uint32_t op;
-	uint32_t pad;
-	union {
-		struct xen_dm_op_inject_msi inject_msi;
-	} u;
-};
-
 /**
  * xen_ioemu_inject_msi - inject an MSI into a guest
  * @domid: domain to inject MSI into
