@@ -56,6 +56,11 @@ struct qstr {
 #define hashlen_len(hashlen)  ((u32)((hashlen) >> 32))
 #define hashlen_create(hash,len) (((u64)(len)<<32)|(u32)(hash))
 
+extern const char empty_string[];
+extern const struct qstr empty_name;
+extern const char slash_string[];
+extern const struct qstr slash_name;
+
 struct dentry_stat_t {
 	long nr_dentry;
 	long nr_unused;
