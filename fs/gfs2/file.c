@@ -668,7 +668,9 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 		if (ret)
 			return ret;
 		if (gfs2_is_jdata(ip))
-			filemap_write_and_wait(mapping);
+			ret = filemap_write_and_wait(mapping);
+		if (ret)
+			return ret;
 		gfs2_ail_flush(ip->i_gl, 1);
 	}
 
