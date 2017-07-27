@@ -4988,7 +4988,6 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
 {
 	skb->pkt_type = PACKET_HOST;
 	skb->skb_iif = 0;
-	skb->ignore_df = 0;
 	skb_dst_drop(skb);
 	secpath_reset(skb);
 	nf_reset(skb);
@@ -5005,6 +5004,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
 
 	skb->mark = 0;
 	skb->tstamp = 0;
+        skb->ignore_df = 0;
 }
 EXPORT_SYMBOL_GPL(skb_scrub_packet);
 
