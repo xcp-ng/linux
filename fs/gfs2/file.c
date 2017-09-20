@@ -254,6 +254,8 @@ static int do_gfs2_set_flags(struct file *filp, u32 reqflags, u32 mask)
 		error = gfs2_permission(inode, MAY_WRITE);
 		if (error)
 			goto out;
+		if (new_flags & GFS2_DIF_JDATA)
+			gfs2_ordered_del_inode(ip);
 	}
 	if ((flags ^ new_flags) & GFS2_DIF_JDATA) {
 		if (new_flags & GFS2_DIF_JDATA)
