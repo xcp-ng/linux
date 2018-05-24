@@ -972,10 +972,11 @@ smb2_is_session_expired(char *buf)
 {
 	struct smb2_hdr *shdr = (struct smb2_hdr *)buf;
 
-	if (shdr->Status != STATUS_NETWORK_SESSION_EXPIRED)
+	if (shdr->Status != STATUS_NETWORK_SESSION_EXPIRED &&
+	    shdr->Status != STATUS_USER_SESSION_DELETED)
 		return false;
 
-	cifs_dbg(FYI, "Session expired\n");
+	cifs_dbg(FYI, "Session expired or deleted\n");
 	return true;
 }
 
