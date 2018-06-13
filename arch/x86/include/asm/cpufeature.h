@@ -198,6 +198,7 @@
 #define X86_FEATURE_HWP_EPP	( 7*32+13) /* Intel HWP_EPP */
 #define X86_FEATURE_HWP_PKG_REQ ( 7*32+14) /* Intel HWP_PKG_REQ */
 #define X86_FEATURE_INTEL_PT	( 7*32+15) /* Intel Processor Trace */
+#define X86_FEATURE_L1TF_PTEINV	( 7*32+29) /* "" L1TF workaround PTE inversion */
 
 /* Virtualization flags: Linux defined, word 8 */
 #define X86_FEATURE_TPR_SHADOW  ( 8*32+ 0) /* Intel TPR Shadow */
@@ -273,6 +274,7 @@
 #define X86_BUG_FXSAVE_LEAK	X86_BUG(6) /* FXSAVE leaks FOP/FIP/FOP */
 #define X86_BUG_CLFLUSH_MONITOR	X86_BUG(7) /* AAI65, CLFLUSH required before MONITOR */
 #define X86_BUG_SYSRET_SS_ATTRS	X86_BUG(8) /* SYSRET doesn't fix up SS attrs */
+#define X86_BUG_L1TF		X86_BUG(18) /* CPU is affected by L1 Terminal Fault */
 
 #if defined(__KERNEL__) && !defined(__ASSEMBLY__)
 
