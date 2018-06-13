@@ -18,6 +18,9 @@
 #include <asm/alternative.h>
 #include <asm/pgtable.h>
 #include <asm/cacheflush.h>
+#include <asm/e820.h>
+
+static void __init l1tf_select_mitigation(void);
 
 void __init check_bugs(void)
 {
@@ -27,6 +30,9 @@ void __init check_bugs(void)
 		pr_info("CPU: ");
 		print_cpu_info(&boot_cpu_data);
 	}
+
+	setup_force_cpu_bug(X86_BUG_L1TF);
+	l1tf_select_mitigation();
 
 #ifdef CONFIG_X86_32
 	/*
@@ -58,4 +64,31 @@ void __init check_bugs(void)
 	if (!direct_gbpages)
 		set_memory_4k((unsigned long)__va(0), 1);
 #endif
+}
+
+static void __init l1tf_select_mitigation(void)
+{
+	u64 half_pa;
+
+	if (!boot_cpu_has_bug(X86_BUG_L1TF))
+		return;
+
+#if CONFIG_PGTABLE_LEVELS == 2
+	pr_warn("Kernel not compiled for PAE. No mitigation for L1TF\n");
+	return;
+#endif
+
+	/*
+	 * This is extremely unlikely to happen because almost all
+	 * systems have far more MAX_PA/2 than RAM can be fit into
+	 * DIMM slots.
+	 */
+	half_pa = (u64)l1tf_pfn_limit() << PAGE_SHIFT;
+	if (e820_any_mapped(half_pa, ULLONG_MAX - half_pa, E820_RAM)) {
+		pr_warn("System has more than MAX_PA/2 memory. L1TF mitigation not effective.\n");
+		return;
+	}
+
+	setup_force_cpu_cap(X86_FEATURE_L1TF_PTEINV);
+	pr_warn("Enabled L1TF mitigations\n");
 }
