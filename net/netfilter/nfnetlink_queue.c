@@ -747,13 +747,13 @@ nf_queue_entry_dup(struct nf_queue_entry *e)
  */
 static void nf_bridge_adjust_skb_data(struct sk_buff *skb)
 {
-	if (skb->nf_bridge)
+	if (nf_bridge_info_get(skb))
 		__skb_push(skb, skb->network_header - skb->mac_header);
 }
 
 static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
 {
-	if (skb->nf_bridge)
+	if (nf_bridge_info_get(skb))
 		__skb_pull(skb, skb->network_header - skb->mac_header);
 }
 #else
@@ -926,7 +926,15 @@ static int
 dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
 {
 	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	int physinif, physoutif;
 
+	physinif = nf_bridge_get_physinif(entry->skb);
+	physoutif = nf_bridge_get_physoutif(entry->skb);
+
+	if (physinif == ifindex || physoutif == ifindex)
+		return 1;
+#endif
 	if (extra && extra->skb_dev && extra->skb_dev->ifindex == ifindex)
 		return 1;
 	if (entry->state.in)
@@ -935,17 +943,7 @@ dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
 	if (entry->state.out)
 		if (entry->state.out->ifindex == ifindex)
 			return 1;
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	if (entry->skb->nf_bridge) {
-		int physinif, physoutif;
 
-		physinif = nf_bridge_get_physinif(entry->skb);
-		physoutif = nf_bridge_get_physoutif(entry->skb);
-
-		if (physinif == ifindex || physoutif == ifindex)
-			return 1;
-	}
-#endif
 	return 0;
 }
 
