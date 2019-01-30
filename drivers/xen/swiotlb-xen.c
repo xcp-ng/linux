@@ -144,7 +144,8 @@ static int is_xen_swiotlb_buffer(dma_addr_t dma_addr)
 static int max_dma_bits = 32;
 
 static int
-xen_swiotlb_fixup(void *buf, size_t size, unsigned long nslabs)
+xen_swiotlb_fixup(void *buf, size_t size, unsigned long nslabs,
+		  unsigned long *contig_pages)
 {
 	int i, rc;
 	int dma_bits;
@@ -158,10 +159,13 @@ xen_swiotlb_fixup(void *buf, size_t size, unsigned long nslabs)
 		int slabs = min(nslabs - i, (unsigned long)IO_TLB_SEGSIZE);
 
 		do {
+			unsigned int order = get_order(slabs << IO_TLB_SHIFT);
 			rc = xen_create_contiguous_region(
 				p + (i << IO_TLB_SHIFT),
-				get_order(slabs << IO_TLB_SHIFT),
+				order,
 				dma_bits, &dma_handle);
+			if (rc == 0)
+				*contig_pages += 1 << order;
 		} while (rc && dma_bits++ < max_dma_bits);
 		if (rc)
 			return rc;
@@ -204,7 +208,7 @@ static const char *xen_swiotlb_error(enum xen_swiotlb_err err)
 }
 int __ref xen_swiotlb_init(int verbose, bool early)
 {
-	unsigned long bytes, order;
+	unsigned long bytes, order, contig_pages = 0;
 	int rc = -ENOMEM;
 	enum xen_swiotlb_err m_ret = XEN_SWIOTLB_UNKNOWN;
 	unsigned int repeat = 3;
@@ -244,10 +248,28 @@ retry:
 	 */
 	rc = xen_swiotlb_fixup(xen_io_tlb_start,
 			       bytes,
-			       xen_io_tlb_nslabs);
+			       xen_io_tlb_nslabs,
+			       &contig_pages);
 	if (rc) {
-		if (early)
+		if (early) {
+			unsigned long orig_bytes = bytes;
+			while (repeat-- > 0) {
+				xen_io_tlb_nslabs = max(1024UL, /* Min is 2MB */
+						      (xen_io_tlb_nslabs >> 1));
+				pr_info("Lowering to %luMB\n",
+				     (xen_io_tlb_nslabs << IO_TLB_SHIFT) >> 20);
+				bytes = xen_set_nslabs(xen_io_tlb_nslabs);
+				order = get_order(xen_io_tlb_nslabs << IO_TLB_SHIFT);
+				xen_io_tlb_end = xen_io_tlb_start + bytes;
+				if (contig_pages >= (1ul << order)) {
+					/* Enough pages were made contiguous */
+					free_bootmem(__pa(xen_io_tlb_start + bytes),
+						     PAGE_ALIGN(orig_bytes - bytes));
+					goto fixup_done;
+				}
+			}
 			free_bootmem(__pa(xen_io_tlb_start), PAGE_ALIGN(bytes));
+		}
 		else {
 			free_pages((unsigned long)xen_io_tlb_start, order);
 			xen_io_tlb_start = NULL;
@@ -255,6 +277,7 @@ retry:
 		m_ret = XEN_SWIOTLB_EFIXUP;
 		goto error;
 	}
+fixup_done:
 	start_dma_addr = xen_virt_to_bus(xen_io_tlb_start);
 	if (early) {
 		if (swiotlb_init_with_tbl(xen_io_tlb_start, xen_io_tlb_nslabs,
@@ -269,7 +292,7 @@ retry:
 
 	return rc;
 error:
-	if (repeat--) {
+	if (repeat-- > 0) {
 		xen_io_tlb_nslabs = max(1024UL, /* Min is 2MB */
 					(xen_io_tlb_nslabs >> 1));
 		pr_info("Lowering to %luMB\n",
