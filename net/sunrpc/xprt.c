@@ -75,6 +75,23 @@ static void	 xprt_destroy(struct rpc_xprt *xprt);
 static DEFINE_SPINLOCK(xprt_list_lock);
 static LIST_HEAD(xprt_list);
 
+static int xprt_request_timeout(const struct rpc_rqst *req, unsigned long *timeout)
+{
+	unsigned long ts = jiffies;
+
+	if (time_is_before_eq_jiffies(req->rq_majortimeo)) {
+		*timeout = 0;
+		return 1;
+	}
+
+	if (time_before(ts + req->rq_timeout, req->rq_majortimeo))
+		*timeout = req->rq_timeout;
+	else
+		*timeout = req->rq_majortimeo - ts;
+
+	return 0;
+}
+
 /**
  * xprt_register_transport - register a transport implementation
  * @transport: transport to register
@@ -232,7 +249,14 @@ int xprt_reserve_xprt(struct rpc_xprt *xprt, struct rpc_task *task)
 out_sleep:
 	dprintk("RPC: %5u failed to lock transport %p\n",
 			task->tk_pid, xprt);
-	task->tk_timeout = 0;
+	if  (RPC_IS_SOFT(task) && req) {
+		if (xprt_request_timeout(req, &task->tk_timeout)) {
+			task->tk_callback = NULL;
+			task->tk_status = -ETIMEDOUT;
+			return 0;
+		}
+	} else
+		task->tk_timeout = 0;
 	task->tk_status = -EAGAIN;
 	if (req == NULL)
 		priority = RPC_PRIORITY_LOW;
@@ -288,7 +312,14 @@ out_sleep:
 	if (req)
 		__xprt_put_cong(xprt, req);
 	dprintk("RPC: %5u failed to lock transport %p\n", task->tk_pid, xprt);
-	task->tk_timeout = 0;
+	if  (RPC_IS_SOFT(task) && req) {
+		if (xprt_request_timeout(req, &task->tk_timeout)) {
+			task->tk_callback = NULL;
+			task->tk_status = -ETIMEDOUT;
+			return 0;
+		}
+	} else
+		task->tk_timeout = 0;
 	task->tk_status = -EAGAIN;
 	if (req == NULL)
 		priority = RPC_PRIORITY_LOW;
@@ -533,7 +564,14 @@ void xprt_wait_for_buffer_space(struct rpc_task *task, rpc_action action)
 	struct rpc_rqst *req = task->tk_rqstp;
 	struct rpc_xprt *xprt = req->rq_xprt;
 
-	task->tk_timeout = RPC_IS_SOFT(task) ? req->rq_timeout : 0;
+	if (RPC_IS_SOFT(task)) {
+		if (xprt_request_timeout(req, &task->tk_timeout)) {
+			task->tk_callback = action;
+			task->tk_status = -ETIMEDOUT;
+			return;
+		}
+	} else
+		task->tk_timeout = 0;
 	rpc_sleep_on(&xprt->pending, task, action);
 }
 EXPORT_SYMBOL_GPL(xprt_wait_for_buffer_space);
@@ -567,7 +605,7 @@ EXPORT_SYMBOL_GPL(xprt_write_space);
  */
 void xprt_set_retrans_timeout_def(struct rpc_task *task)
 {
-	task->tk_timeout = task->tk_rqstp->rq_timeout;
+	xprt_request_timeout(task->tk_rqstp, &task->tk_timeout);
 }
 EXPORT_SYMBOL_GPL(xprt_set_retrans_timeout_def);
 
@@ -806,7 +844,11 @@ void xprt_connect(struct rpc_task *task)
 
 	if (!xprt_connected(xprt)) {
 		task->tk_rqstp->rq_bytes_sent = 0;
-		task->tk_timeout = task->tk_rqstp->rq_timeout;
+		if (xprt_request_timeout(task->tk_rqstp, &task->tk_timeout)) {
+			task->tk_callback = xprt_connect_status;
+			task->tk_status = -ETIMEDOUT;
+			return;
+		}
 		task->tk_rqstp->rq_connect_cookie = xprt->connect_cookie;
 		rpc_sleep_on(&xprt->pending, task, xprt_connect_status);
 
