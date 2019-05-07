@@ -44,7 +44,7 @@ int gfs2_lm_withdraw(struct gfs2_sbd *sdp, const char *fmt, ...)
 	struct va_format vaf;
 
 	if (sdp->sd_args.ar_errors == GFS2_ERRORS_WITHDRAW &&
-	    test_and_set_bit(SDF_SHUTDOWN, &sdp->sd_flags))
+	    test_and_set_bit(SDF_WITHDRAWN, &sdp->sd_flags))
 		return 0;
 
 	if (fmt) {
@@ -259,7 +259,7 @@ void gfs2_io_error_bh_i(struct gfs2_sbd *sdp, struct buffer_head *bh,
 			const char *function, char *file, unsigned int line,
 			bool withdraw)
 {
-	if (!test_bit(SDF_SHUTDOWN, &sdp->sd_flags))
+	if (!test_bit(SDF_WITHDRAWN, &sdp->sd_flags))
 		fs_err(sdp,
 		       "fatal: I/O error\n"
 		       "  block = %llu\n"
