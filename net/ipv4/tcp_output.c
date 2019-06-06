@@ -45,6 +45,8 @@
 
 #include <trace/events/tcp.h>
 
+int sysctl_tcp_min_snd_mss = TCP_MIN_SND_MSS;
+
 static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 			   int push_one, gfp_t gfp);
 
@@ -1461,8 +1463,7 @@ static inline int __tcp_mtu_to_mss(struct sock *sk, int pmtu)
 	mss_now -= icsk->icsk_ext_hdr_len;
 
 	/* Then reserve room for full set of TCP options and 8 bytes of data */
-	if (mss_now < TCP_MIN_SND_MSS)
-		mss_now = TCP_MIN_SND_MSS;
+	mss_now = max(mss_now, sysctl_tcp_min_snd_mss);
 	return mss_now;
 }
 
