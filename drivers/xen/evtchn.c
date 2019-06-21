@@ -423,6 +423,8 @@ static void evtchn_unbind_from_user(struct per_user_data *u,
 
 static DEFINE_PER_CPU(int, bind_last_selected_cpu);
 
+int xen_set_affinity_evtchn(struct irq_desc *desc, unsigned int tcpu);
+
 static void evtchn_bind_interdom_next_vcpu(int evtchn)
 {
 	unsigned int selected_cpu, irq;
@@ -447,7 +449,7 @@ static void evtchn_bind_interdom_next_vcpu(int evtchn)
 	this_cpu_write(bind_last_selected_cpu, selected_cpu);
 
 	/* unmask expects irqs to be disabled */
-	xen_rebind_evtchn_to_cpu(evtchn, selected_cpu);
+	xen_set_affinity_evtchn(desc, selected_cpu);
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
 }
 
