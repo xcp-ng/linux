@@ -947,6 +947,7 @@ out:
 	brelse(dibh);
 	return error;
 }
+
 /**
  * calc_max_reserv() - Reverse of write_calc_reserv. Given a number of
  *                     blocks, determine how many bytes can be written.
