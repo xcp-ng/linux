@@ -105,11 +105,13 @@ early_param("efi_no_storage_paranoia", setup_storage_paranoia);
 */
 void efi_delete_dummy_variable(void)
 {
-	efi.set_variable_nonblocking((efi_char16_t *)efi_dummy_name,
-				     &EFI_DUMMY_GUID,
-				     EFI_VARIABLE_NON_VOLATILE |
-				     EFI_VARIABLE_BOOTSERVICE_ACCESS |
-				     EFI_VARIABLE_RUNTIME_ACCESS, 0, NULL);
+	efi_set_variable_t *set_variable = efi.set_variable_nonblocking ?:
+					   efi.set_variable;
+
+	set_variable((efi_char16_t *)efi_dummy_name, &EFI_DUMMY_GUID,
+		     EFI_VARIABLE_NON_VOLATILE |
+		     EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		     EFI_VARIABLE_RUNTIME_ACCESS, 0, NULL);
 }
 
 /*
@@ -126,10 +128,12 @@ query_variable_store_nonblocking(u32 attributes, unsigned long size)
 {
 	efi_status_t status;
 	u64 storage_size, remaining_size, max_size;
+	efi_query_variable_info_t *query_variable_info =
+		efi.query_variable_info_nonblocking ?:
+		efi.query_variable_info;
 
-	status = efi.query_variable_info_nonblocking(attributes, &storage_size,
-						     &remaining_size,
-						     &max_size);
+	status = query_variable_info(attributes, &storage_size,
+				     &remaining_size, &max_size);
 	if (status != EFI_SUCCESS)
 		return status;
 
