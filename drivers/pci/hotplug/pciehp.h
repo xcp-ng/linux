@@ -127,6 +127,7 @@ struct controller {
 	atomic_t pending_events;
 	int request_result;
 	wait_queue_head_t requester;
+	unsigned int inband_presence_disabled:1;
 };
 
 /**
