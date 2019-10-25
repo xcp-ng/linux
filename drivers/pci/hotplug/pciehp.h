@@ -132,6 +132,7 @@ struct controller {
 	unsigned int ist_running;
 	int request_result;
 	wait_queue_head_t requester;
+	unsigned int inband_presence_disabled:1;
 };
 
 /**
