@@ -99,6 +99,7 @@ __acquires(&sdp->sd_ail_lock)
 	struct address_space *mapping;
 	struct gfs2_bufdata *bd, *s;
 	struct buffer_head *bh;
+	int ret = 0;
 
 	list_for_each_entry_safe_reverse(bd, s, &tr->tr_ail1_list, bd_ail_st_list) {
 		bh = bd->bd_bh;
@@ -131,14 +132,14 @@ __acquires(&sdp->sd_ail_lock)
 		if (!mapping)
 			continue;
 		spin_unlock(&sdp->sd_ail_lock);
-		generic_writepages(mapping, wbc);
+		ret = generic_writepages(mapping, wbc);
 		spin_lock(&sdp->sd_ail_lock);
-		if (wbc->nr_to_write <= 0)
+		if (ret || wbc->nr_to_write <= 0)
 			break;
-		return 1;
+		return -EBUSY;
 	}
 
-	return 0;
+	return ret;
 }
 
 
@@ -156,6 +157,7 @@ void gfs2_ail1_flush(struct gfs2_sbd *sdp, struct writeback_control *wbc)
 	struct list_head *head = &sdp->sd_ail1_list;
 	struct gfs2_trans *tr;
 	struct blk_plug plug;
+	int ret = 0;
 
 	trace_gfs2_ail_flush(sdp, wbc, 1);
 	blk_start_plug(&plug);
@@ -164,12 +166,16 @@ restart:
 	list_for_each_entry_reverse(tr, head, tr_list) {
 		if (wbc->nr_to_write <= 0)
 			break;
-		if (gfs2_ail1_start_one(sdp, wbc, tr) && !gfs2_withdrawn(sdp))
-			goto restart;
+		ret = gfs2_ail1_start_one(sdp, wbc, tr);
+		if (ret) {
+			if (ret == -EBUSY)
+				goto restart;
+			break;
+		}
 	}
 	spin_unlock(&sdp->sd_ail_lock);
 	blk_finish_plug(&plug);
-	if (test_bit(SDF_WITHDRAWING, &sdp->sd_flags))
+	if (ret)
 		gfs2_withdraw(sdp);
 	trace_gfs2_ail_flush(sdp, wbc, 0);
 }
