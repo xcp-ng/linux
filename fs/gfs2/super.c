@@ -1019,12 +1019,12 @@ static int gfs2_freeze(struct super_block *sb)
 		goto out;
 	}
 
-	if (gfs2_withdrawn(sdp)) {
-		error = -EINVAL;
-		goto out;
-	}
-
 	for (;;) {
+		if (gfs2_withdrawn(sdp)) {
+			error = -EINVAL;
+			goto out;
+		}
+
 		error = gfs2_lock_fs_check_clean(sdp, &sdp->sd_freeze_gh);
 		if (!error)
 			break;
