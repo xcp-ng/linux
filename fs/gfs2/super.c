@@ -318,7 +318,7 @@ void gfs2_jindex_free(struct gfs2_sbd *sdp)
 
 	sdp->sd_jdesc = NULL;
 	while (!list_empty(&list)) {
-		jd = list_entry(list.next, struct gfs2_jdesc, jd_list);
+		jd = list_first_entry(&list, struct gfs2_jdesc, jd_list);
 		gfs2_free_journal_extents(jd);
 		list_del(&jd->jd_list);
 		iput(jd->jd_inode);
@@ -707,7 +707,7 @@ static int gfs2_lock_fs_check_clean(struct gfs2_sbd *sdp)
 
 out:
 	while (!list_empty(&list)) {
-		lfcc = list_entry(list.next, struct lfcc, list);
+		lfcc = list_first_entry(&list, struct lfcc, list);
 		list_del(&lfcc->list);
 		gfs2_glock_dq_uninit(&lfcc->gh);
 		kfree(lfcc);
