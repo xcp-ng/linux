@@ -90,6 +90,7 @@ long ksys_ioperm(unsigned long from, unsigned long num, int turn_on)
 
 	/* Update the TSS: */
 	memcpy(tss->io_bitmap, t->io_bitmap_ptr, bytes_updated);
+	tss_update_io_bitmap();
 
 	put_cpu();
 
