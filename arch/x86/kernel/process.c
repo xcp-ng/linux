@@ -119,6 +119,7 @@ void exit_thread(struct task_struct *tsk)
 		 * Careful, clear this in the TSS too:
 		 */
 		memset(tss->io_bitmap, 0xff, t->io_bitmap_max);
+		tss_update_io_bitmap();
 		t->io_bitmap_max = 0;
 		put_cpu();
 		kfree(bp);
@@ -272,11 +273,13 @@ static inline void switch_to_bitmap(struct thread_struct *prev,
 		 * to notice the IO bitmap.
 		 */
 		refresh_tss_limit();
+		tss_update_io_bitmap();
 	} else if (tifp & _TIF_IO_BITMAP) {
 		/*
 		 * Clear any possible leftover bits:
 		 */
 		memset(tss->io_bitmap, 0xff, prev->io_bitmap_max);
+		tss_update_io_bitmap();
 	}
 }
 
