@@ -273,6 +273,11 @@ static inline void slow_down_io(void)
 #endif
 }
 
+static inline void tss_update_io_bitmap(void)
+{
+	PVOP_VCALL0(pv_cpu_ops_ext.update_io_bitmap);
+}
+
 static inline void paravirt_activate_mm(struct mm_struct *prev,
 					struct mm_struct *next)
 {
