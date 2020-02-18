@@ -178,6 +178,10 @@ struct pv_cpu_ops {
 	void (*end_context_switch)(struct task_struct *next);
 } __no_randomize_layout;
 
+struct pv_cpu_ops_ext {
+        void (*update_io_bitmap)(void);
+} __no_randomize_layout;
+
 struct pv_irq_ops {
 	/*
 	 * Get/set interrupt state.  save_fl and restore_fl are only
@@ -327,12 +331,14 @@ struct paravirt_patch_template {
 	struct pv_irq_ops pv_irq_ops;
 	struct pv_mmu_ops pv_mmu_ops;
 	struct pv_lock_ops pv_lock_ops;
+	struct pv_cpu_ops_ext pv_cpu_ops_ext;
 } __no_randomize_layout;
 
 extern struct pv_info pv_info;
 extern struct pv_init_ops pv_init_ops;
 extern struct pv_time_ops pv_time_ops;
 extern struct pv_cpu_ops pv_cpu_ops;
+extern struct pv_cpu_ops_ext pv_cpu_ops_ext;
 extern struct pv_irq_ops pv_irq_ops;
 extern struct pv_mmu_ops pv_mmu_ops;
 extern struct pv_lock_ops pv_lock_ops;
