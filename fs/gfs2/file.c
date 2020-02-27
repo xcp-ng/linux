@@ -445,7 +445,7 @@ static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 
 	sb_start_pagefault(inode->i_sb);
 
-	ret = gfs2_qa_alloc(ip);
+	ret = gfs2_qa_get(ip);
 	if (ret)
 		goto out;
 
@@ -540,6 +540,7 @@ out_quota_unlock:
 out_unlock:
 	gfs2_glock_dq(&gh);
 out_uninit:
+	gfs2_qa_put(ip);
 	gfs2_holder_uninit(&gh);
 	if (ret == 0) {
 		set_page_dirty(page);
@@ -622,7 +623,17 @@ int gfs2_open_common(struct inode *inode, struct file *file)
 
 	gfs2_assert_warn(GFS2_SB(inode), !file->private_data);
 	file->private_data = fp;
+	if (file->f_mode & FMODE_WRITE) {
+		ret = gfs2_qa_get(GFS2_I(inode));
+		if (ret)
+			goto fail;
+	}
 	return 0;
+
+fail:
+	kfree(file->private_data);
+	file->private_data = NULL;
+	return ret;
 }
 
 /**
@@ -677,10 +688,8 @@ static int gfs2_release(struct inode *inode, struct file *file)
 	kfree(file->private_data);
 	file->private_data = NULL;
 
-	if (!(file->f_mode & FMODE_WRITE))
-		return 0;
-
-	gfs2_rsqa_delete(ip, &inode->i_writecount);
+	if (file->f_mode & FMODE_WRITE)
+		gfs2_rsqa_delete(ip, &inode->i_writecount);
 	return 0;
 }
 
@@ -834,7 +843,7 @@ static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	struct gfs2_inode *ip = GFS2_I(inode);
 	ssize_t ret;
 
-	ret = gfs2_qa_alloc(ip);
+	ret = gfs2_qa_get(ip);
 	if (ret)
 		return ret;
 
@@ -845,7 +854,7 @@ static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 		ret = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, 0, &gh);
 		if (ret)
-			return ret;
+			goto out;
 		gfs2_glock_dq_uninit(&gh);
 	}
 
@@ -903,6 +912,8 @@ static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 out_unlock:
 	inode_unlock(inode);
+out:
+	gfs2_qa_put(ip);
 	return ret;
 }
 
@@ -1134,7 +1145,7 @@ static long gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t le
 	if (mode & FALLOC_FL_PUNCH_HOLE) {
 		ret = __gfs2_punch_hole(file, offset, len);
 	} else {
-		ret = gfs2_qa_alloc(ip);
+		ret = gfs2_qa_get(ip);
 		if (ret)
 			goto out_putw;
 
@@ -1142,6 +1153,7 @@ static long gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t le
 
 		if (ret)
 			gfs2_rs_deltree(&ip->i_res);
+		gfs2_qa_put(ip);
 	}
 
 out_putw:
@@ -1160,14 +1172,17 @@ static ssize_t gfs2_file_splice_write(struct pipe_inode_info *pipe,
 {
 	int error;
 	struct gfs2_inode *ip = GFS2_I(out->f_mapping->host);
+	ssize_t ret;
 
-	error = gfs2_qa_alloc(ip);
+	error = gfs2_qa_get(ip);
 	if (error)
 		return (ssize_t)error;
 
 	gfs2_size_hint(out, *ppos, len);
 
-	return iter_file_splice_write(pipe, out, ppos, len, flags);
+	ret = iter_file_splice_write(pipe, out, ppos, len, flags);
+	gfs2_qa_put(ip);
+	return ret;
 }
 
 #ifdef CONFIG_GFS2_FS_LOCKING_DLM
