@@ -570,7 +570,7 @@ int gfs2_quota_hold(struct gfs2_inode *ip, kuid_t uid, kgid_t gid)
 		return 0;
 
 	if (ip->i_qadata == NULL) {
-		error = gfs2_rsqa_alloc(ip);
+		error = gfs2_qa_alloc(ip);
 		if (error)
 			return error;
 	}
@@ -879,7 +879,7 @@ static int do_sync(unsigned int num_qd, struct gfs2_quota_data **qda)
 	unsigned int nalloc = 0, blocks;
 	int error;
 
-	error = gfs2_rsqa_alloc(ip);
+	error = gfs2_qa_alloc(ip);
 	if (error)
 		return error;
 
@@ -1680,7 +1680,7 @@ static int gfs2_set_dqblk(struct super_block *sb, struct kqid qid,
 	if (error)
 		return error;
 
-	error = gfs2_rsqa_alloc(ip);
+	error = gfs2_qa_alloc(ip);
 	if (error)
 		goto out_put;
 
