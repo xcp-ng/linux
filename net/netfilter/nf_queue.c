@@ -377,13 +377,10 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
 
 	hooks = nf_hook_entries_head(net, pf, entry->state.hook);
 
-	nf_queue_entry_release_refs(entry);
-
 	i = entry->hook_index;
 	if (WARN_ON_ONCE(!hooks || i >= hooks->num_hook_entries)) {
 		kfree_skb(skb);
-		shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
-		kfree(entry);
+		nf_queue_entry_free(entry);
 		return;
 	}
 
@@ -422,7 +419,6 @@ next_hook:
 		kfree_skb(skb);
 	}
 
-	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
-	kfree(entry);
+	nf_queue_entry_free(entry);
 }
 EXPORT_SYMBOL(nf_reinject);
