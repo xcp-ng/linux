@@ -80,6 +80,14 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 }
 EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 
+void nf_queue_entry_free(struct nf_queue_entry *entry)
+{
+	nf_queue_entry_release_refs(entry);
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
+	kfree(entry);
+}
+EXPORT_SYMBOL_GPL(nf_queue_entry_free);
+
 static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry,
 					   struct nf_queue_entry_extra *extra)
 {
