@@ -2541,4 +2541,6 @@ static inline bool sk_dev_equal_l3scope(struct sock *sk, int dif)
 	return false;
 }
 
+void sock_set_reuseaddr(struct sock *sk);
+
 #endif	/* _SOCK_H */
