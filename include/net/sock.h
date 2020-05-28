@@ -2543,5 +2543,6 @@ static inline bool sk_dev_equal_l3scope(struct sock *sk, int dif)
 
 void sock_set_reuseaddr(struct sock *sk);
 void sock_set_sndtimeo(struct sock *sk, s64 secs);
+void sock_set_keepalive(struct sock *sk);
 
 #endif	/* _SOCK_H */
