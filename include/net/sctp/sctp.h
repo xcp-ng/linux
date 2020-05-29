@@ -620,4 +620,11 @@ static inline bool sctp_transport_pmtu_check(struct sctp_transport *t)
 	return false;
 }
 
+static inline void sctp_sock_set_nodelay(struct sock *sk)
+{
+	lock_sock(sk);
+	sctp_sk(sk)->nodelay = true;
+	release_sock(sk);
+}
+
 #endif /* __net_sctp_h__ */
