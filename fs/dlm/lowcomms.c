@@ -128,6 +128,7 @@ struct connection {
 	struct work_struct rwork; /* Receive workqueue */
 	struct work_struct swork; /* Send workqueue */
 	wait_queue_head_t shutdown_wait; /* wait for graceful shutdown */
+	struct rcu_head rcu;
 };
 #define sock2con(x) ((struct connection *)(x)->sk_user_data)
 
@@ -169,8 +170,8 @@ static struct workqueue_struct *recv_workqueue;
 static struct workqueue_struct *send_workqueue;
 
 static struct hlist_head connection_hash[CONN_HASH_SIZE];
-static DEFINE_MUTEX(connections_lock);
-static struct kmem_cache *con_cache;
+static DEFINE_SPINLOCK(connections_lock);
+DEFINE_STATIC_SRCU(connections_srcu);
 
 static void process_recv_sockets(struct work_struct *work);
 static void process_send_sockets(struct work_struct *work);
@@ -186,15 +187,20 @@ static inline int nodeid_hash(int nodeid)
 
 static struct connection *__find_con(int nodeid)
 {
-	int r;
+	int r, idx;
 	struct connection *con;
 
 	r = nodeid_hash(nodeid);
 
-	hlist_for_each_entry(con, &connection_hash[r], list) {
-		if (con->nodeid == nodeid)
+	idx = srcu_read_lock(&connections_srcu);
+	hlist_for_each_entry_rcu(con, &connection_hash[r], list) {
+		if (con->nodeid == nodeid) {
+			srcu_read_unlock(&connections_srcu, idx);
 			return con;
+		}
 	}
+	srcu_read_unlock(&connections_srcu, idx);
+
 	return NULL;
 }
 
@@ -202,7 +208,7 @@ static struct connection *__find_con(int nodeid)
  * If 'allocation' is zero then we don't attempt to create a new
  * connection structure for this node.
  */
-static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
+static struct connection *nodeid2con(int nodeid, gfp_t alloc)
 {
 	struct connection *con = NULL;
 	int r;
@@ -211,12 +217,9 @@ static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
 	if (con || !alloc)
 		return con;
 
-	con = kmem_cache_zalloc(con_cache, alloc);
+	con = kzalloc(sizeof(*con), alloc);
 	if (!con)
 		return NULL;
-
-	r = nodeid_hash(nodeid);
-	hlist_add_head(&con->list, &connection_hash[r]);
 
 	con->nodeid = nodeid;
 	mutex_init(&con->sock_mutex);
@@ -235,31 +238,27 @@ static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
 			con->rx_action = zerocon->rx_action;
 	}
 
+	r = nodeid_hash(nodeid);
+
+	spin_lock(&connections_lock);
+	hlist_add_head_rcu(&con->list, &connection_hash[r]);
+	spin_unlock(&connections_lock);
+
 	return con;
 }
 
 /* Loop round all connections */
 static void foreach_conn(void (*conn_func)(struct connection *c))
 {
-	int i;
-	struct hlist_node *n;
+	int i, idx;
 	struct connection *con;
 
+	idx = srcu_read_lock(&connections_srcu);
 	for (i = 0; i < CONN_HASH_SIZE; i++) {
-		hlist_for_each_entry_safe(con, n, &connection_hash[i], list)
+		hlist_for_each_entry_rcu(con, &connection_hash[i], list)
 			conn_func(con);
 	}
-}
-
-static struct connection *nodeid2con(int nodeid, gfp_t allocation)
-{
-	struct connection *con;
-
-	mutex_lock(&connections_lock);
-	con = __nodeid2con(nodeid, allocation);
-	mutex_unlock(&connections_lock);
-
-	return con;
+	srcu_read_unlock(&connections_srcu, idx);
 }
 
 static struct dlm_node_addr *find_node_addr(int nodeid)
@@ -794,12 +793,9 @@ static int accept_from_sock(struct connection *con)
 	struct connection *newcon;
 	struct connection *addcon;
 
-	mutex_lock(&connections_lock);
 	if (!dlm_allow_conn) {
-		mutex_unlock(&connections_lock);
 		return -1;
 	}
-	mutex_unlock(&connections_lock);
 
 	mutex_lock_nested(&con->sock_mutex, 0);
 
@@ -849,7 +845,7 @@ static int accept_from_sock(struct connection *con)
 		struct connection *othercon = newcon->othercon;
 
 		if (!othercon) {
-			othercon = kmem_cache_zalloc(con_cache, GFP_NOFS);
+			othercon = kzalloc(sizeof(*othercon), GFP_NOFS);
 			if (!othercon) {
 				log_print("failed to allocate incoming socket");
 				mutex_unlock(&newcon->sock_mutex);
@@ -1617,16 +1613,17 @@ static void free_conn(struct connection *con)
 {
 	close_connection(con, true, true, true);
 	if (con->othercon)
-		kmem_cache_free(con_cache, con->othercon);
-	hlist_del(&con->list);
-	kmem_cache_free(con_cache, con);
+		kfree_rcu(con->othercon, rcu);
+	spin_lock(&connections_lock);
+	hlist_del_rcu(&con->list);
+	spin_unlock(&connections_lock);
+	kfree_rcu(con, rcu);
 }
 
 static void work_flush(void)
 {
-	int ok;
+	int ok, idx;
 	int i;
-	struct hlist_node *n;
 	struct connection *con;
 
 	do {
@@ -1636,9 +1633,10 @@ static void work_flush(void)
 			flush_workqueue(recv_workqueue);
 		if (send_workqueue)
 			flush_workqueue(send_workqueue);
+		idx = srcu_read_lock(&connections_srcu);
 		for (i = 0; i < CONN_HASH_SIZE && ok; i++) {
-			hlist_for_each_entry_safe(con, n,
-						  &connection_hash[i], list) {
+			hlist_for_each_entry_rcu(con, &connection_hash[i],
+						 list) {
 				ok &= test_bit(CF_READ_PENDING, &con->flags);
 				ok &= test_bit(CF_WRITE_PENDING, &con->flags);
 				if (con->othercon) {
@@ -1649,6 +1647,7 @@ static void work_flush(void)
 				}
 			}
 		}
+		srcu_read_unlock(&connections_srcu, idx);
 	} while (!ok);
 }
 
@@ -1657,9 +1656,7 @@ void dlm_lowcomms_stop(void)
 	/* Set all the flags to prevent any
 	   socket activity.
 	*/
-	mutex_lock(&connections_lock);
 	dlm_allow_conn = 0;
-	mutex_unlock(&connections_lock);
 
 	if (recv_workqueue)
 		flush_workqueue(recv_workqueue);
@@ -1671,8 +1668,6 @@ void dlm_lowcomms_stop(void)
 	clean_writequeues();
 	foreach_conn(free_conn);
 	work_stop();
-
-	kmem_cache_destroy(con_cache);
 }
 
 int dlm_lowcomms_start(void)
@@ -1691,16 +1686,9 @@ int dlm_lowcomms_start(void)
 		goto fail;
 	}
 
-	error = -ENOMEM;
-	con_cache = kmem_cache_create("dlm_conn", sizeof(struct connection),
-				      __alignof__(struct connection), 0,
-				      NULL);
-	if (!con_cache)
-		goto fail;
-
 	error = work_start();
 	if (error)
-		goto fail_destroy;
+		goto fail;
 
 	dlm_allow_conn = 1;
 
@@ -1719,10 +1707,8 @@ fail_unlisten:
 	con = nodeid2con(0,0);
 	if (con) {
 		close_connection(con, false, true, true);
-		kmem_cache_free(con_cache, con);
+		kfree_rcu(con, rcu);
 	}
-fail_destroy:
-	kmem_cache_destroy(con_cache);
 fail:
 	return error;
 }
