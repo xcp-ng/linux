@@ -1555,13 +1555,6 @@ static void process_send_sockets(struct work_struct *work)
 		send_to_sock(con);
 }
 
-
-/* Discard all entries on the write queues */
-static void clean_writequeues(void)
-{
-	foreach_conn(clean_one_writequeue);
-}
-
 static void work_stop(void)
 {
 	if (recv_workqueue)
@@ -1625,6 +1618,7 @@ static void free_conn(struct connection *con)
 	spin_lock(&connections_lock);
 	hlist_del_rcu(&con->list);
 	spin_unlock(&connections_lock);
+	clean_one_writequeue(con);
 	kfree_rcu(con, rcu);
 }
 
@@ -1673,7 +1667,6 @@ void dlm_lowcomms_stop(void)
 
 	foreach_conn(shutdown_conn);
 	work_flush();
-	clean_writequeues();
 	foreach_conn(free_conn);
 	work_stop();
 	deinit_local();
