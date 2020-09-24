@@ -792,6 +792,7 @@ static int accept_from_sock(struct connection *con)
 	int nodeid;
 	struct connection *newcon;
 	struct connection *addcon;
+	unsigned int mark;
 
 	if (!dlm_allow_conn) {
 		return -1;
@@ -827,6 +828,9 @@ static int accept_from_sock(struct connection *con)
 		mutex_unlock(&con->sock_mutex);
 		return -1;
 	}
+
+	dlm_comm_mark(nodeid, &mark);
+	sock_set_mark(newsock->sk, mark);
 
 	log_print("got connection from %d", nodeid);
 
@@ -976,9 +980,7 @@ static void sctp_connect_to_sock(struct connection *con)
 		return;
 	}
 
-	result = dlm_comm_mark(con->nodeid, &mark);
-	if (result < 0)
-		return;
+	dlm_comm_mark(con->nodeid, &mark);
 
 	mutex_lock(&con->sock_mutex);
 
@@ -1076,9 +1078,7 @@ static void tcp_connect_to_sock(struct connection *con)
 		return;
 	}
 
-	result = dlm_comm_mark(con->nodeid, &mark);
-	if (result < 0)
-		return;
+	dlm_comm_mark(con->nodeid, &mark);
 
 	mutex_lock(&con->sock_mutex);
 	if (con->retries++ > MAX_CONNECT_RETRIES)
