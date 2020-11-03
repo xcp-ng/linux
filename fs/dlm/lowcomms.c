@@ -146,6 +146,7 @@ static void process_send_sockets(struct work_struct *work);
 
 static void sctp_connect_to_sock(struct connection *con);
 static void tcp_connect_to_sock(struct connection *con);
+static void dlm_tcp_shutdown(struct connection *con);
 
 /* This is deliberately very simple because most clusters have simple
    sequential nodeids, so we should be able to go straight to a connection
@@ -189,10 +190,12 @@ static int dlm_con_init(struct connection *con, int nodeid)
 	INIT_WORK(&con->rwork, process_recv_sockets);
 	init_waitqueue_head(&con->shutdown_wait);
 
-	if (dlm_config.ci_protocol == 0)
+	if (dlm_config.ci_protocol == 0) {
 		con->connect_action = tcp_connect_to_sock;
-	else
+		con->shutdown_action = dlm_tcp_shutdown;
+	} else {
 		con->connect_action = sctp_connect_to_sock;
+	}
 
 	return 0;
 }
@@ -1106,7 +1109,6 @@ static void tcp_connect_to_sock(struct connection *con)
 	}
 
 	con->rx_action = receive_from_sock;
-	con->shutdown_action = dlm_tcp_shutdown;
 	add_sock(sock, con);
 
 	/* Bind to our cluster-known address connecting to avoid
