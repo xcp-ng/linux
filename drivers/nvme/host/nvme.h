@@ -237,6 +237,11 @@ struct nvme_ctrl {
 	u16 maxcmd;
 	int nr_reconnects;
 	struct nvmf_ctrl_options *opts;
+#ifndef __GENKSYMS__
+	struct delayed_work failfast_work;
+	unsigned long flags;
+#endif
+#define NVME_CTRL_FAILFAST_EXPIRED	0
 };
 
 struct nvme_subsystem {
