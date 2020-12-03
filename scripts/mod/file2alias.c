@@ -1365,6 +1365,15 @@ static int do_typec_entry(const char *filename, void *symval, char *alias)
 }
 ADD_TO_DEVTABLE("typec", typec_device_id, do_typec_entry);
 
+static int do_auxiliary_entry(const char *filename, void *symval, char *alias)
+{
+	DEF_FIELD_ADDR(symval, auxiliary_device_id, name);
+	sprintf(alias, AUXILIARY_MODULE_PREFIX "%s", *name);
+
+	return 1;
+}
+ADD_TO_DEVTABLE("auxiliary", auxiliary_device_id, do_auxiliary_entry);
+
 /* Does namelen bytes of name exactly match the symbol? */
 static bool sym_is(const char *name, unsigned namelen, const char *symbol)
 {
