@@ -64,6 +64,15 @@ struct xenbus_watch
 			 const char *path, const char *token);
 };
 
+struct xenbus_watch_extra
+{
+	/*
+	 * Called just before enqueing new event while a spinlock is held.
+	 * The event will be discarded if this callback returns false.
+	 */
+	bool (*will_handle)(struct xenbus_watch *,
+			      const char *path, const char *token);
+};
 
 /* A xenbus device. */
 struct xenbus_device {
