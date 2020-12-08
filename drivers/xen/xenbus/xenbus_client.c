@@ -36,6 +36,7 @@
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/export.h>
+#include <linux/shadow_var.h>
 #include <asm/xen/hypervisor.h>
 #include <xen/page.h>
 #include <xen/interface/xen.h>
@@ -118,8 +119,12 @@ int xenbus_watch_path(struct xenbus_device *dev, const char *path,
 				       const char *, const char *))
 {
 	int err;
+	struct xenbus_watch_extra *extra;
 
 	watch->node = path;
+	extra = shadow_var_get(watch, "extra");
+	if (extra)
+		extra->will_handle = NULL;
 	watch->callback = callback;
 
 	err = register_xenbus_watch(watch);
