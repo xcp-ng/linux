@@ -203,11 +203,25 @@ int xenbus_watch_path(struct xenbus_device *dev, const char *path,
 		      struct xenbus_watch *watch,
 		      void (*callback)(struct xenbus_watch *,
 				       const char *, const char *));
+int xenbus_watch_path_abi(struct xenbus_device *dev, const char *path,
+			  struct xenbus_watch *watch,
+			  bool (*will_handle)(struct xenbus_watch *,
+					      const char *, const char *),
+			  void (*callback)(struct xenbus_watch *,
+					   const char *, const char *));
 __printf(4, 5)
 int xenbus_watch_pathfmt(struct xenbus_device *dev, struct xenbus_watch *watch,
 			 void (*callback)(struct xenbus_watch *,
 					  const char *, const char *),
 			 const char *pathfmt, ...);
+__printf(5, 6)
+int xenbus_watch_pathfmt_abi(struct xenbus_device *dev,
+			     struct xenbus_watch *watch,
+			     bool (*will_handle)(struct xenbus_watch *,
+						 const char *, const char *),
+			     void (*callback)(struct xenbus_watch *,
+					      const char *, const char *),
+			     const char *pathfmt, ...);
 
 int xenbus_switch_state(struct xenbus_device *dev, enum xenbus_state new_state);
 int xenbus_grant_ring(struct xenbus_device *dev, void *vaddr,
