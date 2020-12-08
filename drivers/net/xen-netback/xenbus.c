@@ -21,6 +21,7 @@
 #include "common.h"
 #include <linux/vmalloc.h>
 #include <linux/rtnetlink.h>
+#include <linux/shadow_var.h>
 
 struct backend_info {
 	struct xenbus_device *dev;
@@ -768,6 +769,7 @@ static int xen_register_credit_watch(struct xenbus_device *dev,
 	int err = 0;
 	char *node;
 	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
+	struct xenbus_watch_extra *extra;
 
 	if (vif->credit_watch.node)
 		return -EADDRINUSE;
@@ -775,8 +777,18 @@ static int xen_register_credit_watch(struct xenbus_device *dev,
 	node = kmalloc(maxlen, GFP_KERNEL);
 	if (!node)
 		return -ENOMEM;
+
+	extra = shadow_var_alloc(&vif->credit_watch, "extra", sizeof(*extra),
+				    GFP_KERNEL);
+	if (!extra)
+	{
+		kfree(node);
+		return -ENOMEM;
+	}
+
 	snprintf(node, maxlen, "%s/rate", dev->nodename);
 	vif->credit_watch.node = node;
+	extra->will_handle = NULL;
 	vif->credit_watch.callback = xen_net_rate_changed;
 	err = register_xenbus_watch(&vif->credit_watch);
 	if (err) {
@@ -784,6 +796,7 @@ static int xen_register_credit_watch(struct xenbus_device *dev,
 		kfree(node);
 		vif->credit_watch.node = NULL;
 		vif->credit_watch.callback = NULL;
+		shadow_var_free(&vif->credit_watch, "extra");
 	}
 	return err;
 }
@@ -794,6 +807,7 @@ static void xen_unregister_credit_watch(struct xenvif *vif)
 		unregister_xenbus_watch(&vif->credit_watch);
 		kfree(vif->credit_watch.node);
 		vif->credit_watch.node = NULL;
+		shadow_var_free(&vif->credit_watch, "extra");
 	}
 }
 
@@ -815,6 +829,7 @@ static int xen_register_mcast_ctrl_watch(struct xenbus_device *dev,
 	char *node;
 	unsigned maxlen = strlen(dev->otherend) +
 		sizeof("/request-multicast-control");
+	struct xenbus_watch_extra *extra;
 
 	if (vif->mcast_ctrl_watch.node) {
 		pr_err_ratelimited("Watch is already registered\n");
@@ -826,9 +841,20 @@ static int xen_register_mcast_ctrl_watch(struct xenbus_device *dev,
 		pr_err("Failed to allocate memory for watch\n");
 		return -ENOMEM;
 	}
+
+	extra = shadow_var_alloc(&vif->mcast_ctrl_watch, "extra",
+				    sizeof(*extra), GFP_KERNEL);
+	if (!extra)
+	{
+		kfree(node);
+		pr_err("Failed to allocate memory for watch\n");
+		return -ENOMEM;
+	}
+
 	snprintf(node, maxlen, "%s/request-multicast-control",
 		 dev->otherend);
 	vif->mcast_ctrl_watch.node = node;
+	extra->will_handle = NULL;
 	vif->mcast_ctrl_watch.callback = xen_mcast_ctrl_changed;
 	err = register_xenbus_watch(&vif->mcast_ctrl_watch);
 	if (err) {
@@ -836,6 +862,7 @@ static int xen_register_mcast_ctrl_watch(struct xenbus_device *dev,
 		       vif->mcast_ctrl_watch.node);
 		kfree(node);
 		vif->mcast_ctrl_watch.node = NULL;
+		shadow_var_free(&vif->mcast_ctrl_watch, "extra");
 		vif->mcast_ctrl_watch.callback = NULL;
 	}
 	return err;
@@ -847,6 +874,7 @@ static void xen_unregister_mcast_ctrl_watch(struct xenvif *vif)
 		unregister_xenbus_watch(&vif->mcast_ctrl_watch);
 		kfree(vif->mcast_ctrl_watch.node);
 		vif->mcast_ctrl_watch.node = NULL;
+		shadow_var_free(&vif->mcast_ctrl_watch, "extra");
 	}
 }
 
