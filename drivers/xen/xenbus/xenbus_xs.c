@@ -46,6 +46,7 @@
 #include <linux/reboot.h>
 #include <linux/rwsem.h>
 #include <linux/mutex.h>
+#include <linux/shadow_var.h>
 #include <asm/xen/hypervisor.h>
 #include <xen/xenbus.h>
 #include <xen/xen.h>
@@ -690,6 +691,8 @@ static struct xenbus_watch *find_watch(const char *token)
 
 int xs_watch_msg(struct xs_watch_event *event)
 {
+	struct xenbus_watch_extra *extra;
+
 	if (count_strings(event->body, event->len) != 2) {
 		kfree(event);
 		return -EINVAL;
@@ -699,11 +702,22 @@ int xs_watch_msg(struct xs_watch_event *event)
 
 	spin_lock(&watches_lock);
 	event->handle = find_watch(event->token);
+	extra = shadow_var_get(event->handle, "extra");
 	if (event->handle != NULL) {
-		spin_lock(&watch_events_lock);
-		list_add_tail(&event->list, &watch_events);
-		wake_up(&watch_events_waitq);
-		spin_unlock(&watch_events_lock);
+		if (extra && extra->will_handle &&
+		    !extra->will_handle(event->handle, event->path,
+					event->token))
+		{
+			/* Ignore the event */
+			kfree(event);
+		}
+		else
+		{
+			spin_lock(&watch_events_lock);
+			list_add_tail(&event->list, &watch_events);
+			wake_up(&watch_events_waitq);
+			spin_unlock(&watch_events_lock);
+		}
 	} else
 		kfree(event);
 	spin_unlock(&watches_lock);
