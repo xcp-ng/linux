@@ -49,6 +49,11 @@ struct xen_bus_type {
 	struct bus_type bus;
 };
 
+struct xen_bus_type_extra {
+	bool (*otherend_will_handle)(struct xenbus_watch *watch,
+				     const char *path, const char *token);
+};
+
 enum xenstore_init {
 	XS_UNKNOWN,
 	XS_PV,
