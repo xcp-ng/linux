@@ -45,6 +45,7 @@
 #include <linux/mm.h>
 #include <linux/notifier.h>
 #include <linux/export.h>
+#include <linux/shadow_var.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -180,6 +181,18 @@ static int xenbus_probe_backend(struct xen_bus_type *bus, const char *type,
 	return err;
 }
 
+static bool frontend_will_handle(struct xenbus_watch *watch,
+				 const char *path, const char *token)
+{
+	struct xenbus_watch_extra *extra = shadow_var_get(watch, "extra");
+	unsigned int nr_pending = 0;
+
+	if (extra)
+		nr_pending = extra->nr_pending;
+
+	return nr_pending == 0;
+}
+
 static void frontend_changed(struct xenbus_watch *watch,
 			     const char *path, const char *token)
 {
@@ -254,6 +267,7 @@ static int __init xenbus_probe_backend_init(void)
 		.notifier_call = backend_probe_and_watch
 	};
 	int err;
+	struct xen_bus_type_extra *extra;
 
 	DPRINTK("");
 
@@ -261,6 +275,13 @@ static int __init xenbus_probe_backend_init(void)
 	err = bus_register(&xenbus_backend.bus);
 	if (err)
 		return err;
+
+	extra = shadow_var_alloc(&xenbus_backend, "extra", sizeof(*extra),
+				    GFP_KERNEL);
+	if (!extra)
+		pr_alert("Couldn't enable XSA-349 mitigation!\n");
+	else
+		extra->otherend_will_handle = frontend_will_handle;
 
 	register_xenstore_notifier(&xenstore_notifier);
 
