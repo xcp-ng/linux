@@ -49,6 +49,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/shadow_var.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -114,6 +115,7 @@ static void free_otherend_watch(struct xenbus_device *dev)
 		unregister_xenbus_watch(&dev->otherend_watch);
 		kfree(dev->otherend_watch.node);
 		dev->otherend_watch.node = NULL;
+		shadow_var_free(&dev->otherend_watch, "extra");
 	}
 }
 
@@ -134,9 +136,29 @@ static int watch_otherend(struct xenbus_device *dev)
 {
 	struct xen_bus_type *bus =
 		container_of(dev->dev.bus, struct xen_bus_type, bus);
+	struct xen_bus_type_extra *extra_bus = shadow_var_get(bus, "extra");
+	bool (*otherend_will_handle)(struct xenbus_watch *, const char *,
+				     const char *) = NULL;
+
+	if (extra_bus) {
+		struct xenbus_watch_extra *watch_extra;
+
+		watch_extra = shadow_var_alloc(&dev->otherend_watch, "extra",
+						  sizeof(*watch_extra),
+						  GFP_KERNEL);
+		if (!watch_extra)
+		{
+			xenbus_dev_fatal(dev, -ENOMEM,
+					 "allocating extra for watch");
+			return -ENOMEM;
+		}
+
+		otherend_will_handle = extra_bus->otherend_will_handle;
+	}
 
 	return xenbus_watch_pathfmt_abi(dev, &dev->otherend_watch,
-					NULL, bus->otherend_changed,
+					otherend_will_handle,
+					bus->otherend_changed,
 					"%s/%s", dev->otherend, "state");
 }
 
