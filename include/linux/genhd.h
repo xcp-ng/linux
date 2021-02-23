@@ -403,6 +403,8 @@ extern void part_round_stats(struct request_queue *q, int cpu, struct hd_struct 
 
 /* block/genhd.c */
 extern void device_add_disk(struct device *parent, struct gendisk *disk);
+extern void device_add_disk_xs(struct device *parent, struct gendisk *disk,
+			    const struct attribute_group **groups);
 static inline void add_disk(struct gendisk *disk)
 {
 	device_add_disk(NULL, disk);
