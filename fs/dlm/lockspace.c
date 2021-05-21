@@ -18,6 +18,7 @@
 #include "member.h"
 #include "recoverd.h"
 #include "dir.h"
+#include "midcomms.h"
 #include "lowcomms.h"
 #include "config.h"
 #include "memory.h"
@@ -391,7 +392,7 @@ static int threads_start(void)
 	}
 
 	/* Thread for sending/receiving messages for all lockspace's */
-	error = dlm_lowcomms_start();
+	error = dlm_midcomms_start();
 	if (error) {
 		log_print("cannot start dlm lowcomms %d", error);
 		goto scand_fail;
@@ -699,7 +700,7 @@ int dlm_new_lockspace(const char *name, const char *cluster,
 		error = 0;
 	if (!ls_count) {
 		dlm_scand_stop();
-		dlm_lowcomms_shutdown();
+		dlm_midcomms_shutdown();
 		dlm_lowcomms_stop();
 	}
  out:
@@ -788,7 +789,7 @@ static int release_lockspace(struct dlm_ls *ls, int force)
 
 	if (ls_count == 1) {
 		dlm_scand_stop();
-		dlm_lowcomms_shutdown();
+		dlm_midcomms_shutdown();
 	}
 
 	dlm_callback_stop(ls);
