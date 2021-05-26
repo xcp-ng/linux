@@ -593,7 +593,7 @@ dlm_midcomms_recv_node_lookup(int nodeid, const union dlm_packet *p,
 					 * was failed, we try to reset and
 					 * hope it will go on.
 					 */
-					log_print("reset node %d because shutdown stucked",
+					log_print("reset node %d because shutdown stuck",
 						  node->nodeid);
 
 					midcomms_node_reset(node);
@@ -1161,7 +1161,7 @@ void dlm_midcomms_add_member(int nodeid)
 			 * was failed, we try to reset and
 			 * hope it will go on.
 			 */
-			log_print("reset node %d because shutdown stucked",
+			log_print("reset node %d because shutdown stuck",
 				  node->nodeid);
 
 			midcomms_node_reset(node);
