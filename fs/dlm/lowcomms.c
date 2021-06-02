@@ -473,6 +473,9 @@ static void lowcomms_data_ready(struct sock *sk)
 
 static void lowcomms_listen_data_ready(struct sock *sk)
 {
+	if (!dlm_allow_conn)
+		return;
+
 	queue_work(recv_workqueue, &listen_con.rwork);
 }
 
@@ -970,10 +973,6 @@ static int accept_from_sock(struct listen_connection *con)
 	struct connection *newcon;
 	struct connection *addcon;
 	unsigned int mark;
-
-	if (!dlm_allow_conn) {
-		return -1;
-	}
 
 	if (!con->sock)
 		return -ENOTCONN;
