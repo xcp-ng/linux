@@ -24,6 +24,8 @@ char *dlm_allocate_lvb(struct dlm_ls *ls);
 void dlm_free_lvb(char *l);
 struct writequeue_entry *dlm_allocate_writequeue(void);
 void dlm_free_writequeue(struct writequeue_entry *writequeue);
+struct dlm_msg *dlm_allocate_msg(gfp_t allocation);
+void dlm_free_msg(struct dlm_msg *msg);
 
 #endif		/* __MEMORY_DOT_H__ */
 
