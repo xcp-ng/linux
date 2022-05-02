@@ -1197,11 +1197,10 @@ static int alua_prep_fn(struct scsi_device *sdev, struct request *req)
 	if (pg)
 		state = pg->state;
 	rcu_read_unlock();
-	if (state == SCSI_ACCESS_STATE_TRANSITIONING)
-		ret = BLKPREP_DEFER;
-	else if (state != SCSI_ACCESS_STATE_OPTIMAL &&
+	if (state != SCSI_ACCESS_STATE_OPTIMAL &&
 		 state != SCSI_ACCESS_STATE_ACTIVE &&
-		 state != SCSI_ACCESS_STATE_LBA) {
+		 state != SCSI_ACCESS_STATE_LBA &&
+		 state != SCSI_ACCESS_STATE_TRANSITIONING) {
 		ret = BLKPREP_KILL;
 		req->rq_flags |= RQF_QUIET;
 	}
