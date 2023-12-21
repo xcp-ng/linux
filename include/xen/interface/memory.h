@@ -325,4 +325,17 @@ struct xen_mem_acquire_resource {
 };
 DEFINE_GUEST_HANDLE_STRUCT(xen_mem_acquire_resource);
 
+#define XENMEM_encrypt_op      29
+#define XENMEM_encrypt_on      0
+#define XENMEM_encrypt_off     1
+
+struct xen_mem_encrypt_op {
+    uint8_t     op;         /* XENMEM_encrypt_[on|off]*/
+    domid_t     domid;
+    /* IN:  pfn of page being operated on */
+    uint64_t    pfn;
+};
+typedef struct xen_mem_encrypt_op xen_mem_encrypt_op_t;
+DEFINE_GUEST_HANDLE(xen_mem_encrypt_op_t);
+
 #endif /* __XEN_PUBLIC_MEMORY_H__ */
