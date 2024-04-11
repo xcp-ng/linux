@@ -2065,7 +2065,7 @@ static int __init intel_idle_init(void)
 	if (boot_option_idle_override != IDLE_NO_OVERRIDE)
 		return -ENODEV;
 
-	if (max_cstate == 0) {
+	if (max_cstate == 0 || cpuidle_disabled()) {
 		pr_debug("disabled\n");
 		return -EPERM;
 	}
