@@ -492,7 +492,6 @@ static void finish_xmote(struct gfs2_glock *gl, unsigned int ret)
 	unsigned state = ret & LM_OUT_ST_MASK;
 	int rv;
 
-	spin_lock(&gl->gl_lockref.lock);
 	trace_gfs2_glock_state_change(gl, state);
 	state_change(gl, state);
 	gh = find_first_waiter(gl);
@@ -537,7 +536,6 @@ retry:
 			       gl->gl_target, state);
 			GLOCK_BUG_ON(gl, 1);
 		}
-		spin_unlock(&gl->gl_lockref.lock);
 		return;
 	}
 
@@ -556,12 +554,10 @@ retry:
 		}
 		rv = do_promote(gl);
 		if (rv == 2)
-			goto out_locked;
+			goto out;
 	}
 out:
 	clear_bit(GLF_LOCK, &gl->gl_flags);
-out_locked:
-	spin_unlock(&gl->gl_lockref.lock);
 }
 
 static bool is_system_glock(struct gfs2_glock *gl)
@@ -708,15 +704,19 @@ skip_inval:
 		if (ret == -EINVAL && gl->gl_target == LM_ST_UNLOCKED &&
 		    target == LM_ST_UNLOCKED &&
 		    test_bit(DFL_UNMOUNT, &ls->ls_recover_flags)) {
+			spin_lock(&gl->gl_lockref.lock);
 			finish_xmote(gl, target);
-			gfs2_glock_queue_work(gl, 0);
+			__gfs2_glock_queue_work(gl, 0);
+			spin_unlock(&gl->gl_lockref.lock);
 		} else if (ret) {
 			fs_err(sdp, "lm_lock ret %d\n", ret);
 			GLOCK_BUG_ON(gl, !gfs2_withdrawn(sdp));
 		}
 	} else { /* lock_nolock */
+		spin_lock(&gl->gl_lockref.lock);
 		finish_xmote(gl, target);
-		gfs2_glock_queue_work(gl, 0);
+		__gfs2_glock_queue_work(gl, 0);
+		spin_unlock(&gl->gl_lockref.lock);
 	}
 out:
 	spin_lock(&gl->gl_lockref.lock);
@@ -828,11 +828,12 @@ static void glock_work_func(struct work_struct *work)
 	struct gfs2_glock *gl = container_of(work, struct gfs2_glock, gl_work.work);
 	unsigned int drop_refs = 1;
 
-	if (test_and_clear_bit(GLF_REPLY_PENDING, &gl->gl_flags)) {
+	spin_lock(&gl->gl_lockref.lock);
+	if (test_bit(GLF_REPLY_PENDING, &gl->gl_flags)) {
+		clear_bit(GLF_REPLY_PENDING, &gl->gl_flags);
 		finish_xmote(gl, gl->gl_reply);
 		drop_refs++;
 	}
-	spin_lock(&gl->gl_lockref.lock);
 	if (test_bit(GLF_PENDING_DEMOTE, &gl->gl_flags) &&
 	    gl->gl_state != LM_ST_UNLOCKED &&
 	    gl->gl_demote_state != LM_ST_EXCLUSIVE) {
@@ -1810,8 +1811,10 @@ static void thaw_glock(struct gfs2_glock *gl)
 		gfs2_glock_put(gl);
 		return;
 	}
+	spin_lock(&gl->gl_lockref.lock);
 	set_bit(GLF_REPLY_PENDING, &gl->gl_flags);
-	gfs2_glock_queue_work(gl, 0);
+	__gfs2_glock_queue_work(gl, 0);
+	spin_unlock(&gl->gl_lockref.lock);
 }
 
 /**
