@@ -9,7 +9,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/file.h>
-#include <linux/fdtable.h>
+#include UEK_KABI_FAKE_INCLUDE(<linux/fdtable.h>)
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
