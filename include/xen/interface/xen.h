@@ -65,6 +65,7 @@
 #define __HYPERVISOR_xc_reserved_op       39 /* reserved for XenClient */
 #define __HYPERVISOR_xenpmu_op            40
 #define __HYPERVISOR_dm_op                41
+#define __HYPERVISOR_dom_coco_op          43
 
 /* Architecture-specific hypercall definitions. */
 #define __HYPERVISOR_arch_0               48
@@ -414,6 +415,11 @@ DEFINE_GUEST_HANDLE_STRUCT(mmuext_op);
 #define VMASST_TYPE_runstate_update_flag 5
 
 #define MAX_VMASST_TYPE 5
+
+#define COCO_DOM_INIT                   0
+#define COCO_DOM_ADD_MEM                1
+#define COCO_DOM_RUN                    2
+#define COCO_DOM_FINI                   3
 
 #ifndef __ASSEMBLY__
 
