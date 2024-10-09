@@ -1644,15 +1644,11 @@ struct net_device_ops {
 						    struct kernel_hwtstamp_config *kernel_config,
 						    struct netlink_ext_ack *extack);
 
-#if IS_ENABLED(CONFIG_NET_SHAPER)
 	/**
 	 * @net_shaper_ops: Device shaping offload operations
 	 * see include/net/net_shapers.h
 	 */
-	const struct net_shaper_ops *net_shaper_ops;
-#endif
-
-	UEK_KABI_RESERVE(1)
+	UEK_KABI_USE(1, const struct net_shaper_ops *net_shaper_ops)
 	UEK_KABI_RESERVE(2)
 	UEK_KABI_RESERVE(3)
 	UEK_KABI_RESERVE(4)
@@ -2476,16 +2472,13 @@ struct net_device {
 	struct mutex		lock;
 #endif /* !__GENKSYMS__ */
 	UEK_KABI_USE(6, netdev_features_t mangleid_features)
-	UEK_KABI_RESERVE(7)
-	UEK_KABI_RESERVE(8)
 
-#if IS_ENABLED(CONFIG_NET_SHAPER)
 	/**
 	 * @net_shaper_hierarchy: data tracking the current shaper status
 	 *  see include/net/net_shapers.h
 	 */
-	struct net_shaper_hierarchy *net_shaper_hierarchy;
-#endif
+	UEK_KABI_USE(7, struct net_shaper_hierarchy *net_shaper_hierarchy)
+	UEK_KABI_RESERVE(8)
 	u8			priv[] ____cacheline_aligned
 				       __counted_by(priv_len);
 } ____cacheline_aligned;
