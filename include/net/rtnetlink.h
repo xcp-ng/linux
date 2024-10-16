@@ -4,6 +4,7 @@
 
 #include <linux/uek_kabi.h>
 #include <linux/rtnetlink.h>
+#include <linux/srcu.h>
 #include <net/netlink.h>
 
 typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *,
@@ -65,7 +66,8 @@ static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
 /**
  *	struct rtnl_link_ops - rtnetlink link operations
  *
- *	@list: Used internally
+ *	@list: Used internally, protected by RTNL and SRCU
+ *	@srcu: Used internally
  *	@kind: Identifier
  *	@netns_refund: Physical device, move to init_net on netns exit
  *	@maxtype: Highest device specific netlink attribute number
@@ -154,10 +156,14 @@ struct rtnl_link_ops {
 	int			(*fill_linkxstats)(struct sk_buff *skb,
 						   const struct net_device *dev,
 						   int *prividx, int attr);
-
+#ifdef __GENKSYMS__
 	UEK_KABI_RESERVE(1)
 	UEK_KABI_RESERVE(2)
 	UEK_KABI_RESERVE(3)
+#else
+	/* the size of srcu_struct is 24 bytes in UEK8-U2 */
+	struct srcu_struct	srcu;
+#endif
 	UEK_KABI_RESERVE(4)
 	UEK_KABI_RESERVE(5)
 	UEK_KABI_RESERVE(6)
