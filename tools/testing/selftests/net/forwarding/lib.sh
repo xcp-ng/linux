@@ -1294,7 +1294,8 @@ tests_run()
 	local current_test
 
 	for current_test in ${TESTS:-$ALL_TESTS}; do
-		$current_test
+		in_defer_scope \
+			$current_test
 	done
 }
 
