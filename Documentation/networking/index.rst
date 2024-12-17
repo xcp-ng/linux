@@ -85,6 +85,7 @@ Contents:
    netdevices
    netfilter-sysctl
    netif-msg
+   netmem
    nexthop-group-resilient
    nf_conntrack-sysctl
    nf_flowtable
