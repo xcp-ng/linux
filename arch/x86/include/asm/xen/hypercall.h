@@ -502,10 +502,9 @@ HYPERVISOR_dm_op(
 }
 
 static inline int
-HYPERVISOR_dom_coco_op(int op, domid_t domid, unsigned long arg1, 
-		       unsigned long arg2)
+HYPERVISOR_dom_coco_op(unsigned int cmd, void *arg)
 {
-    return _hypercall4(int, dom_coco_op, op, domid, arg1, arg2);
+    return _hypercall4(int, dom_coco_op, cmd, arg);
 }
 
 #endif /* _ASM_X86_XEN_HYPERCALL_H */
