@@ -84,6 +84,7 @@ err_free_new_mem:
 
 	return err;
 }
+EXPORT_SYMBOL_NS_GPL(netdev_rx_queue_restart, NETDEV_INTERNAL);
 
 static int __net_mp_open_rxq(struct net_device *dev, unsigned ifq_idx,
 			     struct pp_memory_provider_params *p)
