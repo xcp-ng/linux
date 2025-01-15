@@ -395,7 +395,7 @@ struct napi_struct {
 			}; /* struct hrtimer has pre-existing 4-byte padding */
 		})
 
-	struct task_struct	*thread;
+	struct task_struct	*thread; /* protected by netdev_lock */
 	/* control-path-only fields follow */
 	struct list_head	dev_list;
 	struct hlist_node	napi_hash_node;
@@ -2473,10 +2473,12 @@ struct net_device {
 	 * Drivers are free to use it for other protection.
 	 *
 	 * Protects:
-	 *	@napi_list, @net_shaper_hierarchy, @reg_state
+	 *	@napi_list, @net_shaper_hierarchy, @reg_state, @threaded
 	 *
 	 * Partially protects (writers must hold both @lock and rtnl_lock):
 	 *	@up
+	 *
+	 * Also protects some fields in struct napi_struct.
 	 *
 	 * Ordering: take after rtnl_lock.
 	 */
@@ -2719,6 +2721,13 @@ static inline void netdev_unlock(struct net_device *dev)
 static inline void netdev_assert_locked(struct net_device *dev)
 {
 	lockdep_assert_held(&dev->lock);
+}
+
+static inline void netdev_assert_locked_or_invisible(struct net_device *dev)
+{
+	if (dev->reg_state == NETREG_REGISTERED ||
+	    dev->reg_state == NETREG_UNREGISTERING)
+		netdev_assert_locked(dev);
 }
 
 static inline void netif_napi_set_irq(struct napi_struct *napi, int irq)
