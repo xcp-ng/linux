@@ -396,12 +396,13 @@ struct napi_struct {
 		})
 
 	struct task_struct	*thread; /* protected by netdev_lock */
+	/* all fields past this point are write-protected by netdev_lock */
 	/* control-path-only fields follow */
 	struct list_head	dev_list;
 	struct hlist_node	napi_hash_node;
 	int			irq;
 	UEK_KABI_FILL_HOLE(int	index)
-	UEK_KABI_USE(1,	unsigned long gro_flush_timeout)
+	UEK_KABI_USE(1,	unsigned long gro_flush_timeout) /* "not" protected by netdev_lock */
 	UEK_KABI_USE(2,	struct napi_config *config)
 	UEK_KABI_RESERVE(3)
 	UEK_KABI_RESERVE(4)
@@ -2753,9 +2754,16 @@ static inline void netdev_unlock_ops(struct net_device *dev)
 		netdev_unlock(dev);
 }
 
-static inline void netif_napi_set_irq(struct napi_struct *napi, int irq)
+static inline void netif_napi_set_irq_locked(struct napi_struct *napi, int irq)
 {
 	napi->irq = irq;
+}
+
+static inline void netif_napi_set_irq(struct napi_struct *napi, int irq)
+{
+	netdev_lock(napi->dev);
+	netif_napi_set_irq_locked(napi, irq);
+	netdev_unlock(napi->dev);
 }
 
 /* Default NAPI poll() weight
