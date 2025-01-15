@@ -2239,6 +2239,13 @@ struct net_device {
 	unsigned char		upper_level;
 	unsigned char		lower_level;
 
+	/**
+	 * @up: copy of @state's IFF_UP, but safe to read with just @lock.
+	 *	May report false negatives while the device is being opened
+	 *	or closed (@lock does not protect .ndo_open, or .ndo_close).
+	 */
+	UEK_KABI_FILL_HOLE(bool up)
+
 	unsigned short		neigh_priv_len;
 	unsigned short          dev_id;
 	unsigned short          dev_port;
@@ -2470,7 +2477,12 @@ struct net_device {
 	 * Should always be taken using netdev_lock() / netdev_unlock() helpers.
 	 * Drivers are free to use it for other protection.
 	 *
-	 * Protects: @reg_state, @net_shaper_hierarchy.
+	 * Protects:
+	 *	@net_shaper_hierarchy, @reg_state
+	 *
+	 * Partially protects (writers must hold both @lock and rtnl_lock):
+	 *	@up
+	 *
 	 * Ordering: take after rtnl_lock.
 	 */
 	struct mutex		lock;
