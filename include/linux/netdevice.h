@@ -2560,6 +2560,12 @@ struct net_device {
 
 	/** @cfg: net_device queue-related configuration */
 	UEK_KABI_FILL_HOLE(struct netdev_config	*cfg)
+	/**
+	 * @cfg_pending: same as @cfg but when device is being actively
+	 *	reconfigured includes any changes to the configuration
+	 *	requested by the user, but which may or may not be rejected.
+	 */
+	UEK_KABI_FILL_HOLE(struct netdev_config	*cfg_pending)
 
 	u8			priv[] ____cacheline_aligned
 				       __counted_by(priv_len);
