@@ -63,6 +63,7 @@ struct dsa_port;
 struct ip_tunnel_parm_kern;
 struct macsec_context;
 struct macsec_ops;
+struct netdev_config;
 struct netdev_name_node;
 struct sd_flow_limit;
 struct sfp_bus;
@@ -2556,6 +2557,10 @@ struct net_device {
 	 */
 	UEK_KABI_USE(7, struct net_shaper_hierarchy *net_shaper_hierarchy)
 	UEK_KABI_USE(8, struct hwtstamp_provider __rcu  *hwprov)
+
+	/** @cfg: net_device queue-related configuration */
+	UEK_KABI_FILL_HOLE(struct netdev_config	*cfg)
+
 	u8			priv[] ____cacheline_aligned
 				       __counted_by(priv_len);
 } ____cacheline_aligned;

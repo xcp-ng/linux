@@ -1169,8 +1169,6 @@ int ethtool_virtdev_set_link_ksettings(struct net_device *dev,
  * @rss_ctx:		XArray of custom RSS contexts
  * @rss_lock:		Protects entries in @rss_ctx.  May be taken from
  *			within RTNL.
- * @hds_thresh:		HDS Threshold value.
- * @hds_config:		HDS value from userspace.
  * @wol_enabled:	Wake-on-LAN is enabled
  * @module_fw_flash_in_progress: Module firmware flashing is in progress.
  */
@@ -1179,9 +1177,6 @@ struct ethtool_netdev_state {
 	struct mutex		rss_lock;
 	unsigned		wol_enabled:1;
 	unsigned		module_fw_flash_in_progress:1;
-
-	UEK_KABI_FILL_HOLE(u8	hds_config)
-	UEK_KABI_FILL_HOLE(u32	hds_thresh)
 };
 
 struct phy_device;
