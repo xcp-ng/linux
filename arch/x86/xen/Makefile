@@ -48,3 +48,5 @@ obj-$(CONFIG_XEN_DEBUG_FS)	+= debugfs.o
 obj-$(CONFIG_XEN_DOM0)		+= vga.o
 
 obj-$(CONFIG_XEN_EFI)		+= efi.o
+
+obj-$(CONFIG_XEN_HVMV2)     += hypercall_bounce.o

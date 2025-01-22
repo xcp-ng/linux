@@ -47,12 +47,11 @@
 #include <asm/page.h>
 #include <asm/smap.h>
 #include <asm/nospec-branch.h>
+#include <asm/xen/hypercall_bounce.h>
 
 #include <xen/interface/xen.h>
-#include <xen/interface/sched.h>
-#include <xen/interface/physdev.h>
 #include <xen/interface/platform.h>
-#include <xen/interface/xen-mca.h>
+#include <xen/interface/sched.h>
 
 struct xen_dm_op_buf;
 
@@ -391,7 +390,10 @@ MULTI_stack_switch(struct multicall_entry *mcl,
 static __always_inline int
 HYPERVISOR_sched_op(int cmd, void *arg)
 {
-	return _hypercall2(int, sched_op, cmd, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_sched_op(cmd, arg);
+	else
+		return _hypercall2(int, sched_op, cmd, arg);
 }
 
 static inline long
@@ -413,13 +415,20 @@ static inline int
 HYPERVISOR_platform_op(struct xen_platform_op *op)
 {
 	op->interface_version = XENPF_INTERFACE_VERSION;
-	return _hypercall1(int, platform_op, op);
+
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_platform_op(op);
+	else
+		return _hypercall1(int, platform_op, op);
 }
 
 static inline long
 HYPERVISOR_memory_op(unsigned int cmd, void *arg)
 {
-	return _hypercall2(long, memory_op, cmd, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_memory_op(cmd, arg);
+	else 
+		return _hypercall2(long, memory_op, cmd, arg);
 }
 
 static inline int
@@ -431,19 +440,28 @@ HYPERVISOR_multicall(void *call_list, uint32_t nr_calls)
 static inline int
 HYPERVISOR_event_channel_op(int cmd, void *arg)
 {
-	return _hypercall2(int, event_channel_op, cmd, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_event_channel_op(cmd, arg);
+	else
+		return _hypercall2(int, event_channel_op, cmd, arg);
 }
 
 static __always_inline int
 HYPERVISOR_xen_version(int cmd, void *arg)
 {
-	return _hypercall2(int, xen_version, cmd, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_xen_version(cmd, arg);
+	else
+	 	return _hypercall2(int, xen_version, cmd, arg);
 }
 
 static inline int
 HYPERVISOR_console_io(int cmd, int count, char *str)
 {
-	return _hypercall3(int, console_io, cmd, count, str);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_console_io(cmd, count, str);
+	else
+		return _hypercall3(int, console_io, cmd, count, str);
 }
 
 static inline int
@@ -455,7 +473,10 @@ HYPERVISOR_physdev_op(int cmd, void *arg)
 static inline int
 HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 {
-	return _hypercall3(int, grant_table_op, cmd, uop, count);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_grant_table_op(cmd, uop, count);
+	else
+		return _hypercall3(int, grant_table_op, cmd, uop, count);
 }
 
 static inline int
@@ -467,33 +488,46 @@ HYPERVISOR_vm_assist(unsigned int cmd, unsigned int type)
 static inline int
 HYPERVISOR_vcpu_op(int cmd, int vcpuid, void *extra_args)
 {
-	return _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_vcpu_op(cmd, vcpuid, extra_args);
+	else
+	 	return _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args);
 }
 
 static inline int
 HYPERVISOR_suspend(unsigned long start_info_mfn)
 {
-	struct sched_shutdown r = { .reason = SHUTDOWN_suspend };
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_suspend(start_info_mfn);
+	else {
+		struct sched_shutdown r = { .reason = SHUTDOWN_suspend };
 
-	/*
-	 * For a PV guest the tools require that the start_info mfn be
-	 * present in rdx/edx when the hypercall is made. Per the
-	 * hypercall calling convention this is the third hypercall
-	 * argument, which is start_info_mfn here.
-	 */
-	return _hypercall3(int, sched_op, SCHEDOP_shutdown, &r, start_info_mfn);
+		/*
+		 * For a PV guest the tools require that the start_info mfn be
+		 * present in rdx/edx when the hypercall is made. Per the
+		 * hypercall calling convention this is the third hypercall
+		 * argument, which is start_info_mfn here.
+		 */
+		return _hypercall3(int, sched_op, SCHEDOP_shutdown, &r, start_info_mfn);
+	}
 }
 
 static inline unsigned long __must_check
 HYPERVISOR_hvm_op(int op, void *arg)
 {
-       return _hypercall2(unsigned long, hvm_op, op, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_hvm_op(op, arg);
+	else
+		return _hypercall2(unsigned long, hvm_op, op, arg);
 }
 
 static inline int
 HYPERVISOR_xenpmu_op(unsigned int op, void *arg)
 {
-	return _hypercall2(int, xenpmu_op, op, arg);
+	if (xen_physaddr_abi)
+		return xen_hypercall_bounce_xenpmu_op(op, arg);
+	else
+		return _hypercall2(int, xenpmu_op, op, arg);
 }
 
 static inline int

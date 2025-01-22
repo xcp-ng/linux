@@ -109,9 +109,15 @@ static void __init init_hvm_pv_info(void)
 	else
 		pv_info.name = "Xen HVM";
 
+	cpuid(base + 4, &eax, &ebx, &ecx, &edx);
+
+#ifndef CONFIG_XEN_HVMV2
+	if (eax & XEN_HVM_CPUID_PHYS_ADDR_ABI)
+		panic(KERN_ERR "This kernel doesn't support Xen HVMv2 ABI\n");
+#endif
+
 	xen_setup_features();
 
-	cpuid(base + 4, &eax, &ebx, &ecx, &edx);
 	if (eax & XEN_HVM_CPUID_VCPU_ID_PRESENT)
 		this_cpu_write(xen_vcpu_id, ebx);
 	else
