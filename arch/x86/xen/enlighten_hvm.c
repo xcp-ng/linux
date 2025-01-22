@@ -26,6 +26,7 @@
 #include <asm/xen/cpuid.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/page.h>
+#include "asm/xen/coco_hypercall.h"
 
 #include "xen-ops.h"
 #include "mmu.h"
@@ -296,8 +297,10 @@ static uint32_t __init xen_platform_hvm(void)
 		return 0;
 
 	/* Set correct hypercall function. */
-	if (xen_domain)
+	if (xen_domain) {
 		xen_hypercall_setfunc();
+		xen_coco_hypercall_init();
+	}
 
 	if (xen_pvh_domain() && nopv) {
 		/* Guest booting via the Xen-PVH boot entry goes here */
