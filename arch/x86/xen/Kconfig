@@ -101,3 +101,10 @@ config XEN_PV_MSR_SAFE
 	  Use safe (not faulting) MSR access functions even if the MSR access
 	  should not fault anyway.
 	  The default can be changed by using the "xen_msr_safe" boot parameter.
+
+config XEN_HVMV2
+	bool "Xen HVMv2 ABI support"
+	default n
+	depends on XEN_PVHVM
+	help
+		Support running as Xen PVHVM guest with "physaddr_abi" enabled.

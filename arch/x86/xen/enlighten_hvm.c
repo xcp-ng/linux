@@ -22,7 +22,9 @@
 #include <asm/hypervisor.h>
 #include <asm/e820/api.h>
 #include <asm/early_ioremap.h>
+#include <asm/set_memory.h>
 
+#include <asm/xen/hypercall_bounce.h>
 #include <asm/xen/cpuid.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/page.h>
@@ -89,6 +91,14 @@ static void __init xen_hvm_init_mem_mapping(void)
 	xen_vcpu_info_reset(0);
 }
 
+static void __init xen_hvm_after_bootmem(void)
+{
+	xen_hypercall_bounce_teardown_early();
+	xen_hypercall_bounce_init_smp();
+	
+	printk(KERN_INFO "hvm: Teared down early bounce buffering\n");
+}
+
 static void __init init_hvm_pv_info(void)
 {
 	int major, minor;
@@ -109,9 +119,15 @@ static void __init init_hvm_pv_info(void)
 	else
 		pv_info.name = "Xen HVM";
 
+	cpuid(base + 4, &eax, &ebx, &ecx, &edx);
+
+#ifndef CONFIG_XEN_HVMV2
+	if (eax & XEN_HVM_CPUID_PHYS_ADDR_ABI)
+		panic(KERN_ERR "This kernel doesn't support Xen HVMv2 ABI\n");
+#endif
+
 	xen_setup_features();
 
-	cpuid(base + 4, &eax, &ebx, &ecx, &edx);
 	if (eax & XEN_HVM_CPUID_VCPU_ID_PRESENT)
 		this_cpu_write(xen_vcpu_id, ebx);
 	else
@@ -328,6 +344,7 @@ struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.init.x2apic_available  = xen_x2apic_available,
 	.init.init_mem_mapping	= xen_hvm_init_mem_mapping,
 	.init.guest_late_init	= xen_hvm_guest_late_init,
+	.init.init_after_bootmem = xen_hvm_after_bootmem,
 	.init.msi_ext_dest_id   = msi_ext_dest_id,
 	.runtime.pin_vcpu       = xen_pin_vcpu,
 	.ignore_nopv            = true,
