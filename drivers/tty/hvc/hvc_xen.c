@@ -30,6 +30,8 @@
 
 #include "hvc_console.h"
 
+#include <asm/mem_encrypt.h>
+
 #define HVC_COOKIE   0x58656e /* "Xen" in hex */
 
 struct xencons_info {
@@ -274,6 +276,8 @@ static int xen_hvm_console_init(void)
 	if (info->intf == NULL)
 		goto err;
 	info->vtermno = HVC_COOKIE;
+
+	early_set_memory_decrypted((unsigned long)info->intf, XEN_PAGE_SIZE);
 
 	spin_lock_irqsave(&xencons_lock, flags);
 	list_add_tail(&info->list, &xenconsoles);
