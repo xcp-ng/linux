@@ -34,6 +34,7 @@ obj-$(CONFIG_XEN_PV)		+= multicalls.o
 obj-$(CONFIG_XEN_PV)		+= xen-asm.o
 
 obj-$(CONFIG_XEN_PVH)		+= enlighten_pvh.o
+obj-$(CONFIG_XEN_PVH)		+= coco_hypercall.o
 
 obj-$(CONFIG_EVENT_TRACING)	+= trace.o
 

@@ -47,12 +47,20 @@
 #include <asm/page.h>
 #include <asm/smap.h>
 #include <asm/nospec-branch.h>
+#include <asm/xen/coco_hypercall.h>
 
 #include <xen/interface/xen.h>
 #include <xen/interface/sched.h>
 #include <xen/interface/physdev.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/xen-mca.h>
+#include <xen/interface/hvm/hvm_op.h>
+#include <xen/interface/vcpu.h>
+#include <xen/interface/xenpmu.h>
+#include <xen/interface/memory.h>
+#include <xen/interface/grant_table.h>
+#include <xen/interface/version.h>
+#include <xen/interface/event_channel.h>
 
 struct xen_dm_op_buf;
 
@@ -393,7 +401,32 @@ MULTI_stack_switch(struct multicall_entry *mcl,
 static __always_inline int
 HYPERVISOR_sched_op(int cmd, void *arg)
 {
-	return _hypercall2(int, sched_op, cmd, arg);
+	xen_coco_hypercall_begin();
+	size_t size = 0;
+	phys_addr_t arg_handle = 0;
+
+	switch (cmd) {
+		case SCHEDOP_yield:
+			break;
+		case SCHEDOP_block:
+			break;
+		case SCHEDOP_shutdown:
+			size = sizeof(struct sched_shutdown);
+			break;
+		case SCHEDOP_watchdog:
+			size = sizeof(struct sched_watchdog);
+			break;
+		
+		default:
+			printk("Unhandled sched_op %u\n", cmd);
+			BUG();
+	}
+	
+	if (size)
+		arg_handle = xen_coco_hypercall_handle_prepare(arg, size);
+	int ret = _hypercall2(int, sched_op, cmd, arg_handle);
+	xen_coco_hypercall_end();
+	return ret;
 }
 
 static inline long
@@ -415,13 +448,57 @@ static inline int
 HYPERVISOR_platform_op(struct xen_platform_op *op)
 {
 	op->interface_version = XENPF_INTERFACE_VERSION;
-	return _hypercall1(int, platform_op, op);
+
+	xen_coco_hypercall_begin();
+	phys_addr_t op_handle = xen_coco_hypercall_handle_prepare(op, sizeof(struct xen_platform_op));
+	int ret = _hypercall1(int, platform_op, op_handle);
+	xen_coco_hypercall_handle_copyback(op, op_handle, sizeof(struct xen_platform_op));
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline long
 HYPERVISOR_memory_op(unsigned int cmd, void *arg)
 {
-	return _hypercall2(long, memory_op, cmd, arg);
+	xen_coco_hypercall_begin();
+	size_t size = 0, subarg_size = 0;
+	void *subarg_buffer = NULL;
+	phys_addr_t subarg_handle = 0;
+
+	switch (cmd) {
+		case XENMEM_increase_reservation:
+		case XENMEM_decrease_reservation:
+		case XENMEM_populate_physmap:
+		{
+			size = sizeof(struct xen_memory_reservation);
+			struct xen_memory_reservation *reservation = arg;
+			subarg_buffer = reservation->extent_start;
+			subarg_size = sizeof(xen_pfn_t) * reservation->nr_extents;
+			subarg_handle = xen_coco_hypercall_handle_prepare(subarg_buffer, subarg_size);
+			reservation->extent_start = (void *)(unsigned long)subarg_handle;
+			break;
+		}
+
+		case XENMEM_add_to_physmap:
+			size = sizeof(struct xen_add_to_physmap);
+			break;
+		
+		default:
+			printk("Unhandled memory_op %u\n", cmd);
+			BUG();
+	}
+	
+	phys_addr_t arg_handle = xen_coco_hypercall_handle_prepare(arg, size);
+	long ret = _hypercall2(long, memory_op, cmd, arg_handle);
+	xen_coco_hypercall_handle_copyback(arg, arg_handle, size);
+
+	if (subarg_handle)
+		xen_coco_hypercall_handle_copyback(subarg_buffer, subarg_handle, subarg_size);
+
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline int
@@ -433,19 +510,122 @@ HYPERVISOR_multicall(void *call_list, uint32_t nr_calls)
 static inline int
 HYPERVISOR_event_channel_op(int cmd, void *arg)
 {
-	return _hypercall2(int, event_channel_op, cmd, arg);
+	xen_coco_hypercall_begin();
+	size_t size = 0;
+	phys_addr_t arg_handle = 0;
+
+	switch (cmd) {
+			case EVTCHNOP_bind_interdomain:
+				size = sizeof(struct evtchn_bind_interdomain);
+				break;
+			case EVTCHNOP_bind_virq:
+				size = sizeof(struct evtchn_bind_virq);
+				break;
+			case EVTCHNOP_bind_pirq:
+				size = sizeof(struct evtchn_bind_pirq);
+				break;
+			case EVTCHNOP_bind_ipi:
+				size = sizeof(struct evtchn_bind_ipi);
+				break;
+			case EVTCHNOP_close:
+				size = sizeof(struct evtchn_close);
+				break;
+			case EVTCHNOP_send:
+				size = sizeof(struct evtchn_send);
+				break;
+			case EVTCHNOP_status:
+				size = sizeof(struct evtchn_status);
+				break;
+			case EVTCHNOP_alloc_unbound:
+				size = sizeof(struct evtchn_alloc_unbound);
+				break;
+			case EVTCHNOP_bind_vcpu:
+				size = sizeof(struct evtchn_bind_vcpu);
+				break;
+			case EVTCHNOP_unmask:
+				size = sizeof(struct evtchn_unmask);
+				break;
+			case EVTCHNOP_reset:
+				size = sizeof(struct evtchn_reset);
+				break;
+			case EVTCHNOP_init_control:
+				size = sizeof(struct evtchn_init_control);
+				break;
+			case EVTCHNOP_expand_array:
+				size = sizeof(struct evtchn_expand_array);
+				break;
+			case EVTCHNOP_set_priority:
+				size = sizeof(struct evtchn_set_priority);
+				break;
+			default:
+				BUG();
+	}
+
+	if (size)
+		arg_handle = xen_coco_hypercall_handle_prepare(arg, size);
+	int ret = _hypercall2(int, event_channel_op, cmd, arg_handle);
+	if (size)
+		xen_coco_hypercall_handle_copyback(arg, arg_handle, size);
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static __always_inline int
 HYPERVISOR_xen_version(int cmd, void *arg)
 {
-	return _hypercall2(int, xen_version, cmd, arg);
+	xen_coco_hypercall_begin();
+	size_t size = 0;
+	phys_addr_t arg_handle = 0;
+
+	switch (cmd) {
+		case XENVER_extraversion:
+			size = XEN_EXTRAVERSION_LEN;
+			break;
+		case XENVER_compile_info:
+			size = sizeof(struct xen_compile_info);
+			break;
+		case XENVER_capabilities:
+			size = XEN_CAPABILITIES_INFO_LEN;
+			break;
+		case XENVER_changeset:
+			size = XEN_CHANGESET_INFO_LEN;
+			break;
+		case XENVER_platform_parameters:
+			size = sizeof(struct xen_platform_parameters);
+			break;
+		case XENVER_get_features:
+			size = sizeof(struct xen_feature_info);
+			break;
+		case XENVER_commandline:
+			size = sizeof(struct xen_commandline);
+			break;
+		case XENVER_build_id:
+			size = sizeof(struct xen_build_id);
+			break;
+	}
+
+	if (size)
+		arg_handle = xen_coco_hypercall_handle_prepare(arg, size);
+	long ret = _hypercall2(int, xen_version, cmd, arg_handle);
+	if (size)
+		xen_coco_hypercall_handle_copyback(arg, arg_handle, size);
+	xen_coco_hypercall_end();
+	return ret;
+
+	xen_coco_hypercall_end();
 }
 
 static inline int
 HYPERVISOR_console_io(int cmd, int count, char *str)
 {
-	return _hypercall3(int, console_io, cmd, count, str);
+	xen_coco_hypercall_begin();
+	phys_addr_t str_handle = xen_coco_hypercall_handle_prepare(str, count);
+	int ret = _hypercall3(int, console_io, cmd, count, str_handle);
+	xen_coco_hypercall_end();
+
+	return ret;
+
 }
 
 static inline int
@@ -457,7 +637,64 @@ HYPERVISOR_physdev_op(int cmd, void *arg)
 static inline int
 HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 {
-	return _hypercall3(int, grant_table_op, cmd, uop, count);
+	xen_coco_hypercall_begin();
+	size_t size = 0, subarg_size = 0;
+	void *subarg_buffer = NULL;
+	phys_addr_t subarg_handle = 0;
+
+	switch (cmd) {
+		case GNTTABOP_map_grant_ref:
+			size = sizeof(struct gnttab_map_grant_ref);
+			break;
+		case GNTTABOP_unmap_grant_ref:
+			size = sizeof(struct gnttab_unmap_grant_ref);
+			break;
+		case GNTTABOP_copy:
+			size = sizeof(struct gnttab_copy);
+			break;
+		case GNTTABOP_query_size:
+			size = sizeof(struct gnttab_query_size);
+			break;
+		case GNTTABOP_set_version:
+			size = sizeof(struct gnttab_set_version);
+			break;
+		case GNTTABOP_get_status_frames:
+		{	
+			size = sizeof(struct gnttab_get_status_frames);
+			struct gnttab_get_status_frames *status = uop;
+			subarg_buffer = status->frame_list;
+			subarg_size = sizeof(uint64_t) * status->nr_frames;
+			subarg_handle = xen_coco_hypercall_handle_prepare(subarg_buffer, subarg_size);
+			status->frame_list = (void *)(unsigned long)subarg_handle;
+			break;
+		}
+		case GNTTABOP_setup_table:
+		{
+			size = sizeof(struct xen_memory_reservation);
+			struct gnttab_setup_table *setup = uop;
+			subarg_buffer = setup->frame_list;
+			subarg_size = sizeof(xen_pfn_t) * setup->nr_frames;
+			subarg_handle = xen_coco_hypercall_handle_prepare(subarg_buffer, subarg_size);
+			setup->frame_list = (void *)(unsigned long)subarg_handle;
+			break;
+		}
+
+		default:
+			printk("Unhandled grant_table_op %u\n", cmd);
+			BUG();
+	}
+	
+	phys_addr_t uop_handle = xen_coco_hypercall_handle_prepare(uop, size);
+	int ret = _hypercall3(int, grant_table_op, cmd, uop_handle, count);
+	xen_coco_hypercall_handle_copyback(uop, uop_handle, size);
+
+	if (subarg_handle)
+		xen_coco_hypercall_handle_copyback(subarg_buffer, subarg_handle, subarg_size);
+
+	xen_coco_hypercall_end();
+
+	return ret;
+
 }
 
 static inline int
@@ -469,13 +706,59 @@ HYPERVISOR_vm_assist(unsigned int cmd, unsigned int type)
 static inline int
 HYPERVISOR_vcpu_op(int cmd, int vcpuid, void *extra_args)
 {
-	return _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args);
+	// TODO: We may be able to skip begin/end if there is no "extra_args".
+	xen_coco_hypercall_begin();
+	phys_addr_t extra_args_handle = 0;
+	size_t size = 0;
+
+	switch (cmd) {
+		case VCPUOP_get_runstate_info:
+			size = sizeof(struct vcpu_runstate_info);
+			break;
+		case VCPUOP_register_runstate_memory_area:
+		case VCPUOP_register_runstate_phys_area:
+			// The caller needs to ensure that the runstate_info shared structure
+			// actually points to shared memory, we don't need to do anything here.
+			size = sizeof(struct vcpu_register_runstate_memory_area);
+			break;
+		case VCPUOP_set_periodic_timer:
+			size = sizeof(struct vcpu_set_periodic_timer);
+			break;
+		case VCPUOP_set_singleshot_timer:
+			size = sizeof(struct vcpu_set_singleshot_timer);
+			break;
+		case VCPUOP_register_vcpu_info:
+			size = sizeof(struct vcpu_register_vcpu_info);
+			break;
+		case VCPUOP_get_physid:
+			size = sizeof(struct vcpu_get_physid);
+			break;
+		case VCPUOP_register_vcpu_time_memory_area:
+		case VCPUOP_register_vcpu_time_phys_area:
+			// See VCPUOP_register_runstate_memory_area remark;
+			size = sizeof(struct vcpu_register_time_memory_area);
+			break;
+	}
+
+	if (size)
+		extra_args_handle = xen_coco_hypercall_handle_prepare(extra_args, size);
+	
+	int ret = _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args_handle);
+
+	if (size)
+		xen_coco_hypercall_handle_copyback(extra_args, extra_args_handle, size);
+	
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline int
 HYPERVISOR_suspend(unsigned long start_info_mfn)
 {
+	xen_coco_hypercall_begin();
 	struct sched_shutdown r = { .reason = SHUTDOWN_suspend };
+	phys_addr_t mfn = xen_coco_hypercall_handle_prepare(&r, sizeof(r));
 
 	/*
 	 * For a PV guest the tools require that the start_info mfn be
@@ -483,19 +766,57 @@ HYPERVISOR_suspend(unsigned long start_info_mfn)
 	 * hypercall calling convention this is the third hypercall
 	 * argument, which is start_info_mfn here.
 	 */
-	return _hypercall3(int, sched_op, SCHEDOP_shutdown, &r, start_info_mfn);
+	int ret = _hypercall3(int, sched_op, SCHEDOP_shutdown, mfn, start_info_mfn);
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline unsigned long __must_check
 HYPERVISOR_hvm_op(int op, void *arg)
 {
-       return _hypercall2(unsigned long, hvm_op, op, arg);
+	xen_coco_hypercall_begin();
+	size_t size;
+
+	switch (op) {
+		case HVMOP_get_mem_type:
+			size = sizeof(struct xen_hvm_get_mem_type);
+			break;
+		case HVMOP_get_param:
+			size = sizeof(struct xen_hvm_param);
+			break;
+		case HVMOP_set_param:
+			size = sizeof(struct xen_hvm_param);
+			break;
+		case HVMOP_pagetable_dying:
+			size = sizeof(struct xen_hvm_pagetable_dying);
+			break;
+		case HVMOP_set_evtchn_upcall_vector:
+			size = sizeof(struct xen_hvm_evtchn_upcall_vector);
+			break;
+		default:
+			panic("Unexpected Xen hvm_op operation (%d)", op);
+	}
+
+	phys_addr_t arg_handle = xen_coco_hypercall_handle_prepare(arg, size);
+	int ret = _hypercall2(unsigned long, hvm_op, op, arg_handle);
+	xen_coco_hypercall_handle_copyback(arg, arg_handle, size);
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline int
 HYPERVISOR_xenpmu_op(unsigned int op, void *arg)
 {
-	return _hypercall2(int, xenpmu_op, op, arg);
+	xen_coco_hypercall_begin();
+	phys_addr_t arg_handle = xen_coco_hypercall_handle_prepare(arg, sizeof(struct xen_pmu_params));
+
+	int ret = _hypercall2(int, xenpmu_op, op, arg);
+	xen_coco_hypercall_handle_copyback(arg, arg_handle, sizeof(struct xen_pmu_params));
+	xen_coco_hypercall_end();
+
+	return ret;
 }
 
 static inline int
