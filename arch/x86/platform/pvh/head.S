@@ -70,6 +70,63 @@ SYM_CODE_START_LOCAL(pvh_start_xen)
 
 	mov $_pa(early_stack_end), %esp
 
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+	/* Check CPUID highest leaf */
+	mov $0x80000000, %eax
+	cpuid
+	cmp $0x8000001f, %eax
+	jb .skip_sev_prepare_pgt
+
+	/* Check for SEV support */
+	mov $0x8000001f, %eax
+	cpuid
+	bt $1, %eax
+	jnc .skip_sev_prepare_pgt
+
+	/* Check if SEV is enabled */
+	mov $MSR_AMD64_SEV, %ecx
+	rdmsr
+	bt $MSR_AMD64_SEV_ENABLED_BIT, %eax
+	jnc .skip_sev_prepare_pgt
+	
+	mov %ebx, %ecx
+	and $0x3f, %ecx /* Get C-bit position */
+	sub $0x20, %ecx
+	mov $1, %eax
+	shl %cl, %eax
+
+	mov $_pa(init_top_pgt), %esi
+	call set_pgtable_cbit
+
+#ifdef CONFIG_X86_5LEVEL
+	mov $_pa(level4_kernel_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level4_ident_pgt), %esi
+	call set_pgtable_cbit
+#endif
+
+	mov $_pa(level3_ident_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level3_kernel_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level2_ident_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level2_kernel_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level2_fixmap_pgt), %esi
+	call set_pgtable_cbit
+
+	mov $_pa(level1_fixmap_pgt), %esi
+	call set_pgtable_cbit
+
+.skip_sev_prepare_pgt:
+#endif
+
 	/* Enable PAE mode. */
 	mov %cr4, %eax
 	orl $X86_CR4_PAE, %eax
@@ -137,6 +194,22 @@ SYM_CODE_START_LOCAL(pvh_start_xen)
 	ljmp $PVH_CS_SEL, $_pa(startup_32)
 #endif
 SYM_CODE_END(pvh_start_xen)
+
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+SYM_FUNC_START_LOCAL(set_pgtable_cbit)
+	.code32
+	mov $512, %ecx
+	xor %edx, %edx
+.L2:
+	testl $_PAGE_PRESENT, 0(%esi,%edx,8)
+	jz .L3
+	or %eax, 4(%esi,%edx,8)
+.L3:
+	inc %edx
+	loop .L2
+	RET
+SYM_FUNC_END(set_pgtable_cbit)
+#endif
 
 	.section ".init.data","aw"
 	.balign 8
