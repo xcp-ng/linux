@@ -92,6 +92,49 @@ SYM_CODE_START(pvh_start_xen)
 
 	leal rva(early_stack_end)(%ebp), %esp
 
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+	/* Check CPUID highest leaf */
+	mov $0x80000000, %eax
+	cpuid
+	cmp $0x8000001f, %eax
+	jb .skip_sev_prepare_pgt
+
+	/* Check for SEV support */
+	mov $0x8000001f, %eax
+	cpuid
+	bt $1, %eax
+	jz .skip_sev_prepare_pgt
+
+	/* Check if SEV is enabled */
+	mov $MSR_AMD64_SEV, %ecx
+	rdmsr
+	bt $MSR_AMD64_SEV_ENABLED_BIT, %eax
+	jz .skip_sev_prepare_pgt
+	
+	mov %ebx, %ecx
+	and $0x3f, %ecx /* Get C-bit position */
+	sub $0x20, %ecx
+	mov $1, %eax
+	shl %cl, %eax
+
+	leal rva(pvh_init_top_pgt)(%ebp), %esi
+	call set_pgtable_cbit
+
+	leal rva(pvh_level3_ident_pgt)(%ebp), %esi
+	call set_pgtable_cbit
+
+	leal rva(pvh_level3_kernel_pgt)(%ebp), %esi
+	call set_pgtable_cbit
+
+	leal rva(pvh_level2_ident_pgt)(%ebp), %esi
+	call set_pgtable_cbit
+
+	leal rva(pvh_level2_kernel_pgt)(%ebp), %esi
+	call set_pgtable_cbit
+
+.skip_sev_prepare_pgt:
+#endif
+
 	/* Enable PAE mode. */
 	mov %cr4, %eax
 	orl $X86_CR4_PAE, %eax
@@ -219,6 +262,22 @@ SYM_CODE_START(pvh_start_xen)
 	ljmp $PVH_CS_SEL, $_pa(startup_32)
 #endif
 SYM_CODE_END(pvh_start_xen)
+
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+SYM_FUNC_START_LOCAL(set_pgtable_cbit)
+	.code32
+	mov $512, %ecx
+	xor %edx, %edx
+.L2:
+	testl $_PAGE_PRESENT, 0(%esi,%edx,8)
+	jz .L3
+	or %eax, 4(%esi,%edx,8)
+.L3:
+	inc %edx
+	loop .L2
+	RET
+SYM_FUNC_END(set_pgtable_cbit)
+#endif
 
 	.section ".init.data","aw"
 	.balign 8
