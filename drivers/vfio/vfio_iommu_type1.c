@@ -150,9 +150,9 @@ struct vfio_dma {
 struct vfio_batch {
 	struct page		**pages;	/* for pin_user_pages_remote */
 	struct page		*fallback_page; /* if pages alloc fails */
-	int			capacity;	/* length of pages array */
-	int			size;		/* of batch currently */
-	int			offset;		/* of next entry in pages */
+	unsigned int		capacity;	/* length of pages array */
+	unsigned int		size;		/* of batch currently */
+	unsigned int		offset;		/* of next entry in pages */
 };
 
 struct vfio_iommu_group {
@@ -609,14 +609,14 @@ static int follow_fault_pfn(struct vm_area_struct *vma, struct mm_struct *mm,
  * initial offset.  For VM_PFNMAP pfns, only the returned number of pfns and
  * returned initial pfn are provided; subsequent pfns are contiguous.
  */
-static int vaddr_get_pfns(struct mm_struct *mm, unsigned long vaddr,
-			  long npages, int prot, unsigned long *pfn,
-			  struct vfio_batch *batch)
+static long vaddr_get_pfns(struct mm_struct *mm, unsigned long vaddr,
+			   unsigned long npages, int prot, unsigned long *pfn,
+			   struct vfio_batch *batch)
 {
-	long pin_pages = min_t(long, npages, batch->capacity);
+	unsigned long pin_pages = min_t(unsigned long, npages, batch->capacity);
 	struct vm_area_struct *vma;
 	unsigned int flags = 0;
-	int ret;
+	long ret;
 
 	if (prot & IOMMU_WRITE)
 		flags |= FOLL_WRITE;
@@ -716,7 +716,7 @@ static int vfio_wait_all_valid(struct vfio_iommu *iommu)
  * first page and all consecutive pages with the same locking.
  */
 static long vfio_pin_pages_remote(struct vfio_dma *dma, unsigned long vaddr,
-				  long npage, unsigned long *pfn_base,
+				  unsigned long npage, unsigned long *pfn_base,
 				  unsigned long limit, struct vfio_batch *batch,
 				  struct mm_struct *mm, long *lock_cache)
 {
@@ -845,7 +845,7 @@ unpin_out:
 }
 
 static long vfio_unpin_pages_remote(struct vfio_dma *dma, dma_addr_t iova,
-				    unsigned long pfn, long npage,
+				    unsigned long pfn, unsigned long npage,
 				    bool do_accounting)
 {
 	long unlocked = 0, locked = 0;
