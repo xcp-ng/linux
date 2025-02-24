@@ -352,6 +352,7 @@ struct gro_list {
 struct napi_config {
 	u64 gro_flush_timeout;
 	u32 defer_hard_irqs;
+	cpumask_t affinity_mask;
 	unsigned int napi_id;
 };
 
@@ -404,8 +405,9 @@ struct napi_struct {
 	UEK_KABI_FILL_HOLE(int	index)
 	UEK_KABI_USE(1,	unsigned long gro_flush_timeout) /* "not" protected by netdev_lock */
 	UEK_KABI_USE(2,	struct napi_config *config)
-	UEK_KABI_RESERVE(3)
+	UEK_KABI_USE(3, int napi_rmap_idx)
 	UEK_KABI_RESERVE(4)
+	UEK_KABI_EXTEND_WITH_SIZE(struct irq_affinity_notify notify, 10)
 };
 
 enum {
@@ -419,6 +421,7 @@ enum {
 	NAPI_STATE_PREFER_BUSY_POLL,	/* prefer busy-polling over softirq processing*/
 	NAPI_STATE_THREADED,		/* The poll is performed inside its own thread*/
 	NAPI_STATE_SCHED_THREADED,	/* Napi is currently scheduled in threaded mode */
+	NAPI_STATE_HAS_NOTIFIER,	/* Napi has an IRQ notifier */
 };
 
 enum {
@@ -432,6 +435,7 @@ enum {
 	NAPIF_STATE_PREFER_BUSY_POLL	= BIT(NAPI_STATE_PREFER_BUSY_POLL),
 	NAPIF_STATE_THREADED		= BIT(NAPI_STATE_THREADED),
 	NAPIF_STATE_SCHED_THREADED	= BIT(NAPI_STATE_SCHED_THREADED),
+	NAPIF_STATE_HAS_NOTIFIER	= BIT(NAPI_STATE_HAS_NOTIFIER),
 };
 
 enum gro_result {
@@ -2011,6 +2015,15 @@ enum netdev_reg_state {
  *
  *	@threaded:	napi threaded mode is enabled
  *
+ *	@irq_affinity_auto: driver wants the core to store and re-assign the IRQ
+ *			    affinity. Set by netif_enable_irq_affinity(), then
+ *			    the driver must create a persistent napi by
+ *			    netif_napi_add_config() and finally bind the napi to
+ *			    IRQ (via netif_napi_set_irq()).
+ *
+ *	@rx_cpu_rmap_auto: driver wants the core to manage the ARFS rmap.
+ *	                   Set by calling netif_enable_cpu_rmap().
+ *
  *	@see_all_hwtstamp_requests: device wants to see calls to
  *			ndo_hwtstamp_set() for all timestamp requests
  *			regardless of source, even if those aren't
@@ -2096,6 +2109,8 @@ struct net_device {
 	unsigned int		mtu;
 	unsigned short		needed_headroom;
 	struct netdev_tc_txq	tc_to_txq[TC_MAX_QUEUE];
+	UEK_KABI_FILL_HOLE(bool	irq_affinity_auto)
+	UEK_KABI_FILL_HOLE(bool rx_cpu_rmap_auto)
 #ifdef CONFIG_XPS
 	struct xps_dev_maps __rcu *xps_maps[XPS_MAPS_MAX];
 #endif
@@ -2754,10 +2769,7 @@ static inline void netdev_unlock_ops(struct net_device *dev)
 		netdev_unlock(dev);
 }
 
-static inline void netif_napi_set_irq_locked(struct napi_struct *napi, int irq)
-{
-	napi->irq = irq;
-}
+void netif_napi_set_irq_locked(struct napi_struct *napi, int irq);
 
 static inline void netif_napi_set_irq(struct napi_struct *napi, int irq)
 {
@@ -2894,6 +2906,9 @@ static inline void netif_napi_del(struct napi_struct *napi)
 	__netif_napi_del(napi);
 	synchronize_net();
 }
+
+int netif_enable_cpu_rmap(struct net_device *dev, unsigned int num_irqs);
+void netif_set_affinity_auto(struct net_device *dev);
 
 struct packet_type {
 	__be16			type;	/* This is really htons(ether_type). */
