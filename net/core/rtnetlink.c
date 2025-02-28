@@ -2898,7 +2898,7 @@ static int do_setlink(const struct sk_buff *skb, struct net_device *dev,
 		else
 			new_ifindex = 0;
 
-		err = __dev_change_net_namespace(dev, tgt_net, pat, new_ifindex);
+		err = __dev_change_net_namespace(dev, tgt_net, pat, new_ifindex, extack);
 		if (err)
 			goto errout;
 
