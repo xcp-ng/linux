@@ -1143,6 +1143,9 @@ attribute-sets:
       -
         name: alt-ifname
         multi-attr: true
+      -
+        name: netns-immutable
+        type: u8
   -
     name: af-spec-attrs
     attributes:
