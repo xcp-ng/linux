@@ -1370,8 +1370,10 @@ static ssize_t tx_maxrate_store(struct netdev_queue *queue,
 		return restart_syscall();
 
 	err = -EOPNOTSUPP;
+	netdev_lock_ops(dev);
 	if (dev->netdev_ops->ndo_set_tx_maxrate)
 		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
+	netdev_unlock_ops(dev);
 
 	rtnl_unlock();
 	if (!err) {
