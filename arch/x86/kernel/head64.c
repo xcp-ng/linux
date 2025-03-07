@@ -97,7 +97,7 @@ static unsigned long __head sme_postprocess_startup(struct boot_params *bp,
 	int i;
 
 	/* Encrypt the kernel and related (if SME is active) */
-	sme_encrypt_kernel(bp);
+	//sme_encrypt_kernel(bp);
 
 	/*
 	 * Clear the memory encryption mask from the .bss..decrypted section.
@@ -176,26 +176,29 @@ unsigned long __head __startup_64(unsigned long p2v_offset,
 	va_text = physaddr - p2v_offset;
 	va_end  = (unsigned long)&RIP_REL_REF(_end) - p2v_offset;
 
-	/* Include the SME encryption mask in the fixup value */
-	load_delta += sme_get_me_mask();
-
 	/* Fixup the physical addresses in the page table */
 
 	pgd = &RIP_REL_REF(early_top_pgt)->pgd;
 	pgd[pgd_index(__START_KERNEL_map)] += load_delta;
+	pgd[pgd_index(__START_KERNEL_map)] |= sme_get_me_mask();
 
 	if (IS_ENABLED(CONFIG_X86_5LEVEL) && la57) {
 		p4d = (p4dval_t *)&RIP_REL_REF(level4_kernel_pgt);
 		p4d[MAX_PTRS_PER_P4D - 1] += load_delta;
+		p4d[MAX_PTRS_PER_P4D - 1] |= sme_get_me_mask();
 
 		pgd[pgd_index(__START_KERNEL_map)] = (pgdval_t)p4d | _PAGE_TABLE;
 	}
 
 	RIP_REL_REF(level3_kernel_pgt)[PTRS_PER_PUD - 2].pud += load_delta;
+	RIP_REL_REF(level3_kernel_pgt)[PTRS_PER_PUD - 2].pud |= sme_get_me_mask();
 	RIP_REL_REF(level3_kernel_pgt)[PTRS_PER_PUD - 1].pud += load_delta;
+	RIP_REL_REF(level3_kernel_pgt)[PTRS_PER_PUD - 2].pud |= sme_get_me_mask();
 
-	for (i = FIXMAP_PMD_TOP; i > FIXMAP_PMD_TOP - FIXMAP_PMD_NUM; i--)
+	for (i = FIXMAP_PMD_TOP; i > FIXMAP_PMD_TOP - FIXMAP_PMD_NUM; i--) {
 		RIP_REL_REF(level2_fixmap_pgt)[i].pmd += load_delta;
+		RIP_REL_REF(level2_fixmap_pgt)[i].pmd |= sme_get_me_mask();
+	}
 
 	/*
 	 * Set up the identity mapping for the switchover.  These
@@ -266,8 +269,10 @@ unsigned long __head __startup_64(unsigned long p2v_offset,
 
 	/* fixup pages that are part of the kernel image */
 	for (; i <= pmd_index(va_end); i++)
-		if (pmd[i] & _PAGE_PRESENT)
+		if (pmd[i] & _PAGE_PRESENT) {
 			pmd[i] += load_delta;
+			pmd[i] |= sme_get_me_mask();
+		}
 
 	/* invalidate pages after the kernel image */
 	for (; i < PTRS_PER_PMD; i++)
