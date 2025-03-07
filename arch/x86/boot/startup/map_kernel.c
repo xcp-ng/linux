@@ -118,26 +118,29 @@ unsigned long __init __startup_64(unsigned long p2v_offset,
 	va_text = physaddr - p2v_offset;
 	va_end  = (unsigned long)rip_rel_ptr(_end) - p2v_offset;
 
-	/* Include the SME encryption mask in the fixup value */
-	load_delta += sme_get_me_mask();
-
 	/* Fixup the physical addresses in the page table */
 
 	pgd = rip_rel_ptr(early_top_pgt);
 	pgd[pgd_index(__START_KERNEL_map)] += load_delta;
+	pgd[pgd_index(__START_KERNEL_map)] |= sme_get_me_mask();
 
-	if (la57) {
-		p4d = (p4dval_t *)rip_rel_ptr(level4_kernel_pgt);
+	if (IS_ENABLED(CONFIG_X86_5LEVEL) && la57) {
+		p4d = (p4dval_t *)&level4_kernel_pgt;
 		p4d[MAX_PTRS_PER_P4D - 1] += load_delta;
+		p4d[MAX_PTRS_PER_P4D - 1] |= sme_get_me_mask();
 
 		pgd[pgd_index(__START_KERNEL_map)] = (pgdval_t)p4d | _PAGE_TABLE;
 	}
 
 	level3_kernel_pgt[PTRS_PER_PUD - 2].pud += load_delta;
+	level3_kernel_pgt[PTRS_PER_PUD - 2].pud |= sme_get_me_mask();
 	level3_kernel_pgt[PTRS_PER_PUD - 1].pud += load_delta;
+	level3_kernel_pgt[PTRS_PER_PUD - 1].pud |= sme_get_me_mask();
 
-	for (i = FIXMAP_PMD_TOP; i > FIXMAP_PMD_TOP - FIXMAP_PMD_NUM; i--)
+	for (i = FIXMAP_PMD_TOP; i > FIXMAP_PMD_TOP - FIXMAP_PMD_NUM; i--) {
 		level2_fixmap_pgt[i].pmd += load_delta;
+		level2_fixmap_pgt[i].pmd |= sme_get_me_mask();
+	}
 
 	/*
 	 * Set up the identity mapping for the switchover.  These
@@ -173,7 +176,7 @@ unsigned long __init __startup_64(unsigned long p2v_offset,
 	pud[(i + 1) % PTRS_PER_PUD] = (pudval_t)pmd + pgtable_flags;
 
 	pmd_entry = __PAGE_KERNEL_LARGE_EXEC & ~_PAGE_GLOBAL;
-	pmd_entry += sme_get_me_mask();
+	pmd_entry |= sme_get_me_mask();
 	pmd_entry +=  physaddr;
 
 	for (i = 0; i < DIV_ROUND_UP(va_end - va_text, PMD_SIZE); i++) {
@@ -206,8 +209,10 @@ unsigned long __init __startup_64(unsigned long p2v_offset,
 
 	/* fixup pages that are part of the kernel image */
 	for (; i <= pmd_index(va_end); i++)
-		if (pmd[i] & _PAGE_PRESENT)
+		if (pmd[i] & _PAGE_PRESENT) {
 			pmd[i] += load_delta;
+			pmd[i] |= sme_get_me_mask();
+		}
 
 	/* invalidate pages after the kernel image */
 	for (; i < PTRS_PER_PMD; i++)
