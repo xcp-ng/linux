@@ -7,6 +7,7 @@
 #include <linux/rwsem.h>
 #include <linux/netdevice.h>
 #include <linux/uek_kabi.h>
+#include <net/netdev_lock.h>
 
 struct net;
 struct netlink_ext_ack;
