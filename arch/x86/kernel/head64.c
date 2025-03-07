@@ -132,7 +132,7 @@ static unsigned long __head sme_postprocess_startup(struct boot_params *bp, pmdv
 	int i;
 
 	/* Encrypt the kernel and related (if SME is active) */
-	sme_encrypt_kernel(bp);
+	//sme_encrypt_kernel(bp);
 
 	/*
 	 * Clear the memory encryption mask from the .bss..decrypted section.
@@ -206,7 +206,7 @@ unsigned long __head __startup_64(unsigned long physaddr,
 		for (;;);
 
 	/* Include the SME encryption mask in the fixup value */
-	load_delta += sme_get_me_mask();
+	//load_delta += sme_get_me_mask();
 
 	/* Fixup the physical addresses in the page table */
 
