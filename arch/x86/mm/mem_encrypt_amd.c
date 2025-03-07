@@ -267,12 +267,14 @@ static void enc_dec_hypercall(unsigned long vaddr, unsigned long size, bool enc)
 			return;
 		}
 
-		pfn = pg_level_to_pfn(level, kpte, NULL);
-		if (!pfn)
-			continue;
-
 		psize = page_level_size(level);
 		pmask = page_level_mask(level);
+
+		pfn = pg_level_to_pfn(level, kpte, NULL);
+		if (!pfn) {
+			vaddr = (vaddr & pmask) + psize;
+			continue;
+		}
 
 		notify_page_enc_status_changed(pfn, psize >> PAGE_SHIFT, enc);
 
