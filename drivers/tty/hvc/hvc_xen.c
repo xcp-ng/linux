@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/serial_core.h>
+#include <linux/set_memory.h>
 
 #include <asm/io.h>
 #include <asm/xen/hypervisor.h>
@@ -29,6 +30,8 @@
 #include <xen/xenbus.h>
 
 #include "hvc_console.h"
+
+#include <asm/mem_encrypt.h>
 
 #define HVC_COOKIE   0x58656e /* "Xen" in hex */
 
@@ -275,6 +278,8 @@ static int xen_hvm_console_init(void)
 	if (info->intf == NULL)
 		goto err;
 	info->vtermno = HVC_COOKIE;
+
+	set_memory_decrypted((unsigned long)info->intf, XEN_PAGE_SIZE);
 
 	spin_lock_irqsave(&xencons_lock, flags);
 	list_add_tail(&info->list, &xenconsoles);
