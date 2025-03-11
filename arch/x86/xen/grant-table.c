@@ -43,7 +43,7 @@ int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
 
 	for (i = 0; i < nr_gframes; i++) {
 		set_pte_at(&init_mm, addr, gnttab_shared_vm_area.ptes[i],
-			   mfn_pte(frames[i], PAGE_KERNEL));
+			   mfn_pte(frames[i], PAGE_KERNEL_NOENC));
 		addr += PAGE_SIZE;
 	}
 
