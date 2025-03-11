@@ -270,7 +270,6 @@ void xen_vcpu_setup(int cpu)
 	}
 
 	vcpup = &per_cpu(xen_vcpu_info, cpu);
-	set_memory_decrypted((unsigned long)vcpup, 1);
 	info.mfn = arbitrary_virt_to_mfn(vcpup);
 	info.offset = offset_in_page(vcpup);
 
