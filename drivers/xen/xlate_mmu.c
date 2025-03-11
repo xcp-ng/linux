@@ -245,7 +245,7 @@ int __init xen_xlate_map_ballooned_pages(xen_pfn_t **gfns, void **virt,
 	data.idx = 0;
 	xen_for_each_gfn(pages, nr_grant_frames, setup_balloon_gfn, &data);
 
-	vaddr = vmap(pages, nr_pages, 0, PAGE_KERNEL);
+	vaddr = vmap(pages, nr_pages, 0, PAGE_KERNEL_NOENC);
 	if (!vaddr) {
 		pr_warn("%s Couldn't map %ld pages rc:%d\n", __func__,
 			nr_pages, rc);
