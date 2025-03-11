@@ -763,7 +763,7 @@ static void xenbus_probe(void)
 
 	if (!xen_store_interface)
 		xen_store_interface = memremap(xen_store_gfn << XEN_PAGE_SHIFT,
-					       XEN_PAGE_SIZE, MEMREMAP_WB);
+					       XEN_PAGE_SIZE, MEMREMAP_WB | MEMREMAP_DEC);
 	/*
 	 * Now it is safe to free the IRQ used for xenstore late
 	 * initialization. No need to unbind: it is about to be
@@ -1023,7 +1023,7 @@ static int __init xenbus_init(void)
 			xen_store_gfn = (unsigned long)v;
 			xen_store_interface =
 				memremap(xen_store_gfn << XEN_PAGE_SHIFT,
-					 XEN_PAGE_SIZE, MEMREMAP_WB);
+					 XEN_PAGE_SIZE, MEMREMAP_WB | MEMREMAP_DEC);
 			if (!xen_store_interface) {
 				pr_err("%s: cannot map HVM_PARAM_STORE_PFN=%llx\n",
 				       __func__, v);
