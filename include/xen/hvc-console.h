@@ -3,6 +3,7 @@
 #define XEN_HVC_CONSOLE_H
 
 extern struct console xenboot_console;
+extern struct console xensev_console;
 
 #ifdef CONFIG_HVC_XEN
 void xen_console_resume(void);
