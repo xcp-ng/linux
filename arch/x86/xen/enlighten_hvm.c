@@ -69,13 +69,14 @@ static void __init reserve_shared_info(void)
 	shared_info_pfn = PHYS_PFN(pa);
 
 	memblock_reserve(pa, PAGE_SIZE);
-	HYPERVISOR_shared_info = early_memremap(pa, PAGE_SIZE);
+	HYPERVISOR_shared_info = early_memremap_decrypted(pa, PAGE_SIZE);
 }
 
 static void __init xen_hvm_init_mem_mapping(void)
 {
 	early_memunmap(HYPERVISOR_shared_info, PAGE_SIZE);
 	HYPERVISOR_shared_info = __va(PFN_PHYS(shared_info_pfn));
+	set_memory_decrypted((unsigned long)HYPERVISOR_shared_info, 1);
 
 	/*
 	 * The virtual address of the shared_info page has changed, so
