@@ -2,6 +2,7 @@
 /*
  * Xen stolen ticks accounting.
  */
+#include <linux/mm.h>
 #include <linux/kernel.h>
 #include <linux/kernel_stat.h>
 #include <linux/math64.h>
@@ -12,6 +13,7 @@
 #include <asm/paravirt.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/hypercall.h>
+#include <asm/set_memory.h>
 
 #include <xen/events.h>
 #include <xen/features.h>
@@ -20,7 +22,7 @@
 #include <xen/xen-ops.h>
 
 /* runstate info updated by Xen */
-static DEFINE_PER_CPU(struct vcpu_runstate_info, xen_runstate);
+static DEFINE_PER_CPU_PAGE_ALIGNED(struct vcpu_runstate_info, xen_runstate);
 
 static DEFINE_PER_CPU(u64[4], old_runstate_time);
 
@@ -161,10 +163,9 @@ u64 xen_steal_clock(int cpu)
 void xen_setup_runstate_info(int cpu)
 {
 	struct vcpu_register_runstate_memory_area area;
+	area.addr.p = virt_to_phys(per_cpu_ptr(&xen_runstate, cpu));
 
-	area.addr.v = &per_cpu(xen_runstate, cpu);
-
-	if (HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area,
+	if (HYPERVISOR_vcpu_op(VCPUOP_register_runstate_phys_area,
 			       xen_vcpu_nr(cpu), &area))
 		BUG();
 }
@@ -172,6 +173,9 @@ void xen_setup_runstate_info(int cpu)
 void __init xen_time_setup_guest(void)
 {
 	bool xen_runstate_remote;
+	size_t nr_pages = PAGE_ALIGN(NR_CPUS * sizeof(struct vcpu_runstate_info)) / PAGE_SIZE;
+
+	set_memory_decrypted((unsigned long)&xen_runstate, nr_pages);
 
 	xen_runstate_remote = !HYPERVISOR_vm_assist(VMASST_CMD_enable,
 					VMASST_TYPE_runstate_update_flag);
