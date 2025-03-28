@@ -40,6 +40,7 @@
 #include <linux/percpu.h>
 #include <linux/cpu.h>
 
+#include <asm/set_memory.h>
 #include <asm/barrier.h>
 #include <asm/sync_bitops.h>
 #include <asm/xen/hypercall.h>
@@ -160,6 +161,7 @@ static int evtchn_fifo_setup(evtchn_port_t port)
 				ret = -ENOMEM;
 				goto error;
 			}
+			set_memory_decrypted((unsigned long)array_page, 1);
 			event_array[event_array_pages] = array_page;
 		}
 
@@ -380,6 +382,7 @@ static int evtchn_fifo_alloc_control_block(unsigned cpu)
 	control_block = (void *)__get_free_page(GFP_KERNEL);
 	if (control_block == NULL)
 		goto error;
+	set_memory_decrypted((unsigned long)control_block, 1);
 
 	ret = init_control_block(cpu, control_block);
 	if (ret < 0)
