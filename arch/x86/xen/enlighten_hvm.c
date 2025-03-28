@@ -91,7 +91,7 @@ static void __init reserve_shared_info(void)
 	shared_info_pfn = PHYS_PFN(pa);
 
 	memblock_reserve(pa, PAGE_SIZE);
-	HYPERVISOR_shared_info = early_memremap(pa, PAGE_SIZE);
+	HYPERVISOR_shared_info = early_memremap_prot(pa, PAGE_SIZE, __PAGE_KERNEL_NOENC);
 }
 
 static void __init xen_hvm_init_mem_mapping(void)
