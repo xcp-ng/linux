@@ -424,8 +424,10 @@ static int __init setup_early_printk(char *buf)
 			early_console_register(&early_dbgp_console, keep);
 #endif
 #ifdef CONFIG_HVC_XEN
-		if (!strncmp(buf, "xen", 3))
-			early_console_register(&xenboot_console, keep);
+		//if (!strncmp(buf, "xen", 3))
+		//	early_console_register(&xenboot_console, keep);
+		if (!strncmp(buf, "xensev", 6))
+			early_console_register(&xensev_console, keep);
 #endif
 #ifdef CONFIG_EARLY_PRINTK_USB_XDBC
 		if (!strncmp(buf, "xdbc", 4))

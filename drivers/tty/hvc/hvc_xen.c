@@ -771,7 +771,37 @@ static void xenboot_earlycon_write(struct console *console,
 static int __init xenboot_earlycon_setup(struct earlycon_device *device,
 					    const char *opt)
 {
-	device->con->write = xenboot_earlycon_write;
+	(void)xenboot_earlycon_write;
 	return 0;
 }
 EARLYCON_DECLARE(xenboot, xenboot_earlycon_setup);
+
+
+static int __init xensev_console_setup(struct console *console, char *string)
+{
+	return 0;
+}
+
+static void xensev_earlycon_write(struct console *co, const char *s, unsigned int count)
+{
+	for (unsigned int i = 0; i < count; i++) {
+    asm volatile ("movq $45, %%rax\r\nvmmcall" :: "D" (s[i]) : "rax", "memory");
+	}
+}
+
+static int __init xensev_earlycon_setup(struct earlycon_device *device,
+	const char *opt)
+{
+	device->con->write = xensev_earlycon_write;
+	return 0;
+}
+
+struct console xensev_console = {
+	.name		= "xensev",
+	.write		= xensev_earlycon_write,
+	.setup		= xensev_console_setup,
+	.flags		= CON_PRINTBUFFER | CON_BOOT | CON_ANYTIME,
+	.index		= -1,
+};
+
+EARLYCON_DECLARE(xensev, xensev_earlycon_setup);
