@@ -692,7 +692,7 @@ static int xenbus_map_ring_hvm(struct xenbus_device *dev,
 		goto out_free_ballooned_pages;
 
 	addr = vmap(node->hvm.pages, nr_pages, VM_MAP | VM_IOREMAP,
-		    PAGE_KERNEL);
+		    PAGE_KERNEL_NOENC);
 	if (!addr) {
 		err = -ENOMEM;
 		goto out_xenbus_unmap_ring;
