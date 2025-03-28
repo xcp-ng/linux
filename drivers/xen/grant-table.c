@@ -827,7 +827,7 @@ int gnttab_setup_auto_xlat_frames(phys_addr_t addr, unsigned int max_nr_gframes,
 	if (frames->count)
 		return -EINVAL;
 
-	vaddr = memremap(addr, XEN_PAGE_SIZE * max_nr_gframes, MEMREMAP_WB);
+	vaddr = memremap(addr, XEN_PAGE_SIZE * max_nr_gframes, MEMREMAP_WB|MEMREMAP_DEC);
 	if (vaddr == NULL) {
 		pr_warn("Failed to ioremap gnttab share frames (addr=%pa)!\n",
 			&addr);
