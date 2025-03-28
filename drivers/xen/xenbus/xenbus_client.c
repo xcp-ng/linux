@@ -37,6 +37,7 @@
 #include <linux/vmalloc.h>
 #include <linux/export.h>
 #include <asm/xen/hypervisor.h>
+#include <asm/set_memory.h>
 #include <xen/page.h>
 #include <xen/interface/xen.h>
 #include <xen/interface/event_channel.h>
@@ -399,6 +400,8 @@ int xenbus_setup_ring(struct xenbus_device *dev, gfp_t gfp, void **vaddr,
 		ret = -ENOMEM;
 		goto err;
 	}
+	set_memory_decrypted((unsigned long)addr, nr_pages);
+	memset(addr, 0, ring_size);
 
 	ret = gnttab_alloc_grant_references(nr_pages, &gref_head);
 	if (ret) {
