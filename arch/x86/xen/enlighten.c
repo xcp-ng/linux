@@ -322,6 +322,7 @@ bool xen_running_on_version_or_later(unsigned int major, unsigned int minor)
 void __init xen_add_preferred_consoles(void)
 {
 	add_preferred_console("xenboot", 0, NULL);
+	add_preferred_console("xensev", 0, NULL);
 	if (!boot_params.screen_info.orig_video_isVGA)
 		add_preferred_console("tty", 0, NULL);
 	add_preferred_console("hvc", 0, NULL);
