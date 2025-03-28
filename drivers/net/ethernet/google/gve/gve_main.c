@@ -2157,7 +2157,9 @@ static void gve_handle_reset(struct gve_priv *priv)
 
 	if (gve_get_do_reset(priv)) {
 		rtnl_lock();
+		netdev_lock(priv->dev);
 		gve_reset(priv, false);
+		netdev_unlock(priv->dev);
 		rtnl_unlock();
 	}
 }
@@ -2746,6 +2748,7 @@ static void gve_shutdown(struct pci_dev *pdev)
 	netif_device_detach(netdev);
 
 	rtnl_lock();
+	netdev_lock(netdev);
 	if (was_up && gve_close(priv->dev)) {
 		/* If the dev was up, attempt to close, if close fails, reset */
 		gve_reset_and_teardown(priv, was_up);
@@ -2753,6 +2756,7 @@ static void gve_shutdown(struct pci_dev *pdev)
 		/* If the dev wasn't up or close worked, finish tearing down */
 		gve_teardown_priv_resources(priv);
 	}
+	netdev_unlock(netdev);
 	rtnl_unlock();
 }
 
