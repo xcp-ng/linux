@@ -2,6 +2,7 @@
 /*
  * Xen stolen ticks accounting.
  */
+#include <linux/mm.h>
 #include <linux/kernel.h>
 #include <linux/kernel_stat.h>
 #include <linux/math64.h>
@@ -12,6 +13,7 @@
 #include <asm/paravirt.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/hypercall.h>
+#include <asm/set_memory.h>
 
 #include <xen/events.h>
 #include <xen/features.h>
@@ -20,7 +22,8 @@
 #include <xen/xen-ops.h>
 
 /* runstate info updated by Xen */
-static DEFINE_PER_CPU(struct vcpu_runstate_info, xen_runstate);
+static struct vcpu_runstate_info *xen_runstate;
+static phys_addr_t xen_runstate_phys;
 
 static DEFINE_PER_CPU(u64[4], old_runstate_time);
 
@@ -60,7 +63,7 @@ static void xen_get_runstate_snapshot_cpu_delta(
 
 	BUG_ON(preemptible());
 
-	state = per_cpu_ptr(&xen_runstate, cpu);
+	state = &xen_runstate[cpu];
 
 	do {
 		state_time = get64(&state->state_entry_time);
@@ -147,7 +150,7 @@ void xen_get_runstate_snapshot(struct vcpu_runstate_info *res)
 /* return true when a vcpu could run but has no real cpu to run on */
 bool xen_vcpu_stolen(int vcpu)
 {
-	return per_cpu(xen_runstate, vcpu).state == RUNSTATE_runnable;
+	return xen_runstate[vcpu].state == RUNSTATE_runnable;
 }
 
 u64 xen_steal_clock(int cpu)
@@ -161,10 +164,9 @@ u64 xen_steal_clock(int cpu)
 void xen_setup_runstate_info(int cpu)
 {
 	struct vcpu_register_runstate_memory_area area;
+	area.addr.p = xen_runstate_phys + cpu * sizeof(struct vcpu_runstate_info);
 
-	area.addr.v = &per_cpu(xen_runstate, cpu);
-
-	if (HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area,
+	if (HYPERVISOR_vcpu_op(VCPUOP_register_runstate_phys_area,
 			       xen_vcpu_nr(cpu), &area))
 		BUG();
 }
@@ -172,6 +174,12 @@ void xen_setup_runstate_info(int cpu)
 void __init xen_time_setup_guest(void)
 {
 	bool xen_runstate_remote;
+	size_t nr_pages = PAGE_ALIGN(NR_CPUS * sizeof(struct vcpu_runstate_info)) / PAGE_SIZE;
+
+	xen_runstate = alloc_pages_exact(nr_pages, GFP_KERNEL);
+	BUG_ON(!xen_runstate);
+	set_memory_decrypted((unsigned long)xen_runstate, nr_pages);
+	xen_runstate_phys = virt_to_phys(xen_runstate);
 
 	xen_runstate_remote = !HYPERVISOR_vm_assist(VMASST_CMD_enable,
 					VMASST_TYPE_runstate_update_flag);
