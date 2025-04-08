@@ -1960,6 +1960,7 @@ enum netdev_reg_state {
  *	@priv_destructor:	Called from unregister
  *	@npinfo:		XXX: need comments on this one
  * 	@nd_net:		Network namespace this network device is inside
+ *				protected by @lock
  *
  * 	@ml_priv:	Mid-layer private
  *	@ml_priv_type:  Mid-layer private type
@@ -2138,6 +2139,9 @@ struct net_device {
 	 * @ethtool_ops under the @lock.
 	 */
 	UEK_KABI_FILL_HOLE(bool request_ops_lock)
+
+	/** @moving_ns: device is changing netns, protected by @lock */
+	UEK_KABI_FILL_HOLE(bool moving_ns)
 
 	netdev_features_t	features;
 	struct inet6_dev __rcu	*ip6_ptr;
@@ -2519,7 +2523,7 @@ struct net_device {
 	 *	@napi_list, @net_shaper_hierarchy, @reg_state, @threaded
 	 *
 	 * Double protects:
-	 *	@up
+	 *	@up, @moving_ns, @nd_net
 	 *
 	 * Double ops protects:
 	 *	@real_num_rx_queues, @real_num_tx_queues
