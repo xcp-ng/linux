@@ -35,6 +35,7 @@
  * IN THE SOFTWARE.
  */
 
+#include <linux/mm.h>
 #include <linux/interrupt.h>
 #include <linux/blkdev.h>
 #include <linux/blk-mq.h>
@@ -53,6 +54,7 @@
 #include <xen/xen.h>
 #include <xen/xenbus.h>
 #include <xen/grant_table.h>
+#include <xen/grant_pool.h>
 #include <xen/events.h>
 #include <xen/page.h>
 #include <xen/platform_pci.h>
@@ -128,6 +130,7 @@ static DEFINE_MUTEX(blkfront_mutex);
 static const struct block_device_operations xlvbd_block_fops;
 static struct delayed_work blkfront_work;
 static LIST_HEAD(info_list);
+static struct grant_pool global_pool;
 
 /*
  * Maximum number of segments in indirect requests, the actual value used by
@@ -313,17 +316,21 @@ static int fill_grant_buffer(struct blkfront_ring_info *rinfo, int num)
 	struct grant *gnt_list_entry, *n;
 	int i = 0;
 
+	printk("Filling with %d pages\n", num);
+
 	while (i < num) {
 		gnt_list_entry = kzalloc(sizeof(struct grant), GFP_NOIO);
 		if (!gnt_list_entry)
 			goto out_of_memory;
 
 		if (info->bounce) {
-			granted_page = alloc_page(GFP_NOIO | __GFP_ZERO);
+			granted_page = xen_gntpool_alloc_page(&global_pool);
+			printk("Using page %8lx for bounce buffering\n", (unsigned long)granted_page);
 			if (!granted_page) {
 				kfree(gnt_list_entry);
 				goto out_of_memory;
 			}
+			memset(page_to_virt(granted_page), 0, PAGE_SIZE);
 			gnt_list_entry->page = granted_page;
 		}
 
@@ -339,7 +346,7 @@ out_of_memory:
 	                         &rinfo->grants, node) {
 		list_del(&gnt_list_entry->node);
 		if (info->bounce)
-			__free_page(gnt_list_entry->page);
+			xen_gntpool_free_page(&global_pool, gnt_list_entry->page);
 		kfree(gnt_list_entry);
 		i--;
 	}
@@ -1333,7 +1340,7 @@ static void blkif_copy_from_grant(unsigned long gfn, unsigned int offset,
 	/* Convenient aliases */
 	const struct blk_shadow *s = info->s;
 
-	shared_data = kmap_atomic(s->grants_used[info->grant_idx]->page);
+	shared_data = kmap_atomic_prot(s->grants_used[info->grant_idx]->page, PAGE_KERNEL_NOENC);
 
 	memcpy(info->bvec_data + info->bvec_offset,
 	       shared_data + offset, len);
@@ -1779,8 +1786,8 @@ static int talk_to_blkback(struct xenbus_device *dev,
 	if (!info)
 		return -ENODEV;
 
-	/* Check if backend is trusted. */
-	info->bounce = !xen_blkif_trusted ||
+	/* Check if backend is trusted or if we are running with encrypted memory. */
+	info->bounce = cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT) || !xen_blkif_trusted ||
 		       !xenbus_read_unsigned(dev->nodename, "trusted", 1);
 
 	max_page_order = xenbus_read_unsigned(info->xbdev->otherend,
@@ -2594,6 +2601,9 @@ static int __init xlblk_init(void)
 
 	if (!xen_has_pv_disk_devices())
 		return -ENODEV;
+
+	BUG_ON(xen_gntpool_create(&global_pool, 12));
+	printk("Initialized global blkfront grant pool");
 
 	if (register_blkdev(XENVBD_MAJOR, DEV_NAME)) {
 		pr_warn("xen_blk: can't get major %d with name %s\n",
