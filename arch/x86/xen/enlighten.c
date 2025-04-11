@@ -21,6 +21,7 @@
 #include <asm/cpu.h>
 #include <asm/e820/api.h> 
 #include <asm/setup.h>
+#include <asm/set_memory.h>
 
 #include "xen-ops.h"
 
@@ -38,7 +39,7 @@ EXPORT_STATIC_CALL_TRAMP(xen_hypercall);
  * which matches the cache line size of 64-bit x86 processors).
  */
 DEFINE_PER_CPU(struct vcpu_info *, xen_vcpu);
-DEFINE_PER_CPU_ALIGNED(struct vcpu_info, xen_vcpu_info);
+DEFINE_PER_CPU_PAGE_ALIGNED(struct vcpu_info, xen_vcpu_info);
 
 /* Linux <-> Xen vCPU id mapping */
 DEFINE_PER_CPU(uint32_t, xen_vcpu_id);
@@ -270,6 +271,7 @@ void xen_vcpu_setup(int cpu)
 	}
 
 	vcpup = &per_cpu(xen_vcpu_info, cpu);
+	set_memory_decrypted((unsigned long)vcpup, 1);
 	info.mfn = arbitrary_virt_to_mfn(vcpup);
 	info.offset = offset_in_page(vcpup);
 
