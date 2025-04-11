@@ -13,6 +13,7 @@ static uint8_t *hypercall_buffer, _hypercall_buffer[PAGE_SIZE] __attribute__((al
 static spinlock_t hypercall_lock;
 static phys_addr_t base_addr;
 static size_t offset;
+static unsigned long irq_flags;
 
 int __init xen_coco_hypercall_init(void)
 {
@@ -28,7 +29,7 @@ int __init xen_coco_hypercall_init(void)
 
 void xen_coco_hypercall_begin(void)
 {
-	spin_lock(&hypercall_lock);
+	spin_lock_irqsave(&hypercall_lock, irq_flags);
   BUG_ON(offset);
   BUG_ON(!base_addr);
 }
@@ -36,7 +37,7 @@ void xen_coco_hypercall_begin(void)
 void xen_coco_hypercall_end(void)
 {
   offset = 0;
-	spin_unlock(&hypercall_lock);
+	spin_unlock_irqrestore(&hypercall_lock, irq_flags);
 }
 
 phys_addr_t xen_coco_hypercall_handle_prepare(void *buffer, size_t size)
