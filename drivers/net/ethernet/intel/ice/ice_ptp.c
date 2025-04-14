@@ -1669,13 +1669,6 @@ static int ice_ptp_cfg_extts(struct ice_pf *pf, unsigned int chan,
 	struct ice_hw *hw = &pf->hw;
 	u8 tmr_idx;
 
-	/* Reject requests with unsupported flags */
-	if (config->flags & ~(PTP_ENABLE_FEATURE |
-			      PTP_RISING_EDGE |
-			      PTP_FALLING_EDGE |
-			      PTP_STRICT_FLAGS))
-		return -EOPNOTSUPP;
-
 	tmr_idx = hw->func_caps.ts_func_info.tmr_index_owned;
 
 	irq_reg = rd32(hw, PFINT_OICR_ENA);
@@ -2571,6 +2564,10 @@ static void ice_ptp_set_caps(struct ice_pf *pf)
 	info->adjfine = ice_ptp_adjfine;
 	info->gettimex64 = ice_ptp_gettimex64;
 	info->settime64 = ice_ptp_settime64;
+
+	info->supported_extts_flags = PTP_RISING_EDGE |
+				      PTP_FALLING_EDGE |
+				      PTP_STRICT_FLAGS;
 
 	if (ice_is_e810(&pf->hw))
 		ice_ptp_set_funcs_e810(pf, info);
