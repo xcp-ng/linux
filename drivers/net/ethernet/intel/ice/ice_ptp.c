@@ -1768,9 +1768,6 @@ static int ice_ptp_cfg_clkout(struct ice_pf *pf, unsigned int chan,
 	u32 func, val, gpio_pin;
 	u8 tmr_idx;
 
-	if (config && config->flags & ~PTP_PEROUT_PHASE)
-		return -EOPNOTSUPP;
-
 	tmr_idx = hw->func_caps.ts_func_info.tmr_index_owned;
 
 	/* 0. Reset mode & out_en in AUX_OUT */
@@ -2568,6 +2565,7 @@ static void ice_ptp_set_caps(struct ice_pf *pf)
 	info->supported_extts_flags = PTP_RISING_EDGE |
 				      PTP_FALLING_EDGE |
 				      PTP_STRICT_FLAGS;
+	info->supported_perout_flags = PTP_PEROUT_PHASE;
 
 	if (ice_is_e810(&pf->hw))
 		ice_ptp_set_funcs_e810(pf, info);
