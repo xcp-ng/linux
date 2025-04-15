@@ -1603,6 +1603,8 @@ EXPORT_SYMBOL(netdev_features_change);
  */
 void netdev_state_change(struct net_device *dev)
 {
+	netdev_ops_assert_locked_or_invisible(dev);
+
 	if (dev->flags & IFF_UP) {
 		struct netdev_notifier_change_info change_info = {
 			.info.dev = dev,
