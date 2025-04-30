@@ -203,4 +203,21 @@ struct vcpu_register_time_memory_area {
 };
 DEFINE_GUEST_HANDLE_STRUCT(vcpu_register_time_memory_area);
 
+/*
+ * Like the respective VCPUOP_register_*_memory_area, just using the "addr.p"
+ * field of the supplied struct as a guest physical address (i.e. in GFN space).
+ * The respective area may not cross a page boundary.  Pass ~0 to unregister an
+ * area.  Note that as long as an area is registered by physical address, the
+ * linear address based area will not be serviced (updated) by the hypervisor.
+ *
+ * Note that the area registered via VCPUOP_register_runstate_memory_area will
+ * be updated in the same manner as the one registered via virtual address PLUS
+ * VMASST_TYPE_runstate_update_flag engaged by the domain.
+ *
+ * XENFEAT_{runstate,vcpu_time}_phys_area feature bits signal the availability
+ * of these ops.
+ */
+ #define VCPUOP_register_runstate_phys_area      14
+ #define VCPUOP_register_vcpu_time_phys_area     15
+
 #endif /* __XEN_PUBLIC_VCPU_H__ */
