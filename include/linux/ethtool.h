@@ -19,6 +19,7 @@
 #include <linux/if_ether.h>
 #include <linux/netlink.h>
 #include <uapi/linux/ethtool.h>
+#include <uapi/linux/ethtool_netlink_generated.h>
 #include <uapi/linux/net_tstamp.h>
 
 struct compat_ethtool_rx_flow_spec {
@@ -744,6 +745,8 @@ struct ethtool_rxfh_param {
  * @so_timestamping: bit mask of the sum of the supported SO_TIMESTAMPING flags
  * @phc_index: device index of the associated PHC, or -1 if there is none
  * @phc_qualifier: qualifier of the associated PHC
+ * @phc_source: source device of the associated PHC
+ * @phc_phyindex: index of PHY device source of the associated PHC
  * @tx_types: bit mask of the supported hwtstamp_tx_types enumeration values
  * @rx_filters: bit mask of the supported hwtstamp_rx_filters enumeration values
  */
@@ -754,6 +757,8 @@ struct kernel_ethtool_ts_info {
 	enum hwtstamp_tx_types tx_types;
 	enum hwtstamp_rx_filters rx_filters;
 	UEK_KABI_EXTEND(enum hwtstamp_provider_qualifier phc_qualifier)
+	UEK_KABI_EXTEND(enum hwtstamp_source phc_source)
+	UEK_KABI_EXTEND(int phc_phyindex)
 };
 
 /**
