@@ -2089,6 +2089,19 @@ static int gfs2_getattr(struct mnt_idmap *idmap,
 
 	generic_fillattr(&nop_mnt_idmap, request_mask, inode, stat);
 
+	/*
+	 * Return the DIO alignment restrictions if requested.  We only return
+	 * this information when requested.
+	 */
+	if ((request_mask & STATX_DIOALIGN) && S_ISREG(inode->i_mode)) {
+		struct block_device *bdev = inode->i_sb->s_bdev;
+
+		stat->result_mask |= STATX_DIOALIGN;
+		/* iomap defaults */
+		stat->dio_mem_align = bdev_dma_alignment(bdev) + 1;
+		stat->dio_offset_align = bdev_logical_block_size(bdev);
+	}
+
 	if (gfs2_holder_initialized(&gh))
 		gfs2_glock_dq_uninit(&gh);
 
