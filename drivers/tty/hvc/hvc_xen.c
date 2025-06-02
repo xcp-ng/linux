@@ -279,7 +279,7 @@ static int xen_hvm_console_init(void)
 		goto err;
 	info->vtermno = HVC_COOKIE;
 
-	set_memory_decrypted((unsigned long)info->intf, XEN_PAGE_SIZE);
+	set_memory_decrypted((unsigned long)info->intf, 1);
 
 	spin_lock_irqsave(&xencons_lock, flags);
 	list_add_tail(&info->list, &xenconsoles);
