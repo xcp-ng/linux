@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/thread_info.h>
 #include <asm/smp.h>
+#include <asm/xen/hypercall_bounce.h>
 
 #include <xen/events.h>
 
@@ -49,6 +50,11 @@ static void __init xen_hvm_smp_prepare_cpus(unsigned int max_cpus)
 
 		/* Set default vcpu_id to make sure that we don't use cpu-0's */
 		per_cpu(xen_vcpu_id, cpu) = XEN_VCPU_ID_INVALID;
+
+		#ifdef CONFIG_XEN_HVMV2
+		if (xen_physaddr_abi)
+			xen_hypercall_bounce_init_smp(cpu);
+		#endif
 	}
 }
 

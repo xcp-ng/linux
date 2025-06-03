@@ -14,7 +14,7 @@ extern bool xen_physaddr_abi;
 
 void __init xen_hypercall_bounce_init_early(void);
 void __init xen_hypercall_bounce_teardown_early(void);
-void xen_hypercall_bounce_init_smp(void);
+void xen_hypercall_bounce_init_smp(int cpu);
 
 int xen_hypercall_bounce_sched_op(int cmd, void *arg);
 int xen_hypercall_bounce_mca(struct xen_mc *mc_op);

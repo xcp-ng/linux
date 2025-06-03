@@ -54,9 +54,9 @@ void __init xen_hypercall_bounce_teardown_early(void)
 	early_memunmap(state->virt_base, PAGE_SIZE);
 }
 
-void xen_hypercall_bounce_init_smp(void)
+void xen_hypercall_bounce_init_smp(int cpu)
 {
-  struct xen_hypercall_bounce_state *state = this_cpu_ptr(&xen_bounce_states);
+  struct xen_hypercall_bounce_state *state = per_cpu_ptr(&xen_bounce_states, cpu);
   struct page *bounce_page = alloc_page(GFP_KERNEL);
 
   state->phys_base = page_to_phys(bounce_page);

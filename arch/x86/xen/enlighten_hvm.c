@@ -95,7 +95,7 @@ static void __init xen_hvm_init_mem_mapping(void)
 static void __init xen_hvm_after_bootmem(void)
 {
 	xen_hypercall_bounce_teardown_early();
-	xen_hypercall_bounce_init_smp();
+	xen_hypercall_bounce_init_smp(0);
 	
 	printk(KERN_INFO "hvm: Teared down early bounce buffering\n");
 }
