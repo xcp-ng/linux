@@ -392,9 +392,9 @@ void rpc_sleep_on(struct rpc_wait_queue *q, struct rpc_task *task,
 	/*
 	 * Protect the queue operations.
 	 */
-	spin_lock_bh(&q->lock);
+	spin_lock(&q->lock);
 	__rpc_sleep_on_priority(q, task, action, task->tk_priority);
-	spin_unlock_bh(&q->lock);
+	spin_unlock(&q->lock);
 }
 EXPORT_SYMBOL_GPL(rpc_sleep_on);
 
@@ -412,9 +412,9 @@ void rpc_sleep_on_priority(struct rpc_wait_queue *q, struct rpc_task *task,
 	/*
 	 * Protect the queue operations.
 	 */
-	spin_lock_bh(&q->lock);
+	spin_lock(&q->lock);
 	__rpc_sleep_on_priority(q, task, action, priority - RPC_PRIORITY_LOW);
-	spin_unlock_bh(&q->lock);
+	spin_unlock(&q->lock);
 }
 EXPORT_SYMBOL_GPL(rpc_sleep_on_priority);
 
@@ -476,9 +476,9 @@ void rpc_wake_up_queued_task_on_wq(struct workqueue_struct *wq,
 		struct rpc_wait_queue *queue,
 		struct rpc_task *task)
 {
-	spin_lock_bh(&queue->lock);
+	spin_lock(&queue->lock);
 	rpc_wake_up_task_on_wq_queue_locked(wq, queue, task);
-	spin_unlock_bh(&queue->lock);
+	spin_unlock(&queue->lock);
 }
 
 /*
@@ -486,9 +486,9 @@ void rpc_wake_up_queued_task_on_wq(struct workqueue_struct *wq,
  */
 void rpc_wake_up_queued_task(struct rpc_wait_queue *queue, struct rpc_task *task)
 {
-	spin_lock_bh(&queue->lock);
+	spin_lock(&queue->lock);
 	rpc_wake_up_task_queue_locked(queue, task);
-	spin_unlock_bh(&queue->lock);
+	spin_unlock(&queue->lock);
 }
 EXPORT_SYMBOL_GPL(rpc_wake_up_queued_task);
 
@@ -562,7 +562,7 @@ struct rpc_task *rpc_wake_up_first_on_wq(struct workqueue_struct *wq,
 
 	dprintk("RPC:       wake_up_first(%p \"%s\")\n",
 			queue, rpc_qname(queue));
-	spin_lock_bh(&queue->lock);
+	spin_lock(&queue->lock);
 	task = __rpc_find_next_queued(queue);
 	if (task != NULL) {
 		if (func(task, data))
@@ -570,7 +570,7 @@ struct rpc_task *rpc_wake_up_first_on_wq(struct workqueue_struct *wq,
 		else
 			task = NULL;
 	}
-	spin_unlock_bh(&queue->lock);
+	spin_unlock(&queue->lock);
 
 	return task;
 }
@@ -609,7 +609,7 @@ void rpc_wake_up(struct rpc_wait_queue *queue)
 {
 	struct list_head *head;
 
-	spin_lock_bh(&queue->lock);
+	spin_lock(&queue->lock);
 	head = &queue->tasks[queue->maxpriority];
 	for (;;) {
 		while (!list_empty(head)) {
@@ -623,7 +623,7 @@ void rpc_wake_up(struct rpc_wait_queue *queue)
 			break;
 		head--;
 	}
-	spin_unlock_bh(&queue->lock);
+	spin_unlock(&queue->lock);
 }
 EXPORT_SYMBOL_GPL(rpc_wake_up);
 
@@ -638,7 +638,7 @@ void rpc_wake_up_status(struct rpc_wait_queue *queue, int status)
 {
 	struct list_head *head;
 
-	spin_lock_bh(&queue->lock);
+	spin_lock(&queue->lock);
 	head = &queue->tasks[queue->maxpriority];
 	for (;;) {
 		while (!list_empty(head)) {
@@ -653,7 +653,7 @@ void rpc_wake_up_status(struct rpc_wait_queue *queue, int status)
 			break;
 		head--;
 	}
-	spin_unlock_bh(&queue->lock);
+	spin_unlock(&queue->lock);
 }
 EXPORT_SYMBOL_GPL(rpc_wake_up_status);
 
@@ -808,13 +808,13 @@ static void __rpc_execute(struct rpc_task *task)
 		 * rpc_task pointer may still be dereferenced.
 		 */
 		queue = task->tk_waitqueue;
-		spin_lock_bh(&queue->lock);
+		spin_lock(&queue->lock);
 		if (!RPC_IS_QUEUED(task)) {
-			spin_unlock_bh(&queue->lock);
+			spin_unlock(&queue->lock);
 			continue;
 		}
 		rpc_clear_running(task);
-		spin_unlock_bh(&queue->lock);
+		spin_unlock(&queue->lock);
 		if (task_is_async)
 			return;
 
