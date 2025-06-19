@@ -1610,6 +1610,7 @@ static void xs_tcp_state_change(struct sock *sk)
 	trace_rpc_socket_state_change(xprt, sk->sk_socket);
 	switch (sk->sk_state) {
 	case TCP_ESTABLISHED:
+		spin_lock(&xprt->transport_lock);
 		if (!xprt_test_and_set_connected(xprt)) {
 
 			/* Reset TCP record info */
@@ -1627,6 +1628,7 @@ static void xs_tcp_state_change(struct sock *sk)
 						   xprt->stat.connect_start;
 			xs_run_error_worker(transport, XPRT_SOCK_WAKE_PENDING);
 		}
+		spin_unlock(&xprt->transport_lock);
 		break;
 	case TCP_FIN_WAIT1:
 		/* The client initiated a shutdown of the socket */
