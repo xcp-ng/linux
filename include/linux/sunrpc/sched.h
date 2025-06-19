@@ -176,9 +176,12 @@ struct rpc_task_setup {
 #define RPC_NR_PRIORITY		(1 + RPC_PRIORITY_PRIVILEGED - RPC_PRIORITY_LOW)
 
 struct rpc_timer {
-	struct timer_list timer;
+	struct timer_list timer;  /* no use, for kabi compatible */
 	struct list_head list;
 	unsigned long expires;
+#ifndef __GENKSYMS__
+	struct delayed_work dwork;
+#endif
 };
 
 /*
