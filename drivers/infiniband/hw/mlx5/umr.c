@@ -1051,7 +1051,7 @@ static int _mlx5r_umr_zap_mkey(struct mlx5_ib_mr *mr,
 		}
 	}
 
-	return err ? err : nblocks;
+	return nblocks;
 }
 
 /**
