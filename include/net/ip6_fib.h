@@ -201,6 +201,12 @@ struct fib6_info {
 
 	struct rcu_head			rcu;
 	struct nexthop			*nh;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	struct fib6_nh			fib6_nh[];
 };
 

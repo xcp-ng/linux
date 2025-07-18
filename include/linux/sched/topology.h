@@ -3,6 +3,7 @@
 #define _LINUX_SCHED_TOPOLOGY_H
 
 #include <linux/topology.h>
+#include <linux/uek_kabi.h>
 
 #include <linux/sched/idle.h>
 
@@ -149,6 +150,11 @@ struct sched_domain {
 		struct rcu_head rcu;	/* used during destruction */
 	};
 	struct sched_domain_shared *shared;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 
 	unsigned int span_weight;
 	/*

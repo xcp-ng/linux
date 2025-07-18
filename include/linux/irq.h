@@ -23,6 +23,7 @@
 #include <asm/irq.h>
 #include <asm/ptrace.h>
 #include <asm/irq_regs.h>
+#include <linux/uek_kabi.h>
 
 struct seq_file;
 struct module;
@@ -187,6 +188,10 @@ struct irq_data {
 	struct irq_data		*parent_data;
 #endif
 	void			*chip_data;
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*

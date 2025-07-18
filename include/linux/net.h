@@ -24,6 +24,7 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/sockptr.h>
+#include <linux/uek_kabi.h>
 
 #include <uapi/linux/net.h>
 
@@ -103,6 +104,11 @@ struct socket_wq {
 	struct fasync_struct	*fasync_list;
 	unsigned long		flags; /* %SOCKWQ_ASYNC_NOSPACE, etc */
 	struct rcu_head		rcu;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 } ____cacheline_aligned_in_smp;
 
 /**

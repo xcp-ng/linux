@@ -18,6 +18,7 @@
 #define __IPMI_SI_SM_H__
 
 #include "ipmi_si.h"
+#include <linux/uek_kabi.h>
 
 /*
  * This is defined by the state machines themselves, it is an opaque
@@ -94,6 +95,11 @@ struct si_sm_handlers {
 
 	/* Return the size of the SMI structure in bytes. */
 	int (*size)(void);
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /* Current state machines that we can use. */

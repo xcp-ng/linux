@@ -24,6 +24,7 @@
 #include <linux/refcount.h>
 #include <linux/ip.h>
 #include <linux/in_route.h>
+#include <linux/uek_kabi.h>
 
 struct fib_config {
 	u8			fc_dst_len;
@@ -159,6 +160,12 @@ struct fib_info {
 	bool			pfsrc_removed;
 	struct nexthop		*nh;
 	struct rcu_head		rcu;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+	
 	struct fib_nh		fib_nh[] __counted_by(fib_nhs);
 };
 
@@ -258,6 +265,12 @@ struct fib_table {
 	int			tb_num_default;
 	struct rcu_head		rcu;
 	unsigned long 		*tb_data;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	unsigned long		__data[];
 };
 
