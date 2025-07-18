@@ -55,6 +55,10 @@ struct fwnode_handle {
 	struct list_head suppliers;
 	struct list_head consumers;
 	UEK_KABI_REPLACE_UNSAFE_SIZE(u8 flags, unsigned long flags, 1)
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*

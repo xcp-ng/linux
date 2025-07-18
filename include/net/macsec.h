@@ -11,6 +11,7 @@
 #include <linux/if_vlan.h>
 #include <uapi/linux/if_link.h>
 #include <uapi/linux/if_macsec.h>
+#include <linux/uek_kabi.h>
 
 #define MACSEC_DEFAULT_PN_LEN 4
 #define MACSEC_XPN_PN_LEN 8
@@ -354,6 +355,11 @@ struct macsec_ops {
 	unsigned int needed_headroom;
 	unsigned int needed_tailroom;
 	bool rx_uses_md_dst;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 void macsec_pn_wrapped(struct macsec_secy *secy, struct macsec_tx_sa *tx_sa);

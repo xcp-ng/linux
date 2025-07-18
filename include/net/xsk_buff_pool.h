@@ -9,6 +9,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/bpf.h>
 #include <net/xdp.h>
+#include <linux/uek_kabi.h>
 
 struct xsk_buff_pool;
 struct xdp_rxq_info;
@@ -90,6 +91,10 @@ struct xsk_buff_pool {
 	 * sockets share a single cq when the same netdev and queue id is shared.
 	 */
 	spinlock_t cq_lock;
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 	struct xdp_buff_xsk *free_heads[];
 };
 

@@ -13,6 +13,7 @@
 #include <linux/workqueue.h>
 #include <linux/kref.h>
 #include <linux/refcount.h>
+#include <linux/uek_kabi.h>
 
 struct page;
 struct device;
@@ -158,6 +159,11 @@ struct bdi_writeback {
 		struct rcu_head rcu;
 	};
 #endif
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 struct backing_dev_info {

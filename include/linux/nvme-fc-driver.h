@@ -8,6 +8,7 @@
 
 #include <linux/scatterlist.h>
 #include <linux/blk-mq.h>
+#include <linux/uek_kabi.h>
 
 
 /*
@@ -511,6 +512,11 @@ struct nvme_fc_port_template {
 	u32	remote_priv_sz;
 	u32	lsrqst_priv_sz;
 	u32	fcprqst_priv_sz;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 

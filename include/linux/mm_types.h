@@ -1093,16 +1093,21 @@ struct mm_struct {
 #endif
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN_WALKS_MMU */
-	} __randomize_layout;
-
 	UEK_KABI_RESERVE(1)
 	UEK_KABI_RESERVE(2)
 	UEK_KABI_RESERVE(3)
 	UEK_KABI_RESERVE(4)
+
+	} __randomize_layout;
+
 	UEK_KABI_RESERVE(5)
 	UEK_KABI_RESERVE(6)
 	UEK_KABI_RESERVE(7)
 	UEK_KABI_RESERVE(8)
+	UEK_KABI_RESERVE(9)
+	UEK_KABI_RESERVE(10)
+	UEK_KABI_RESERVE(11)
+	UEK_KABI_RESERVE(12)
 
 	/*
 	 * The mm_cpumask needs to be at the end of mm_struct, because it

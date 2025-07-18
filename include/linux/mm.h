@@ -602,6 +602,10 @@ struct vm_fault {
 					 * page table to avoid allocation from
 					 * atomic context.
 					 */
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)		
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*
