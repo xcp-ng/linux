@@ -213,6 +213,8 @@ struct usb_hcd {
 	 * (ohci 32, uhci 1024, ehci 256/512/1024).
 	 */
 
+	void *xs_kabi_padding;
+
 	/* The HC driver's private data is stored at the end of
 	 * this structure.
 	 */

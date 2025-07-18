@@ -158,6 +158,8 @@ struct bdi_writeback {
 		struct rcu_head rcu;
 	};
 #endif
+
+	void *xs_kabi_padding;
 };
 
 struct backing_dev_info {

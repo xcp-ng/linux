@@ -102,6 +102,8 @@ struct socket_wq {
 	struct fasync_struct	*fasync_list;
 	unsigned long		flags; /* %SOCKWQ_ASYNC_NOSPACE, etc */
 	struct rcu_head		rcu;
+
+	void		*xs_kabi_padding;
 } ____cacheline_aligned_in_smp;
 
 /**
@@ -223,6 +225,8 @@ struct proto_ops {
 	int		(*sendmsg_locked)(struct sock *sk, struct msghdr *msg,
 					  size_t size);
 	int		(*set_rcvlowat)(struct sock *sk, int val);
+
+	void		*xs_kabi_padding;
 };
 
 #define DECLARE_SOCKADDR(type, dst, src)	\

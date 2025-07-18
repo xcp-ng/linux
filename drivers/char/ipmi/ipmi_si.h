@@ -66,6 +66,8 @@ struct si_sm_io {
 	u8 slave_addr;
 	enum si_type si_type;
 	struct device *dev;
+
+	void *xs_kabi_padding;
 };
 
 int ipmi_si_add_smi(struct si_sm_io *io);

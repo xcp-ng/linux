@@ -551,6 +551,8 @@ struct sock {
 #if IS_ENABLED(CONFIG_PROVE_LOCKING) && IS_ENABLED(CONFIG_MODULES)
 	struct module		*sk_owner;
 #endif
+
+	void			*xs_kabi_padding;
 };
 
 enum sk_pacing {
@@ -1388,6 +1390,8 @@ struct proto {
 
 	struct list_head	node;
 	int			(*diag_destroy)(struct sock *sk, int err);
+
+	void			*xs_kabi_padding;
 } __randomize_layout;
 
 int proto_register(struct proto *prot, int alloc_slab);

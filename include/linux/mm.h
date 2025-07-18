@@ -553,6 +553,7 @@ struct vm_fault {
 					 * page table to avoid allocation from
 					 * atomic context.
 					 */
+	void *xs_kabi_padding;
 };
 
 /*
@@ -632,6 +633,7 @@ struct vm_operations_struct {
 	 */
 	struct page *(*find_special_page)(struct vm_area_struct *vma,
 					  unsigned long addr);
+	void *xs_kabi_padding;
 };
 
 #ifdef CONFIG_NUMA_BALANCING

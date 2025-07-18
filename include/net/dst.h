@@ -92,6 +92,8 @@ struct dst_entry {
 #ifdef CONFIG_64BIT
 	struct lwtunnel_state   *lwtstate;
 #endif
+
+	void	*xs_kabi_padding;
 };
 
 struct dst_metrics {

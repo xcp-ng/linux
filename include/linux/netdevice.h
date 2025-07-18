@@ -319,6 +319,8 @@ struct header_ops {
 				const unsigned char *haddr);
 	bool	(*validate)(const char *ll_header, unsigned int len);
 	__be16	(*parse_protocol)(const struct sk_buff *skb);
+
+	void	*xs_kabi_padding;
 };
 
 /* These flag bits are private to the generic network queueing
@@ -380,6 +382,8 @@ struct napi_struct {
 	/* control-path-only fields follow */
 	struct list_head	dev_list;
 	struct hlist_node	napi_hash_node;
+
+	void	*xs_kabi_padding;
 };
 
 enum {
@@ -658,6 +662,8 @@ struct netdev_queue {
 #ifdef CONFIG_BQL
 	struct dql		dql;
 #endif
+
+	void	*xs_kabi_padding;
 } ____cacheline_aligned_in_smp;
 
 extern int sysctl_fb_tunnels_only_for_init_net;
@@ -1038,6 +1044,7 @@ struct xfrmdev_ops {
 	int	(*xdo_dev_policy_add) (struct xfrm_policy *x, struct netlink_ext_ack *extack);
 	void	(*xdo_dev_policy_delete) (struct xfrm_policy *x);
 	void	(*xdo_dev_policy_free) (struct xfrm_policy *x);
+	void	*xs_kabi_padding;
 };
 #endif
 
@@ -1645,6 +1652,8 @@ struct net_device_ops {
 	int			(*ndo_hwtstamp_set)(struct net_device *dev,
 						    struct kernel_hwtstamp_config *kernel_config,
 						    struct netlink_ext_ack *extack);
+
+	void	*xs_kabi_padding;
 };
 
 /**
@@ -2417,6 +2426,8 @@ struct net_device {
 	struct rtnl_hw_stats64	*offload_xstats_l3;
 
 	struct devlink_port	*devlink_port;
+
+	void	*xs_kabi_padding;
 };
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 
@@ -2717,6 +2728,8 @@ struct packet_type {
 	struct net		*af_packet_net;
 	void			*af_packet_priv;
 	struct list_head	list;
+
+	void			*xs_kabi_padding;
 };
 
 struct offload_callbacks {

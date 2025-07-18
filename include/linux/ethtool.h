@@ -912,6 +912,8 @@ struct ethtool_ops {
 	int	(*set_mm)(struct net_device *dev, struct ethtool_mm_cfg *cfg,
 			  struct netlink_ext_ack *extack);
 	void	(*get_mm_stats)(struct net_device *dev, struct ethtool_mm_stats *stats);
+
+	void	*xs_kabi_padding;
 };
 
 int ethtool_check_ops(const struct ethtool_ops *ops);

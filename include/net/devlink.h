@@ -150,6 +150,8 @@ struct devlink_port {
 
 	struct devlink_rate *devlink_rate;
 	struct devlink_linecard *linecard;
+
+	void	*xs_kabi_padding;
 };
 
 struct devlink_port_new_attrs {

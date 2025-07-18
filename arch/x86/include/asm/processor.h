@@ -160,6 +160,7 @@ struct cpuinfo_x86 {
 	/* Address space bits used by the cache internally */
 	u8			x86_cache_bits;
 	unsigned		initialized : 1;
+	void		*xs_kabi_padding;
 } __randomize_layout;
 
 #define X86_VENDOR_INTEL	0

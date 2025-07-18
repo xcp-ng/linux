@@ -23,6 +23,8 @@ typedef struct mempool_s {
 	mempool_alloc_t *alloc;
 	mempool_free_t *free;
 	wait_queue_head_t wait;
+
+	void	*xs_kabi_padding;
 } mempool_t;
 
 static inline bool mempool_initialized(mempool_t *pool)

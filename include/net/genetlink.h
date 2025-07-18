@@ -89,6 +89,8 @@ struct genl_family {
 	int			id;
 	/* starting number of multicast group IDs in this family */
 	unsigned int		mcgrp_offset;
+
+	void			*xs_kabi_padding;
 };
 
 /**
@@ -167,6 +169,8 @@ struct genl_small_ops {
 	u8	internal_flags;
 	u8	flags;
 	u8	validate;
+
+	void *xs_kabi_padding;
 };
 
 /**
@@ -195,6 +199,8 @@ struct genl_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
+
+	void			*xs_kabi_padding;
 };
 
 /**
@@ -247,6 +253,8 @@ struct genl_split_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
+
+	void			*xs_kabi_padding;
 };
 
 /**

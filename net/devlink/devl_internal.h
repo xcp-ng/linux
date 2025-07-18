@@ -55,6 +55,7 @@ struct devlink {
 	u8 reload_failed:1;
 	refcount_t refcount;
 	struct rcu_work rwork;
+	void	*xs_kabi_padding;
 	char priv[] __aligned(NETDEV_ALIGN);
 };
 

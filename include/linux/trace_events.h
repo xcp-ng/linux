@@ -113,6 +113,8 @@ struct trace_iterator {
 	/* it's true when current open file is snapshot */
 	bool			snapshot;
 
+	void	*xs_kabi_padding;
+
 	/* The below is zeroed out in pipe_read */
 	struct trace_seq	seq;
 	struct trace_entry	*ent;
@@ -681,6 +683,7 @@ struct trace_event_file {
 	atomic_t		ref;	/* ref count for opened files */
 	atomic_t		sm_ref;	/* soft-mode reference counter */
 	atomic_t		tm_ref;	/* trigger-mode reference counter */
+	void	*xs_kabi_padding;
 };
 
 #ifdef CONFIG_HIST_TRIGGERS

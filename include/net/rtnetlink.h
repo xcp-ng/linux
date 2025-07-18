@@ -152,6 +152,8 @@ struct rtnl_link_ops {
 	int			(*fill_linkxstats)(struct sk_buff *skb,
 						   const struct net_device *dev,
 						   int *prividx, int attr);
+
+	void			*xs_kabi_padding;
 };
 
 int __rtnl_link_register(struct rtnl_link_ops *ops);

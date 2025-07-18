@@ -131,6 +131,8 @@ struct dcbnl_rtnl_ops {
 	/* rewrite */
 	int (*dcbnl_setrewr)(struct net_device *dev, struct dcb_app *app);
 	int (*dcbnl_delrewr)(struct net_device *dev, struct dcb_app *app);
+
+	void *xs_kabi_padding;
 };
 
 #endif /* __NET_DCBNL_H__ */
