@@ -7,6 +7,7 @@
 #include <linux/range.h>
 #include <linux/ioport.h>
 #include <linux/percpu-refcount.h>
+#include <linux/uek_kabi.h>
 
 struct resource;
 struct device;
@@ -27,6 +28,10 @@ struct vmem_altmap {
 	unsigned long align;
 	unsigned long alloc;
 	bool inaccessible;
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*
@@ -101,6 +106,10 @@ struct dev_pagemap_ops {
 	 */
 	int (*memory_failure)(struct dev_pagemap *pgmap, unsigned long pfn,
 			      unsigned long nr_pages, int mf_flags);
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 #define PGMAP_ALTMAP_VALID	(1 << 0)

@@ -16,6 +16,7 @@
 #include <net/ip_fib.h>
 #include <net/ip6_fib.h>
 #include <net/netlink.h>
+#include <linux/uek_kabi.h>
 
 #define NEXTHOP_VALID_USER_FLAGS RTNH_F_ONLINK
 
@@ -134,6 +135,11 @@ struct nh_group {
 	bool			fdb_nh;
 	bool			has_v4;
 	bool			hw_stats;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 
 	struct nh_res_table __rcu *res_table;
 	struct nh_grp_entry	nh_entries[] __counted_by(num_nh);

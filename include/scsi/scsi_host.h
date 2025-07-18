@@ -10,6 +10,7 @@
 #include <linux/seq_file.h>
 #include <linux/blk-mq.h>
 #include <scsi/scsi.h>
+#include <linux/uek_kabi.h>
 
 struct block_device;
 struct completion;
@@ -503,6 +504,11 @@ struct scsi_host_template {
 	 *   scsi_netlink.h
 	 */
 	u64 vendor_id;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*
@@ -720,6 +726,10 @@ struct Scsi_Host {
 
 	/* Delay for runtime autosuspend */
 	int rpm_autosuspend_delay;
+	UEK_KABI_RESERVE(5)
+	UEK_KABI_RESERVE(6)
+	UEK_KABI_RESERVE(7)
+	UEK_KABI_RESERVE(8)
 
 	/*
 	 * We should ensure that this is aligned, both for better performance

@@ -14,6 +14,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <scsi/iscsi_if.h>
+#include <linux/uek_kabi.h>
 
 struct scsi_transport_template;
 struct iscsi_transport;
@@ -156,6 +157,11 @@ struct iscsi_transport {
 	int (*logout_flashnode_sid) (struct iscsi_cls_session *cls_sess);
 	int (*get_host_stats) (struct Scsi_Host *shost, char *buf, int len);
 	u8 (*check_protection)(struct iscsi_task *task, sector_t *sector);
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*

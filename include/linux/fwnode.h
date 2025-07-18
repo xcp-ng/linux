@@ -13,6 +13,7 @@
 #include <linux/err.h>
 #include <linux/list.h>
 #include <linux/types.h>
+#include <linux/uek_kabi.h>
 
 enum dev_dma_attr {
 	DEV_DMA_NOT_SUPPORTED,
@@ -53,6 +54,10 @@ struct fwnode_handle {
 	struct list_head suppliers;
 	struct list_head consumers;
 	u8 flags;
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /*

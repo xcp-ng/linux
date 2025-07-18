@@ -5,12 +5,18 @@
 #define __KCS_BMC_CONSUMER_H__
 
 #include <linux/irqreturn.h>
+#include <linux/uek_kabi.h>
 
 #include "kcs_bmc.h"
 
 struct kcs_bmc_driver_ops {
 	int (*add_device)(struct kcs_bmc_device *kcs_bmc);
 	int (*remove_device)(struct kcs_bmc_device *kcs_bmc);
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 struct kcs_bmc_driver {
@@ -21,6 +27,11 @@ struct kcs_bmc_driver {
 
 struct kcs_bmc_client_ops {
 	irqreturn_t (*event)(struct kcs_bmc_client *client);
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 struct kcs_bmc_client {
