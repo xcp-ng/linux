@@ -1074,6 +1074,11 @@ struct sk_buff {
 	u64			kcov_handle;
 #endif
 
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	); /* end headers group */
 
 	/* These elements must be at the end, see alloc_skb() for details.  */
@@ -1088,7 +1093,7 @@ struct sk_buff {
 	/* only usable after checking ->active_extensions != 0 */
 	struct skb_ext		*extensions;
 #endif
-	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(5)
 };
 
 /* if you move pkt_type around you also must adapt those constants */

@@ -36,6 +36,7 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
+#include <linux/uek_kabi.h>
 
 struct device_node;
 struct fwnode_handle;

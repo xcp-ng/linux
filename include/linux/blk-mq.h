@@ -9,6 +9,7 @@
 #include <linux/prefetch.h>
 #include <linux/srcu.h>
 #include <linux/rw_hint.h>
+#include <linux/uek_kabi.h>
 
 struct blk_mq_tags;
 struct blk_flush_queue;
@@ -445,6 +446,11 @@ struct blk_mq_hw_ctx {
 	struct dentry		*sched_debugfs_dir;
 #endif
 
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	/**
 	 * @hctx_list: if this hctx is not in use, this is an entry in
 	 * q->unused_hctx_list.
@@ -536,6 +542,11 @@ struct blk_mq_tag_set {
 	struct mutex		tag_list_lock;
 	struct list_head	tag_list;
 	struct srcu_struct	*srcu;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /**
@@ -547,6 +558,11 @@ struct blk_mq_tag_set {
 struct blk_mq_queue_data {
 	struct request *rq;
 	bool last;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 typedef bool (busy_tag_iter_fn)(struct request *, void *);
@@ -666,6 +682,11 @@ struct blk_mq_ops {
 	 */
 	void (*show_rq)(struct seq_file *m, struct request *rq);
 #endif
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /* Keep hctx_flag_name[] in sync with the definitions below */

@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include <linux/refcount.h>
 #include <linux/completion.h>
+#include <linux/uek_kabi.h>
 
 #define SHRINKER_UNIT_BITS	BITS_PER_LONG
 
@@ -115,6 +116,10 @@ struct shrinker {
 #endif
 	/* objs pending delete, per node */
 	atomic_long_t *nr_deferred;
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 #define DEFAULT_SEEKS 2 /* A good number if you don't know better. */
 

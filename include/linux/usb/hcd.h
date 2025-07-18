@@ -11,6 +11,7 @@
 #include <linux/rwsem.h>
 #include <linux/interrupt.h>
 #include <linux/idr.h>
+#include <linux/uek_kabi.h>
 
 #define MAX_TOPO_LEVEL		6
 
@@ -212,6 +213,11 @@ struct usb_hcd {
 	 * input size of periodic table to an interrupt scheduler.
 	 * (ohci 32, uhci 1024, ehci 256/512/1024).
 	 */
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 
 	/* The HC driver's private data is stored at the end of
 	 * this structure.

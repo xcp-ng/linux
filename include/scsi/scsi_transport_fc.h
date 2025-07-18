@@ -16,6 +16,7 @@
 #include <scsi/scsi.h>
 #include <scsi/scsi_netlink.h>
 #include <scsi/scsi_host.h>
+#include <linux/uek_kabi.h>
 
 struct scsi_transport_template;
 
@@ -760,6 +761,11 @@ struct fc_function_template {
 	unsigned long	show_host_system_hostname:1;
 
 	unsigned long	disable_target_scan:1;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /**

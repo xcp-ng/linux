@@ -12,6 +12,7 @@
 #include <linux/bug.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_device.h>
+#include <linux/uek_kabi.h>
 
 struct scsi_transport_template {
 	/* the attribute containers */
@@ -43,6 +44,11 @@ struct scsi_transport_template {
 	 * Allows a transport to override the default error handler.
 	 */
 	void (* eh_strategy_handler)(struct Scsi_Host *);
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 #define transport_class_to_shost(tc) \

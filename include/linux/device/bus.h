@@ -17,6 +17,7 @@
 #include <linux/kobject.h>
 #include <linux/klist.h>
 #include <linux/pm.h>
+#include <linux/uek_kabi.h>
 
 struct device_driver;
 struct fwnode_handle;
@@ -105,7 +106,11 @@ struct bus_type {
 	const struct dev_pm_ops *pm;
 
 	bool need_parent_lock;
-	UEK_KABI_FILL_HOLE(bool driver_override)
+
+	UEK_KABI_USE(1, bool driver_override)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 int __must_check bus_register(const struct bus_type *bus);

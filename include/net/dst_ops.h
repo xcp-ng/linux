@@ -51,6 +51,12 @@ struct dst_ops {
 	UEK_KABI_RESERVE(8)
 
 	struct percpu_counter	pcpuc_entries ____cacheline_aligned_in_smp;
+
+	UEK_KABI_RESERVE(9)
+	UEK_KABI_RESERVE(10)
+	UEK_KABI_RESERVE(11)
+	UEK_KABI_RESERVE(12)
+
 };
 
 static inline int dst_entries_get_fast(struct dst_ops *dst)

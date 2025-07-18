@@ -71,6 +71,7 @@
 #include <linux/wait_bit.h>
 #include <linux/workqueue_api.h>
 #include <linux/delayacct.h>
+#include <linux/uek_kabi.h>
 
 #include <trace/events/power.h>
 #include <trace/events/sched.h>
@@ -470,6 +471,10 @@ struct cfs_bandwidth {
 	UEK_KABI_RESERVE(1)
 	UEK_KABI_RESERVE(2)
 #endif
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+	UEK_KABI_RESERVE(5)
+	UEK_KABI_RESERVE(6)
 };
 
 /* Task group related information */
@@ -881,6 +886,11 @@ struct rt_rq {
 	struct rq		*rq;
 	struct task_group	*tg;
 #endif
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 static inline bool rt_rq_is_runnable(struct rt_rq *rt_rq)
@@ -948,6 +958,11 @@ struct dl_rq {
 	 * by the GRUB algorithm.
 	 */
 	u64			bw_ratio;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

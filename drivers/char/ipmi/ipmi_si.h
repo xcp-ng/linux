@@ -12,6 +12,7 @@
 #include <linux/ipmi.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/uek_kabi.h>
 
 #define SI_DEVICE_NAME "ipmi_si"
 
@@ -66,6 +67,11 @@ struct si_sm_io {
 	u8 slave_addr;
 	enum si_type si_type;
 	struct device *dev;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 int ipmi_si_add_smi(struct si_sm_io *io);

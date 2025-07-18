@@ -9,6 +9,7 @@
 #include <linux/hardirq.h>
 #include <linux/perf_event.h>
 #include <linux/tracepoint.h>
+#include <linux/uek_kabi.h>
 
 struct trace_array;
 struct array_buffer;
@@ -119,6 +120,11 @@ struct trace_iterator {
 	/* it's true when current open file is snapshot */
 	bool			snapshot;
 
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	/* The below is zeroed out in pipe_read */
 	struct trace_seq	seq;
 	struct trace_entry	*ent;
@@ -130,7 +136,7 @@ struct trace_iterator {
 
 	loff_t			pos;
 	long			idx;
-	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(5)
 
 	/* All new field here will be zeroed out in pipe_read */
 };
@@ -685,6 +691,10 @@ struct trace_event_file {
 	refcount_t		ref;	/* ref count for opened files */
 	atomic_t		sm_ref;	/* soft-mode reference counter */
 	atomic_t		tm_ref;	/* trigger-mode reference counter */
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_HIST_TRIGGERS

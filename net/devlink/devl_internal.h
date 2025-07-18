@@ -3,6 +3,7 @@
  * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
  */
 
+#include <linux/uek_kabi.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
 #include <linux/mutex.h>
@@ -60,6 +61,12 @@ struct devlink {
 	struct rcu_work rwork;
 	struct devlink_rel *rel;
 	struct xarray nested_rels;
+	
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	char priv[] __aligned(NETDEV_ALIGN);
 };
 
