@@ -805,6 +805,7 @@ struct device {
 #ifdef CONFIG_DMA_OPS_BYPASS
 	bool			dma_ops_bypass : 1;
 #endif
+	void			*xs_kabi_padding;
 };
 
 /**

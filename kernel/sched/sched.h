@@ -284,6 +284,7 @@ struct rt_bandwidth {
 	u64			rt_runtime;
 	struct hrtimer		rt_period_timer;
 	unsigned int		rt_period_active;
+	void		*xs_kabi_padding;
 };
 
 static inline int dl_bandwidth_enabled(void)
@@ -313,6 +314,7 @@ struct dl_bw {
 	raw_spinlock_t		lock;
 	u64			bw;
 	u64			total_bw;
+	void		*xs_kabi_padding;
 };
 
 extern void init_dl_bw(struct dl_bw *dl_b);
@@ -357,6 +359,7 @@ struct cfs_bandwidth {
 	u64			throttled_time;
 	u64			burst_time;
 #endif
+	void			*xs_kabi_padding;
 };
 
 /* Task group related information */
@@ -412,6 +415,7 @@ struct task_group {
 	struct uclamp_se	uclamp[UCLAMP_CNT];
 #endif
 
+	void		*xs_kabi_padding;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -649,6 +653,8 @@ struct cfs_rq {
 #endif
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
+
+	void		*xs_kabi_padding;
 };
 
 static inline int rt_bandwidth_enabled(void)
@@ -695,6 +701,8 @@ struct rt_rq {
 	struct rq		*rq;
 	struct task_group	*tg;
 #endif
+
+	void		*xs_kabi_padding;
 };
 
 static inline bool rt_rq_is_runnable(struct rt_rq *rt_rq)
@@ -763,6 +771,8 @@ struct dl_rq {
 	 * by the GRUB algorithm.
 	 */
 	u64			bw_ratio;
+
+	void			*xs_kabi_padding;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -889,6 +899,8 @@ struct root_domain {
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
+	void		*xs_kabi_padding;
 };
 
 extern void init_defrootdomain(void);
@@ -1166,6 +1178,8 @@ struct rq {
 	call_single_data_t	cfsb_csd;
 	struct list_head	cfsb_csd_list;
 #endif
+
+	void		*xs_kabi_padding;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

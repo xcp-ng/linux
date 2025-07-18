@@ -41,6 +41,8 @@ struct dst_ops {
 	struct kmem_cache	*kmem_cachep;
 
 	struct percpu_counter	pcpuc_entries ____cacheline_aligned_in_smp;
+
+	void			*xs_kabi_padding;
 };
 
 static inline int dst_entries_get_fast(struct dst_ops *dst)

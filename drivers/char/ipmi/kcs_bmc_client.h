@@ -11,6 +11,7 @@
 struct kcs_bmc_driver_ops {
 	int (*add_device)(struct kcs_bmc_device *kcs_bmc);
 	int (*remove_device)(struct kcs_bmc_device *kcs_bmc);
+	void *xs_kabi_padding;
 };
 
 struct kcs_bmc_driver {
@@ -21,6 +22,7 @@ struct kcs_bmc_driver {
 
 struct kcs_bmc_client_ops {
 	irqreturn_t (*event)(struct kcs_bmc_client *client);
+	void *xs_kabi_padding;
 };
 
 struct kcs_bmc_client {

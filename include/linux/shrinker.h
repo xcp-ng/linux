@@ -83,6 +83,7 @@ struct shrinker {
 #endif
 	/* objs pending delete, per node */
 	atomic_long_t *nr_deferred;
+	void *xs_kabi_padding;
 };
 #define DEFAULT_SEEKS 2 /* A good number if you don't know better. */
 

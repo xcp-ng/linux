@@ -87,6 +87,7 @@ struct xsk_buff_pool {
 	 * sockets share a single cq when the same netdev and queue id is shared.
 	 */
 	spinlock_t cq_lock;
+	void *xs_kabi_padding;
 	struct xdp_buff_xsk *free_heads[];
 };
 

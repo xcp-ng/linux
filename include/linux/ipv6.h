@@ -84,6 +84,8 @@ struct ipv6_devconf {
 	__u8		ndisc_evict_nocarrier;
 
 	struct ctl_table_header *sysctl_header;
+
+	void		*xs_kabi_padding;
 };
 
 struct ipv6_params {

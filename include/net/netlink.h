@@ -359,6 +359,8 @@ struct nla_policy {
 		int (*validate)(const struct nlattr *attr,
 				struct netlink_ext_ack *extack);
 	};
+
+	void	*xs_kabi_padding;
 };
 
 #define NLA_POLICY_ETH_ADDR		NLA_POLICY_EXACT_LEN(ETH_ALEN)

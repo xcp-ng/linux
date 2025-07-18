@@ -34,6 +34,8 @@ struct user_struct {
 
 	/* Miscellaneous per-user rate limit */
 	struct ratelimit_state ratelimit;
+
+	void *xs_kabi_padding;
 };
 
 extern int uids_sysfs_init(void);

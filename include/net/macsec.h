@@ -304,6 +304,8 @@ struct macsec_ops {
 	int (*mdo_get_rx_sc_stats)(struct macsec_context *ctx);
 	int (*mdo_get_rx_sa_stats)(struct macsec_context *ctx);
 	bool rx_uses_md_dst;
+
+	void *xs_kabi_padding;
 };
 
 void macsec_pn_wrapped(struct macsec_secy *secy, struct macsec_tx_sa *tx_sa);

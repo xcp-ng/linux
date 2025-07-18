@@ -424,6 +424,8 @@ struct blk_mq_hw_ctx {
 	struct dentry		*sched_debugfs_dir;
 #endif
 
+	void	*xs_kabi_padding;
+
 	/**
 	 * @hctx_list: if this hctx is not in use, this is an entry in
 	 * q->unused_hctx_list.
@@ -515,6 +517,8 @@ struct blk_mq_tag_set {
 	struct mutex		tag_list_lock;
 	struct list_head	tag_list;
 	struct srcu_struct	*srcu;
+
+	void	*xs_kabi_padding;
 };
 
 /**
@@ -526,6 +530,8 @@ struct blk_mq_tag_set {
 struct blk_mq_queue_data {
 	struct request *rq;
 	bool last;
+
+	void	*xs_kabi_padding;
 };
 
 typedef bool (busy_tag_iter_fn)(struct request *, void *);
@@ -645,6 +651,8 @@ struct blk_mq_ops {
 	 */
 	void (*show_rq)(struct seq_file *m, struct request *rq);
 #endif
+
+	void	*xs_kabi_padding;
 };
 
 enum {

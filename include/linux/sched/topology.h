@@ -151,6 +151,8 @@ struct sched_domain {
 	};
 	struct sched_domain_shared *shared;
 
+	void *xs_kabi_padding;
+
 	unsigned int span_weight;
 	/*
 	 * Span of all CPUs in this domain.

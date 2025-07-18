@@ -44,6 +44,8 @@ struct fib_rule {
 	struct fib_rule_port_range	sport_range;
 	struct fib_rule_port_range	dport_range;
 	struct rcu_head		rcu;
+
+	void			*xs_kabi_padding;
 };
 
 struct fib_lookup_arg {

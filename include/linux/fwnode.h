@@ -45,6 +45,7 @@ struct fwnode_handle {
 	struct list_head suppliers;
 	struct list_head consumers;
 	u8 flags;
+	void *xs_kabi_padding;
 };
 
 /*

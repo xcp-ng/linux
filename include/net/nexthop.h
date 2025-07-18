@@ -125,6 +125,8 @@ struct nh_group {
 	bool			fdb_nh;
 	bool			has_v4;
 
+	void			*xs_kabi_padding;
+
 	struct nh_res_table __rcu *res_table;
 	struct nh_grp_entry	nh_entries[];
 };

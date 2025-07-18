@@ -70,6 +70,8 @@ struct ipmi_recv_msg {
 	 * the size or existence of this, since it may change.
 	 */
 	unsigned char   msg_data[IPMI_MAX_MSG_LENGTH];
+
+	void *xs_kabi_padding;
 };
 
 #define INIT_IPMI_RECV_MSG(done_handler) \
@@ -110,6 +112,8 @@ struct ipmi_user_hndl {
 	 * if it is not usable.
 	 */
 	void (*shutdown)(void *handler_data);
+
+	void *xs_kabi_padding;
 };
 
 /* Create a new user of the IPMI layer on the given interface number. */

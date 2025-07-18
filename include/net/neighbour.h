@@ -162,6 +162,9 @@ struct neighbour {
 	struct rcu_head		rcu;
 	struct net_device	*dev;
 	netdevice_tracker	dev_tracker;
+
+	void	*xs_kabi_padding;
+
 	u8			primary_key[];
 } __randomize_layout;
 

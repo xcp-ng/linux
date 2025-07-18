@@ -33,6 +33,9 @@ struct lwtunnel_state {
 	int		(*orig_output)(struct net *net, struct sock *sk, struct sk_buff *skb);
 	int		(*orig_input)(struct sk_buff *);
 	struct		rcu_head rcu;
+
+	void		*xs_kabi_padding;
+
 	__u8            data[];
 };
 

@@ -21,6 +21,7 @@ struct timer_list {
 #ifdef CONFIG_LOCKDEP
 	struct lockdep_map	lockdep_map;
 #endif
+	void			*xs_kabi_padding;
 };
 
 #ifdef CONFIG_LOCKDEP

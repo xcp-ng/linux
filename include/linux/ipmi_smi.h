@@ -123,6 +123,7 @@ struct ipmi_smi_msg {
 	 * (presumably to free it).
 	 */
 	void (*done)(struct ipmi_smi_msg *msg);
+	void *xs_kabi_padding;
 };
 
 #define INIT_IPMI_SMI_MSG(done_handler) \
@@ -218,6 +219,8 @@ struct ipmi_smi_handlers {
 	 * block.
 	 */
 	void (*set_maintenance_mode)(void *send_info, bool enable);
+
+	void *xs_kabi_padding;
 };
 
 struct ipmi_device_id {

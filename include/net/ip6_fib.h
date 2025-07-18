@@ -203,6 +203,9 @@ struct fib6_info {
 
 	struct rcu_head			rcu;
 	struct nexthop			*nh;
+
+	void			*xs_kabi_padding;
+
 	struct fib6_nh			fib6_nh[];
 };
 
