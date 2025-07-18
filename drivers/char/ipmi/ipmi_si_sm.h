@@ -94,6 +94,8 @@ struct si_sm_handlers {
 
 	/* Return the size of the SMI structure in bytes. */
 	int (*size)(void);
+
+	void *xs_kabi_padding;
 };
 
 /* Current state machines that we can use. */

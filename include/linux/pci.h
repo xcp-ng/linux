@@ -989,6 +989,7 @@ struct pci_driver {
 	struct device_driver	driver;
 	struct pci_dynids	dynids;
 	bool driver_managed_dma;
+	void	*xs_kabi_padding;
 };
 
 #define to_pci_driver(__drv)	\

@@ -103,6 +103,8 @@ struct socket_wq {
 	struct fasync_struct	*fasync_list;
 	unsigned long		flags; /* %SOCKWQ_ASYNC_NOSPACE, etc */
 	struct rcu_head		rcu;
+
+	void		*xs_kabi_padding;
 } ____cacheline_aligned_in_smp;
 
 /**

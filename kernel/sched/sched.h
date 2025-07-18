@@ -470,6 +470,7 @@ struct cfs_bandwidth {
 	UEK_KABI_RESERVE(1)
 	UEK_KABI_RESERVE(2)
 #endif
+	void			*xs_kabi_padding;
 };
 
 /* Task group related information */
@@ -881,6 +882,8 @@ struct rt_rq {
 	struct rq		*rq;
 	struct task_group	*tg;
 #endif
+
+	void		*xs_kabi_padding;
 };
 
 static inline bool rt_rq_is_runnable(struct rt_rq *rt_rq)
@@ -948,6 +951,8 @@ struct dl_rq {
 	 * by the GRUB algorithm.
 	 */
 	u64			bw_ratio;
+
+	void			*xs_kabi_padding;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

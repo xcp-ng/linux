@@ -205,6 +205,8 @@ union tls_crypto_context {
 		struct tls12_crypto_info_sm4_gcm sm4_gcm;
 		struct tls12_crypto_info_sm4_ccm sm4_ccm;
 	};
+
+	void *xs_kabi_padding;
 };
 
 struct tls_prot_info {
@@ -282,6 +284,8 @@ struct tlsdev_ops {
 	int (*tls_dev_resync)(struct net_device *netdev,
 			      struct sock *sk, u32 seq, u8 *rcd_sn,
 			      enum tls_offload_ctx_dir direction);
+
+	void *xs_kabi_padding;
 };
 
 enum tls_offload_sync_type {

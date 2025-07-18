@@ -18,6 +18,7 @@ struct irq_work {
 	struct __call_single_node node;
 	void (*func)(struct irq_work *);
 	struct rcuwait irqwait;
+	void *xs_kabi_padding;
 };
 
 #define __IRQ_WORK_INIT(_func, _flags) (struct irq_work){	\

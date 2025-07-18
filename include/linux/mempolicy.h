@@ -54,6 +54,7 @@ struct mempolicy {
 		nodemask_t cpuset_mems_allowed;	/* relative to these nodes */
 		nodemask_t user_nodemask;	/* nodemask passed by user */
 	} w;
+	void *xs_kabi_padding;
 };
 
 /*

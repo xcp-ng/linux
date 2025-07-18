@@ -503,6 +503,8 @@ struct scsi_host_template {
 	 *   scsi_netlink.h
 	 */
 	u64 vendor_id;
+
+	void	*xs_kabi_padding;
 };
 
 /*
@@ -720,6 +722,7 @@ struct Scsi_Host {
 
 	/* Delay for runtime autosuspend */
 	int rpm_autosuspend_delay;
+	void	*xs_kabi_padding;
 
 	/*
 	 * We should ensure that this is aligned, both for better performance

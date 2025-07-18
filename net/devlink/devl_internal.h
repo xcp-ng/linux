@@ -60,6 +60,9 @@ struct devlink {
 	struct rcu_work rwork;
 	struct devlink_rel *rel;
 	struct xarray nested_rels;
+	
+	void	*xs_kabi_padding;
+
 	char priv[] __aligned(NETDEV_ALIGN);
 };
 

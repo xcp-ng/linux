@@ -27,6 +27,7 @@ struct vmem_altmap {
 	unsigned long align;
 	unsigned long alloc;
 	bool inaccessible;
+	void *xs_kabi_padding;
 };
 
 /*
@@ -101,6 +102,7 @@ struct dev_pagemap_ops {
 	 */
 	int (*memory_failure)(struct dev_pagemap *pgmap, unsigned long pfn,
 			      unsigned long nr_pages, int mf_flags);
+	void *xs_kabi_padding;
 };
 
 #define PGMAP_ALTMAP_VALID	(1 << 0)

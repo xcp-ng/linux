@@ -488,6 +488,7 @@ struct sched_avg {
 	unsigned long			runnable_avg;
 	unsigned long			util_avg;
 	unsigned int			util_est;
+	void	*xs_kabi_padding;
 } ____cacheline_aligned;
 
 /*
@@ -613,6 +614,8 @@ struct sched_rt_entity {
 	/* rq "owned" by this entity/group: */
 	struct rt_rq			*my_q;
 #endif
+
+	void	*xs_kabi_padding;
 } __randomize_layout;
 
 typedef bool (*dl_server_has_tasks_f)(struct sched_dl_entity *);
@@ -761,6 +764,7 @@ struct uclamp_se {
 	unsigned int bucket_id		: bits_per(UCLAMP_BUCKETS);
 	unsigned int active		: 1;
 	unsigned int user_defined	: 1;
+	void	*xs_kabi_padding;
 };
 #endif /* CONFIG_UCLAMP_TASK */
 
@@ -1634,6 +1638,8 @@ struct task_struct {
 #ifdef CONFIG_USER_EVENTS
 	struct user_event_mm		*user_event_mm;
 #endif
+
+	void	*xs_kabi_padding;
 
 	/*
 	 * New fields for task_struct should be added above here, so that

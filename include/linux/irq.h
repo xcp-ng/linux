@@ -187,6 +187,7 @@ struct irq_data {
 	struct irq_data		*parent_data;
 #endif
 	void			*chip_data;
+	void			*xs_kabi_padding;
 };
 
 /*

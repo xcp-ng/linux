@@ -194,6 +194,8 @@ struct irq_domain {
 	UEK_KABI_RESERVE(3)
 	UEK_KABI_RESERVE(4)
 
+	void *xs_kabi_padding;
+
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t			hwirq_max;
 	unsigned int			revmap_size;

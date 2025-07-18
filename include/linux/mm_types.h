@@ -1085,6 +1085,7 @@ struct mm_struct {
 #endif
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN_WALKS_MMU */
+		void	*xs_kabi_padding;
 	} __randomize_layout;
 
 	UEK_KABI_RESERVE(1)

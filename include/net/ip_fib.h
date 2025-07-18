@@ -159,6 +159,9 @@ struct fib_info {
 	bool			pfsrc_removed;
 	struct nexthop		*nh;
 	struct rcu_head		rcu;
+
+	void		*xs_kabi_padding;
+	
 	struct fib_nh		fib_nh[] __counted_by(fib_nhs);
 };
 
@@ -258,6 +261,9 @@ struct fib_table {
 	int			tb_num_default;
 	struct rcu_head		rcu;
 	unsigned long 		*tb_data;
+
+	void			*xs_kabi_padding;
+
 	unsigned long		__data[];
 };
 

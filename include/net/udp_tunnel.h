@@ -231,6 +231,8 @@ struct udp_tunnel_nic_shared {
 	struct udp_tunnel_nic *udp_tunnel_nic_info;
 
 	struct list_head devices;
+
+	void *xs_kabi_padding;
 };
 
 struct udp_tunnel_nic_shared_node {
@@ -286,7 +288,11 @@ struct udp_tunnel_nic_info {
 	struct udp_tunnel_nic_table_info {
 		unsigned int n_entries;
 		unsigned int tunnel_types;
+
+		void *xs_kabi_padding;
 	} tables[UDP_TUNNEL_NIC_MAX_TABLES];
+
+	void *xs_kabi_padding;
 };
 
 /* UDP tunnel module dependencies

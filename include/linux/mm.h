@@ -602,6 +602,7 @@ struct vm_fault {
 					 * page table to avoid allocation from
 					 * atomic context.
 					 */
+	void *xs_kabi_padding;
 };
 
 /*

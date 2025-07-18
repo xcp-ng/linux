@@ -135,6 +135,8 @@ struct nh_group {
 	bool			has_v4;
 	bool			hw_stats;
 
+	void			*xs_kabi_padding;
+
 	struct nh_res_table __rcu *res_table;
 	struct nh_grp_entry	nh_entries[] __counted_by(num_nh);
 };
