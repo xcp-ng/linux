@@ -4353,12 +4353,12 @@ static inline void pgalloc_tag_copy(struct folio *new, struct folio *old)
 #define PP_MAGIC_MASK ~(PP_DMA_INDEX_MASK | 0x3UL)
 
 #ifdef CONFIG_PAGE_POOL
-static inline bool page_pool_page_is_pp(struct page *page)
+static inline bool page_pool_page_is_pp(const struct page *page)
 {
 	return (page->pp_magic & PP_MAGIC_MASK) == PP_SIGNATURE;
 }
 #else
-static inline bool page_pool_page_is_pp(struct page *page)
+static inline bool page_pool_page_is_pp(const struct page *page)
 {
 	return false;
 }
