@@ -115,6 +115,21 @@ static wait_queue_head_t *glock_waitqueue(struct lm_lockname *name)
 }
 
 /**
+ * IOPEN glock might be a zombie glock instance due to lock contention
+ * between nodes in the cluster, then it would cause umount timeout
+ */
+static int is_zombie_glock(struct gfs2_glock *gl)
+{
+	if (test_bit(GLF_LOCK, &gl->gl_flags) &&
+		test_bit(GLF_DEMOTE, &gl->gl_flags) &&
+		test_bit(GLF_BLOCKING, &gl->gl_flags) &&
+		(gl->gl_name.ln_type == LM_TYPE_IOPEN) &&
+		list_empty(&gl->gl_holders))
+		return 1;
+	return 0;
+}
+
+/**
  * wake_up_glock  -  Wake up waiters on a glock
  * @gl: the glock
  */
@@ -2182,7 +2197,8 @@ static void clear_glock(struct gfs2_glock *gl)
 
 	spin_lock(&gl->gl_lockref.lock);
 	if (!__lockref_is_dead(&gl->gl_lockref)) {
-		gl->gl_lockref.count++;
+		if (!is_zombie_glock(gl))
+			gl->gl_lockref.count++;
 		if (gl->gl_state != LM_ST_UNLOCKED)
 			handle_callback(gl, LM_ST_UNLOCKED, 0, false);
 		gfs2_glock_queue_work(gl, 0);
