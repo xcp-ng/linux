@@ -23,8 +23,9 @@
 #include <asm/e820/api.h>
 #include <asm/early_ioremap.h>
 #include <asm/set_memory.h>
+#include <asm/fixmap.h>
 
-#include <asm/xen/hypercall_bounce.h>
+#include <asm/xen/fastabi.h>
 #include <asm/xen/cpuid.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/page.h>
@@ -35,6 +36,25 @@ static unsigned long shared_info_pfn;
 
 __ro_after_init bool xen_percpu_upcall;
 EXPORT_SYMBOL_GPL(xen_percpu_upcall);
+
+static bool __init xen_find_e820_shared_info(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < e820_table->nr_entries; i++) {
+		struct e820_entry entry = e820_table->entries[i];
+		
+		if (entry.type == E820_XEN_TYPE_SHARED_INFO) {
+				printk("%llx", entry.addr);
+				HYPERVISOR_shared_info = early_memremap_prot(entry.addr, PAGE_SIZE, __PAGE_KERNEL_NOENC);
+				shared_info_pfn = PHYS_PFN(entry.addr);
+				printk("%u", HYPERVISOR_shared_info->wc.version);
+				return true;
+		}
+	}
+
+	return false;
+}
 
 void xen_hvm_init_shared_info(void)
 {
@@ -72,11 +92,21 @@ static void __init reserve_shared_info(void)
 	HYPERVISOR_shared_info = early_memremap_prot(pa, PAGE_SIZE, __PAGE_KERNEL_NOENC);
 }
 
-static void __init xen_hvm_init_mem_mapping(void)
+static void __init xen_hvm_after_bootmem(void)
 {
-	early_memunmap(HYPERVISOR_shared_info, PAGE_SIZE);
-	HYPERVISOR_shared_info = __va(PFN_PHYS(shared_info_pfn));
+	struct shared_info *previous = HYPERVISOR_shared_info;
+
+	xen_hypercall_bounce_teardown_early();
+	xen_hypercall_bounce_init_smp(0);
+	
+	pr_info("hvm: Teared down early bounce buffering\n");
+	
+	set_fixmap(FIX_XEN_SHARED_INFO, PFN_PHYS(shared_info_pfn));
+	HYPERVISOR_shared_info = (void *)fix_to_virt(FIX_XEN_SHARED_INFO);
+
 	set_memory_decrypted((unsigned long)HYPERVISOR_shared_info, 1);
+
+	early_memunmap(previous, PAGE_SIZE);
 
 	/*
 	 * The virtual address of the shared_info page has changed, so
@@ -90,14 +120,6 @@ static void __init xen_hvm_init_mem_mapping(void)
 	 * so reset it now.
 	 */
 	xen_vcpu_info_reset(0);
-}
-
-static void __init xen_hvm_after_bootmem(void)
-{
-	xen_hypercall_bounce_teardown_early();
-	xen_hypercall_bounce_init_smp(0);
-	
-	printk(KERN_INFO "hvm: Teared down early bounce buffering\n");
 }
 
 static void __init init_hvm_pv_info(void)
@@ -220,8 +242,10 @@ static void __init xen_hvm_guest_init(void)
 
 	init_hvm_pv_info();
 
-	reserve_shared_info();
-	xen_hvm_init_shared_info();
+	if (!xen_find_e820_shared_info()) {
+		reserve_shared_info();
+		xen_hvm_init_shared_info();
+	}
 
 	/*
 	 * xen_vcpu is a pointer to the vcpu_info struct in the shared_info
@@ -338,7 +362,6 @@ struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.type			= X86_HYPER_XEN_HVM,
 	.init.init_platform     = xen_hvm_guest_init,
 	.init.x2apic_available  = xen_x2apic_available,
-	.init.init_mem_mapping	= xen_hvm_init_mem_mapping,
 	.init.guest_late_init	= xen_hvm_guest_late_init,
 	.init.init_after_bootmem = xen_hvm_after_bootmem,
 	.init.msi_ext_dest_id   = msi_ext_dest_id,

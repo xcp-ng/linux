@@ -44,6 +44,12 @@ enum e820_type {
 	 * might alter over the S3 transition:
 	 */
 	E820_TYPE_RESERVED_KERN	= 128,
+
+	/* Xen specifc E820 types */
+	E820_XEN_TYPE_SHARED_INFO   = 0xF0000001, /* Shared info page */
+	E820_XEN_TYPE_GRANT_TABLE   = 0xF0000002, /* Grant table pages */
+	E820_XEN_TYPE_GNTTAB_STATUS = 0xF0000003,	/* Grant table status pages (v2) */
+	E820_XEN_TYPE_FOREIGN_REG   = 0xF0000004 	/* Suitable region for grant mappings */
 };
 
 /*

@@ -47,11 +47,22 @@
 #include <asm/page.h>
 #include <asm/smap.h>
 #include <asm/nospec-branch.h>
-#include <asm/xen/hypercall_bounce.h>
 
 #include <xen/interface/xen.h>
 #include <xen/interface/platform.h>
 #include <xen/interface/sched.h>
+#include <xen/interface/xen-mca.h>
+
+#include <asm/xen/fastabi.h>
+
+#define XEN_TRY_FASTABI(f, ret_type, args...) do { \
+		if (xen_use_fastabi) { \
+			ret_type rc = f(args); \
+			if (rc != -EOPNOTSUPP) \
+				return rc; \
+			BUG_ON(xen_fastabi_force); \
+		} \
+	} while(0)
 
 struct xen_dm_op_buf;
 
@@ -392,15 +403,14 @@ MULTI_stack_switch(struct multicall_entry *mcl,
 static __always_inline int
 HYPERVISOR_sched_op(int cmd, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_sched_op(cmd, arg);
-	else
-		return _hypercall2(int, sched_op, cmd, arg);
+	XEN_TRY_FASTABI(xen_fastabi_sched_op, int, cmd, arg);
+	return _hypercall2(int, sched_op, cmd, arg);
 }
 
 static inline long
 HYPERVISOR_set_timer_op(u64 timeout)
 {
+	BUG_ON(xen_fastabi_force);
 	unsigned long timeout_hi = (unsigned long)(timeout>>32);
 	unsigned long timeout_lo = (unsigned long)timeout;
 	return _hypercall2(long, set_timer_op, timeout_lo, timeout_hi);
@@ -409,6 +419,7 @@ HYPERVISOR_set_timer_op(u64 timeout)
 static inline int
 HYPERVISOR_mca(struct xen_mc *mc_op)
 {
+	BUG_ON(xen_fastabi_force);
 	mc_op->interface_version = XEN_MCA_INTERFACE_VERSION;
 	return _hypercall1(int, mca, mc_op);
 }
@@ -416,131 +427,117 @@ HYPERVISOR_mca(struct xen_mc *mc_op)
 static inline int
 HYPERVISOR_platform_op(struct xen_platform_op *op)
 {
+	BUG_ON(xen_fastabi_force);
 	op->interface_version = XENPF_INTERFACE_VERSION;
 
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_platform_op(op);
-	else
-		return _hypercall1(int, platform_op, op);
+	return _hypercall1(int, platform_op, op);
 }
 
 static inline long
 HYPERVISOR_memory_op(unsigned int cmd, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_memory_op(cmd, arg);
-	else 
-		return _hypercall2(long, memory_op, cmd, arg);
+	XEN_TRY_FASTABI(xen_fastabi_memory_op, long, cmd, arg);
+	return _hypercall2(long, memory_op, cmd, arg);
 }
 
 static inline int
 HYPERVISOR_multicall(void *call_list, uint32_t nr_calls)
 {
+	BUG_ON(xen_fastabi_force);
 	return _hypercall2(int, multicall, call_list, nr_calls);
 }
 
 static inline int
 HYPERVISOR_event_channel_op(int cmd, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_event_channel_op(cmd, arg);
-	else
-		return _hypercall2(int, event_channel_op, cmd, arg);
+	XEN_TRY_FASTABI(xen_fastabi_event_channel_op, int, cmd, arg);
+	return _hypercall2(int, event_channel_op, cmd, arg);
 }
 
 static __always_inline int
 HYPERVISOR_xen_version(int cmd, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_xen_version(cmd, arg);
-	else
-	 	return _hypercall2(int, xen_version, cmd, arg);
+	XEN_TRY_FASTABI(xen_fastabi_xen_version, int, cmd, arg);
+	return _hypercall2(int, xen_version, cmd, arg);
 }
 
 static inline int
 HYPERVISOR_console_io(int cmd, int count, char *str)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_console_io(cmd, count, str);
-	else
-		return _hypercall3(int, console_io, cmd, count, str);
+	BUG_ON(xen_fastabi_force);
+	return _hypercall3(int, console_io, cmd, count, str);
 }
 
 static inline int
 HYPERVISOR_physdev_op(int cmd, void *arg)
 {
+	BUG_ON(xen_fastabi_force);
 	return _hypercall2(int, physdev_op, cmd, arg);
 }
 
 static inline int
 HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_grant_table_op(cmd, uop, count);
-	else
-		return _hypercall3(int, grant_table_op, cmd, uop, count);
+	XEN_TRY_FASTABI(xen_fastabi_grant_table_op, int, cmd, uop, count);
+	return _hypercall3(int, grant_table_op, cmd, uop, count);
 }
 
 static inline int
 HYPERVISOR_vm_assist(unsigned int cmd, unsigned int type)
 {
+	BUG_ON(xen_fastabi_force);
 	return _hypercall2(int, vm_assist, cmd, type);
 }
 
 static inline int
 HYPERVISOR_vcpu_op(int cmd, int vcpuid, void *extra_args)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_vcpu_op(cmd, vcpuid, extra_args);
-	else
-	 	return _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args);
+	XEN_TRY_FASTABI(xen_fastabi_vcpu_op, int, cmd, vcpuid, extra_args);
+	return _hypercall3(int, vcpu_op, cmd, vcpuid, extra_args);
 }
 
 static inline int
 HYPERVISOR_suspend(unsigned long start_info_mfn)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_suspend(start_info_mfn);
-	else {
-		struct sched_shutdown r = { .reason = SHUTDOWN_suspend };
+	BUG_ON(xen_fastabi_force);
 
-		/*
-		 * For a PV guest the tools require that the start_info mfn be
-		 * present in rdx/edx when the hypercall is made. Per the
-		 * hypercall calling convention this is the third hypercall
-		 * argument, which is start_info_mfn here.
-		 */
-		return _hypercall3(int, sched_op, SCHEDOP_shutdown, &r, start_info_mfn);
-	}
+	struct sched_shutdown r = { .reason = SHUTDOWN_suspend };
+
+	/*
+	 * For a PV guest the tools require that the start_info mfn be
+	 * present in rdx/edx when the hypercall is made. Per the
+	 * hypercall calling convention this is the third hypercall
+	 * argument, which is start_info_mfn here.
+	 */
+	return _hypercall3(int, sched_op, SCHEDOP_shutdown, &r, start_info_mfn);
 }
 
 static inline unsigned long __must_check
 HYPERVISOR_hvm_op(int op, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_hvm_op(op, arg);
-	else
-		return _hypercall2(unsigned long, hvm_op, op, arg);
+	XEN_TRY_FASTABI(xen_fastabi_hvm_op, unsigned long, op, arg);
+	return _hypercall2(unsigned long, hvm_op, op, arg);
 }
 
 static inline int
 HYPERVISOR_xenpmu_op(unsigned int op, void *arg)
 {
-	if (xen_physaddr_abi)
-		return xen_hypercall_bounce_xenpmu_op(op, arg);
-	else
-		return _hypercall2(int, xenpmu_op, op, arg);
+	BUG_ON(xen_fastabi_force);
+	return _hypercall2(int, xenpmu_op, op, arg);
 }
 
 static inline int
 HYPERVISOR_dm_op(
 	domid_t dom, unsigned int nr_bufs, struct xen_dm_op_buf *bufs)
 {
+	BUG_ON(xen_fastabi_force);
 	int ret;
 	__xen_stac();
 	ret = _hypercall3(int, dm_op, dom, nr_bufs, bufs);
 	__xen_clac();
 	return ret;
 }
+
+#undef XEN_TRY_FASTABI
 
 #endif /* _ASM_X86_XEN_HYPERCALL_H */

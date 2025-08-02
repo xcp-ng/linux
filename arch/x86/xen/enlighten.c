@@ -17,7 +17,7 @@
 #include <asm/xen/cpuid.h>
 #include <asm/xen/hypercall.h>
 #include <asm/xen/hypervisor.h>
-#include <asm/xen/hypercall_bounce.h>
+#include <asm/xen/fastabi.h>
 #include <asm/cpu.h>
 #include <asm/e820/api.h> 
 #include <asm/setup.h>
@@ -94,15 +94,16 @@ void xen_hypercall_setfunc(void)
 	else
 		static_call_update(xen_hypercall, xen_hypercall_intel);
 
-#ifdef CONFIG_XEN_HVMV2
 	if (boot_cpu_has(X86_FEATURE_CPUID) &&
-		(cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_PHYS_ADDR_ABI)) {
-		xen_physaddr_abi = true;
-		xen_hypercall_bounce_init_early();
-		printk(KERN_INFO "Using Xen Physical Address ABI\n");
-	}
-#endif
+		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI)) {
+		xen_use_fastabi = true;
+		
+		if ((boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
+				 boot_cpu_data.x86_vendor == X86_VENDOR_HYGON))
+			xen_fastabi_hypercall_vendor = Amd;
 
+		printk(KERN_INFO "Using Xen FastABI\n");
+	}
 }
 
 /*
@@ -141,14 +142,14 @@ noinstr void *__xen_hypercall_setfunc(void)
 		func = xen_hypercall_intel;
 
 	if (boot_cpu_has(X86_FEATURE_CPUID) &&
-			(cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_PHYS_ADDR_ABI)) {
-#ifdef CONFIG_XEN_HVMV2
-		xen_physaddr_abi = true;
-		xen_hypercall_bounce_init_early();
-		printk(KERN_INFO "Using Xen Physical Address ABI\n");
-#else
-		panic(KERN_ERR "This kernel doesn't support Xen HVMv2 ABI\n");
-#endif
+		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI)) {
+		xen_use_fastabi = true;
+		
+		if ((boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
+				 boot_cpu_data.x86_vendor == X86_VENDOR_HYGON))
+			xen_fastabi_hypercall_vendor = Amd;
+
+		printk(KERN_INFO "Using Xen FastABI\n");
 	}
 
 	static_call_update_early(xen_hypercall, func);
@@ -320,7 +321,7 @@ bool xen_running_on_version_or_later(unsigned int major, unsigned int minor)
 void __init xen_add_preferred_consoles(void)
 {
 	add_preferred_console("xenboot", 0, NULL);
-	add_preferred_console("xensev", 0, NULL);
+	//add_preferred_console("xensev", 0, NULL);
 	if (!boot_params.screen_info.orig_video_isVGA)
 		add_preferred_console("tty", 0, NULL);
 	add_preferred_console("hvc", 0, NULL);
