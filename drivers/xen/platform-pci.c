@@ -152,7 +152,8 @@ static int platform_pci_probe(struct pci_dev *pdev,
 
 	max_nr_gframes = gnttab_max_grant_frames();
 	grant_frames = alloc_xen_mmio(PAGE_SIZE * max_nr_gframes);
-	ret = gnttab_setup_auto_xlat_frames(grant_frames);
+	ret = gnttab_setup_auto_xlat_frames(grant_frames, max_nr_gframes,
+																			&xen_auto_xlat_grant_frames);
 	if (ret)
 		goto irq_out;
 	ret = gnttab_init();
@@ -160,7 +161,7 @@ static int platform_pci_probe(struct pci_dev *pdev,
 		goto grant_out;
 	return 0;
 grant_out:
-	gnttab_free_auto_xlat_frames();
+	gnttab_free_auto_xlat_frames(&xen_auto_xlat_grant_frames);
 irq_out:
 	if (!xen_have_vector_callback)
 		free_irq(pdev->irq, pdev);

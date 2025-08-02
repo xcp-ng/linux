@@ -501,7 +501,8 @@ static int __init xen_guest_init(void)
 										   &xen_auto_xlat_grant_frames.vaddr,
 										   xen_auto_xlat_grant_frames.count);
 	} else
-		rc = gnttab_setup_auto_xlat_frames(xen_grant_frames);
+		rc = gnttab_setup_auto_xlat_frames(xen_grant_frames, gnttab_max_grant_frames(),
+																			 &xen_auto_xlat_grant_frames);
 	if (rc) {
 		free_percpu(xen_vcpu_info);
 		return rc;

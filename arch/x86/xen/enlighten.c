@@ -16,6 +16,7 @@
 
 #include <asm/xen/hypercall.h>
 #include <asm/xen/hypervisor.h>
+#include <asm/xen/fastabi.h>
 #include <asm/cpu.h>
 #include <asm/e820/api.h> 
 #include <asm/setup.h>
@@ -90,6 +91,20 @@ void xen_hypercall_setfunc(void)
 		static_call_update(xen_hypercall, xen_hypercall_amd);
 	else
 		static_call_update(xen_hypercall, xen_hypercall_intel);
+
+	if (boot_cpu_has(X86_FEATURE_CPUID) &&
+		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI)) {
+		xen_use_fastabi = true;
+
+		if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))
+			xen_fastabi_force = true;
+		
+		if ((boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
+				 boot_cpu_data.x86_vendor == X86_VENDOR_HYGON))
+			xen_fastabi_hypercall_vendor = Amd;
+
+		printk(KERN_INFO "Using Xen FastABI\n");
+	}
 }
 
 /*
@@ -121,6 +136,20 @@ noinstr void *__xen_hypercall_setfunc(void)
 		func = xen_hypercall_amd;
 	else
 		func = xen_hypercall_intel;
+
+	if (boot_cpu_has(X86_FEATURE_CPUID) &&
+		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI)) {
+		xen_use_fastabi = true;
+
+		if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))
+			xen_fastabi_force = true;
+
+		if ((boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
+				 boot_cpu_data.x86_vendor == X86_VENDOR_HYGON))
+			xen_fastabi_hypercall_vendor = Amd;
+
+		printk(KERN_INFO "Using Xen FastABI\n");
+	}
 
 	static_call_update_early(xen_hypercall, func);
 

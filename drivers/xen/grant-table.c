@@ -98,7 +98,9 @@ static unsigned long *gnttab_free_bitmap;
 static DEFINE_SPINLOCK(gnttab_list_lock);
 
 struct grant_frames xen_auto_xlat_grant_frames;
+struct grant_frames xen_auto_xlat_status_frames;
 static unsigned int xen_gnttab_version;
+bool xen_gnttab_auto_mapped = false;
 module_param_named(version, xen_gnttab_version, uint, 0);
 
 static union {
@@ -815,14 +817,14 @@ unsigned int gnttab_max_grant_frames(void)
 }
 EXPORT_SYMBOL_GPL(gnttab_max_grant_frames);
 
-int gnttab_setup_auto_xlat_frames(phys_addr_t addr)
+int gnttab_setup_auto_xlat_frames(phys_addr_t addr, unsigned int max_nr_gframes,
+																	struct grant_frames *frames)
 {
 	xen_pfn_t *pfn;
-	unsigned int max_nr_gframes = __max_nr_grant_frames();
 	unsigned int i;
 	void *vaddr;
 
-	if (xen_auto_xlat_grant_frames.count)
+	if (frames->count)
 		return -EINVAL;
 
 	vaddr = memremap(addr, XEN_PAGE_SIZE * max_nr_gframes, MEMREMAP_WB);
@@ -839,24 +841,24 @@ int gnttab_setup_auto_xlat_frames(phys_addr_t addr)
 	for (i = 0; i < max_nr_gframes; i++)
 		pfn[i] = XEN_PFN_DOWN(addr) + i;
 
-	xen_auto_xlat_grant_frames.vaddr = vaddr;
-	xen_auto_xlat_grant_frames.pfn = pfn;
-	xen_auto_xlat_grant_frames.count = max_nr_gframes;
+	frames->vaddr = vaddr;
+	frames->pfn = pfn;
+	frames->count = max_nr_gframes;
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(gnttab_setup_auto_xlat_frames);
 
-void gnttab_free_auto_xlat_frames(void)
+void gnttab_free_auto_xlat_frames(struct grant_frames *frames)
 {
-	if (!xen_auto_xlat_grant_frames.count)
+	if (!frames->count)
 		return;
-	kfree(xen_auto_xlat_grant_frames.pfn);
-	memunmap(xen_auto_xlat_grant_frames.vaddr);
+	kfree(frames->pfn);
+	memunmap(frames->vaddr);
 
-	xen_auto_xlat_grant_frames.pfn = NULL;
-	xen_auto_xlat_grant_frames.count = 0;
-	xen_auto_xlat_grant_frames.vaddr = NULL;
+	frames->pfn = NULL;
+	frames->count = 0;
+	frames->vaddr = NULL;
 }
 EXPORT_SYMBOL_GPL(gnttab_free_auto_xlat_frames);
 
@@ -1448,6 +1450,9 @@ static int gnttab_map(unsigned int start_idx, unsigned int end_idx)
 	xen_pfn_t *frames;
 	unsigned int nr_gframes = end_idx + 1;
 	int rc;
+	
+	if (xen_gnttab_auto_mapped)
+		return 0;
 
 	if (!xen_pv_domain()) {
 		struct xen_add_to_physmap xatp;

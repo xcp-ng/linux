@@ -99,6 +99,9 @@ static inline int gnttab_resume(void)
 }
 #endif
 
+int gnttab_map_frames(xen_pfn_t *frames, unsigned int nr_frames);
+int gnttab_map_status_frames(xen_pfn_t *frames, unsigned int nr_frames);
+
 int gnttab_grant_foreign_access(domid_t domid, unsigned long frame,
 				int readonly);
 
@@ -217,9 +220,12 @@ struct grant_frames {
 	void *vaddr;
 };
 extern struct grant_frames xen_auto_xlat_grant_frames;
+extern struct grant_frames xen_auto_xlat_status_frames;
+extern bool xen_gnttab_auto_mapped;
 unsigned int gnttab_max_grant_frames(void);
-int gnttab_setup_auto_xlat_frames(phys_addr_t addr);
-void gnttab_free_auto_xlat_frames(void);
+int gnttab_setup_auto_xlat_frames(phys_addr_t addr, unsigned int max_nr_gframes,
+																	struct grant_frames *frames);
+void gnttab_free_auto_xlat_frames(struct grant_frames *frames);
 
 #define gnttab_map_vaddr(map) ((void *)(map.host_virt_addr))
 

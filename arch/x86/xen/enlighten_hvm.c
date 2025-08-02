@@ -22,17 +22,41 @@
 #include <asm/hypervisor.h>
 #include <asm/e820/api.h>
 #include <asm/early_ioremap.h>
+#include <asm/set_memory.h>
+#include <asm/fixmap.h>
 
+#include <asm/xen/fastabi.h>
 #include <asm/xen/cpuid.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/page.h>
 
 #include "xen-ops.h"
 
+__ro_after_init enum xen_hypercall_vendor xen_fastabi_hypercall_vendor;
+__ro_after_init bool xen_use_fastabi = false;
+__ro_after_init bool xen_fastabi_force = false;
+
 static unsigned long shared_info_pfn;
 
 __ro_after_init bool xen_percpu_upcall;
 EXPORT_SYMBOL_GPL(xen_percpu_upcall);
+
+static bool __init xen_find_e820_shared_info(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < e820_table->nr_entries; i++) {
+		struct e820_entry entry = e820_table->entries[i];
+		
+		if (entry.type == E820_XEN_TYPE_SHARED_INFO) {
+				HYPERVISOR_shared_info = early_memremap_prot(entry.addr, PAGE_SIZE, __PAGE_KERNEL_NOENC);
+				shared_info_pfn = PHYS_PFN(entry.addr);
+				return true;
+		}
+	}
+
+	return false;
+}
 
 void xen_hvm_init_shared_info(void)
 {
@@ -72,21 +96,6 @@ static void __init reserve_shared_info(void)
 
 static void __init xen_hvm_init_mem_mapping(void)
 {
-	early_memunmap(HYPERVISOR_shared_info, PAGE_SIZE);
-	HYPERVISOR_shared_info = __va(PFN_PHYS(shared_info_pfn));
-
-	/*
-	 * The virtual address of the shared_info page has changed, so
-	 * the vcpu_info pointer for VCPU 0 is now stale.
-	 *
-	 * The prepare_boot_cpu callback will re-initialize it via
-	 * xen_vcpu_setup, but we can't rely on that to be called for
-	 * old Xen versions (xen_have_vector_callback == 0).
-	 *
-	 * It is, in any case, bad to have a stale vcpu_info pointer
-	 * so reset it now.
-	 */
-	xen_vcpu_info_reset(0);
 }
 
 static void __init init_hvm_pv_info(void)
@@ -209,8 +218,10 @@ static void __init xen_hvm_guest_init(void)
 
 	init_hvm_pv_info();
 
-	reserve_shared_info();
-	xen_hvm_init_shared_info();
+	if (!xen_find_e820_shared_info()) {
+		reserve_shared_info();
+		xen_hvm_init_shared_info();
+	}
 
 	/*
 	 * xen_vcpu is a pointer to the vcpu_info struct in the shared_info
@@ -265,6 +276,29 @@ static bool __init msi_ext_dest_id(void)
 
 static __init void xen_hvm_guest_late_init(void)
 {
+	struct shared_info *previous = HYPERVISOR_shared_info;
+
+	set_fixmap(FIX_XEN_SHARED_INFO, PFN_PHYS(shared_info_pfn));
+	HYPERVISOR_shared_info = (void *)fix_to_virt(FIX_XEN_SHARED_INFO);
+	//HYPERVISOR_shared_info = phys_to_virt(PFN_PHYS(shared_info_pfn));
+
+	set_memory_decrypted((unsigned long)HYPERVISOR_shared_info, 1);
+
+	early_memunmap(previous, PAGE_SIZE);
+
+	/*
+	 * The virtual address of the shared_info page has changed, so
+	 * the vcpu_info pointer for VCPU 0 is now stale.
+	 *
+	 * The prepare_boot_cpu callback will re-initialize it via
+	 * xen_vcpu_setup, but we can't rely on that to be called for
+	 * old Xen versions (xen_have_vector_callback == 0).
+	 *
+	 * It is, in any case, bad to have a stale vcpu_info pointer
+	 * so reset it now.
+	 */
+	xen_vcpu_info_reset(0);
+
 #ifdef CONFIG_XEN_PVH
 	/* Test for PVH domain (PVH boot path taken overrides ACPI flags). */
 	if (!xen_pvh &&
@@ -327,7 +361,7 @@ struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.type			= X86_HYPER_XEN_HVM,
 	.init.init_platform     = xen_hvm_guest_init,
 	.init.x2apic_available  = xen_x2apic_available,
-	.init.init_mem_mapping	= xen_hvm_init_mem_mapping,
+	.init.init_mem_mapping = xen_hvm_init_mem_mapping,
 	.init.guest_late_init	= xen_hvm_guest_late_init,
 	.init.msi_ext_dest_id   = msi_ext_dest_id,
 	.runtime.pin_vcpu       = xen_pin_vcpu,

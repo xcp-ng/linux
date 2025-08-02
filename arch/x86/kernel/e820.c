@@ -198,6 +198,12 @@ __init static void e820_print_type(enum e820_type type)
 	case E820_TYPE_UNUSABLE:	pr_cont(" unusable");				break;
 	case E820_TYPE_PMEM:		/* Fall through: */
 	case E820_TYPE_PRAM:		pr_cont(" persistent RAM (type %u)", type);	break;
+	#ifdef CONFIG_XEN_PVHVM
+	case E820_XEN_TYPE_SHARED_INFO: pr_cont(" Xen shared info");			break;
+	case E820_XEN_TYPE_GRANT_TABLE: pr_cont(" Xen grant table");			break;
+	case E820_XEN_TYPE_GNTTAB_STATUS: pr_cont(" Xen grant status page");			break;
+	case E820_XEN_TYPE_FOREIGN_REG: pr_cont(" Xen foreign mappings region");			break;
+	#endif
 	default:			pr_cont(" type %u", type);			break;
 	}
 }
