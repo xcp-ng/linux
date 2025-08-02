@@ -273,8 +273,6 @@ irqreturn_t xen_debug_interrupt(int irq, void *dev_id)
 
 	spin_lock_irqsave(&debug_lock, flags);
 
-	printk("\nvcpu %d\n  ", cpu);
-
 	for_each_online_cpu(i) {
 		int pending;
 		v = per_cpu(xen_vcpu, i);

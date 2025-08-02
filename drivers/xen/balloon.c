@@ -729,6 +729,9 @@ static int __init balloon_init(void)
 	if (!xen_domain())
 		return -ENODEV;
 
+	if (xen_use_fastabi && xen_fastabi_force)
+		return -EOPNOTSUPP;
+
 	pr_info("Initialising balloon driver\n");
 
 	if (xen_released_pages >= get_num_physpages()) {

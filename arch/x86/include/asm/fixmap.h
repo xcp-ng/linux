@@ -141,6 +141,9 @@ enum fixed_addresses {
 #ifdef CONFIG_INTEL_TXT
 	FIX_TBOOT_BASE,
 #endif
+#ifdef CONFIG_XEN_PVH
+	FIX_XEN_SHARED_INFO,
+#endif
 	__end_of_fixed_addresses
 };
 

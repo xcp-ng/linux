@@ -148,6 +148,10 @@ struct evtchn_status {
 		} interdomain; /* EVTCHNSTAT_interdomain */
 		uint32_t pirq;	    /* EVTCHNSTAT_pirq	      */
 		uint32_t virq;	    /* EVTCHNSTAT_virq	      */
+		struct {
+			uint32_t _output1;
+			uint32_t _output2;
+		};
 	} u;
 };
 
