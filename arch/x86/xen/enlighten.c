@@ -269,6 +269,12 @@ void xen_vcpu_setup(int cpu)
 			return;
 	}
 
+	if (xen_vcpu_nr(cpu) < MAX_VIRT_CPUS) {
+		vcpup = &HYPERVISOR_shared_info->vcpu_info[xen_vcpu_nr(cpu)];
+		per_cpu(xen_vcpu, cpu) = vcpup;
+		return;
+	}
+
 	vcpup = &per_cpu(xen_vcpu_info, cpu);
 	info.mfn = arbitrary_virt_to_mfn(vcpup);
 	info.offset = offset_in_page(vcpup);
