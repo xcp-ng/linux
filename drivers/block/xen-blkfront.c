@@ -325,7 +325,7 @@ static int fill_grant_buffer(struct blkfront_ring_info *rinfo, int num)
 
 		if (info->bounce) {
 			granted_page = xen_gntpool_alloc_page(&global_pool);
-			printk("Using page %8lx for bounce buffering\n", (unsigned long)granted_page);
+			//printk("Using page %8lx for bounce buffering\n", (unsigned long)granted_page);
 			if (!granted_page) {
 				kfree(gnt_list_entry);
 				goto out_of_memory;
@@ -2598,7 +2598,7 @@ static int __init xlblk_init(void)
 	if (!xen_has_pv_disk_devices())
 		return -ENODEV;
 
-	BUG_ON(xen_gntpool_create(&global_pool, 12));
+	BUG_ON(xen_gntpool_create(&global_pool, 14));
 	printk("Initialized global blkfront grant pool");
 
 	if (register_blkdev(XENVBD_MAJOR, DEV_NAME)) {
