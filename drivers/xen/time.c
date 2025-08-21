@@ -63,6 +63,7 @@ static void xen_get_runstate_snapshot_cpu_delta(
 	BUG_ON(preemptible());
 
 	state = per_cpu_ptr(&xen_runstate, cpu);
+	memset(state, 0, sizeof(*state));
 
 	do {
 		state_time = get64(&state->state_entry_time);
