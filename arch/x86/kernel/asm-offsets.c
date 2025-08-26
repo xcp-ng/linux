@@ -10,6 +10,7 @@
 #include <crypto/aria.h>
 #include <linux/sched.h>
 #include <linux/stddef.h>
+#include <linux/list.h>
 #include <linux/hardirq.h>
 #include <linux/suspend.h>
 #include <linux/kbuild.h>
@@ -127,4 +128,21 @@ static void __used common(void)
 	OFFSET(ARIA_CTX_rounds, aria_ctx, rounds);
 #endif
 
+	BLANK();
+	OFFSET(MODULE_LIST_HEAD_next, list_head, next);
+	OFFSET(MODULE_state, module, state);
+	OFFSET(MODULE_next, module, list);
+	OFFSET(MODULE_name, module, name);
+	DEFINE(MODULE_name_len, MODULE_NAME_LEN);
+#ifdef CONFIG_KALLSYMS
+	OFFSET(MODULE_notes_attrs, module, notes_attrs);
+	OFFSET(MODULE_notes_count, module_notes_attrs, notes);
+	OFFSET(MODULE_binattrs, module_notes_attrs, attrs);
+	DEFINE(SIZEOF_binattr, sizeof(struct bin_attribute));
+	OFFSET(MODULE_noteattr, bin_attribute, attr);
+	OFFSET(MODULE_notesize, bin_attribute, size);
+	OFFSET(MODULE_notedata, bin_attribute, private);
+	OFFSET(MODULE_notename, attribute, name);
+	DEFINE(MODULE_notename_len, PAGE_SIZE);
+#endif
 }

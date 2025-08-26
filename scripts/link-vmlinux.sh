@@ -301,5 +301,9 @@ if is_enabled CONFIG_KALLSYMS; then
 	fi
 fi
 
+# NOTE: above if-statement checks if System.map matches vmlinux symbols
+sed -n '/#define MODULE_LIST_HEAD_next/,$p' ${srctree}/include/generated/asm-offsets.h > output.txt
+awk '/^#define / { printf "%016x - +%s\n", $3, $2 }' output.txt >> System.map
+
 # For fixdep
 echo "vmlinux: $0" > .vmlinux.d

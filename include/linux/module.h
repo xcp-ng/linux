@@ -401,6 +401,18 @@ struct klp_modinfo {
 };
 #endif
 
+#ifdef CONFIG_KALLSYMS
+/*
+ * /sys/module/foo/notes/.section.name gives contents of SHT_NOTE sections.
+ */
+
+struct module_notes_attrs {
+	struct kobject *dir;
+	unsigned int notes;
+	struct bin_attribute attrs[];
+};
+#endif
+
 struct module {
 	enum module_state state;
 
