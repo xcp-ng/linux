@@ -136,16 +136,6 @@ static void remove_sect_attrs(struct module *mod)
 	}
 }
 
-/*
- * /sys/module/foo/notes/.section.name gives contents of SHT_NOTE sections.
- */
-
-struct module_notes_attrs {
-	struct kobject *dir;
-	unsigned int notes;
-	struct bin_attribute attrs[];
-};
-
 static ssize_t module_notes_read(struct file *filp, struct kobject *kobj,
 				 struct bin_attribute *bin_attr,
 				 char *buf, loff_t pos, size_t count)
