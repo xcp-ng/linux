@@ -149,6 +149,7 @@ struct af_alg_async_req {
  *			SG?
  * @enc:		Cryptographic operation to be performed when
  *			recvmsg is invoked.
+ * @write:		True if we are in the middle of a write.
  * @init:		True if metadata has been sent.
  * @len:		Length of memory allocated for this data structure.
  * @inflight:		Non-zero when AIO requests are in flight.
@@ -184,6 +185,7 @@ struct af_alg_ctx {
 	 */
 	bool inflight:1;
 #endif
+	u32 write:1;
 
 	unsigned int len;
 
