@@ -523,6 +523,7 @@ static int gntalloc_mmap(struct file *filp, struct vm_area_struct *vma)
 	vm_priv->users = 1;
 	vm_priv->count = count;
 
+	vma->vm_page_prot = pgprot_decrypted(vma->vm_page_prot);
 	vma->vm_private_data = vm_priv;
 
 	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
