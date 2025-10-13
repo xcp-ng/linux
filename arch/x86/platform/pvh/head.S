@@ -93,6 +93,20 @@ SYM_CODE_START(pvh_start_xen)
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 #ifdef CONFIG_AMD_MEM_ENCRYPT
+	/* Check SIF_HVM_GHCB flag in start_info informing us on SEV-ES/SNP */
+	mov 8(%ebx), %edx
+	bt $5, %edx
+	jnc .no_ghcb
+
+	/* Get C-bit through GHCB MSR. */
+	movl $MSR_AMD64_SEV_ES_GHCB, %ecx
+	rdmsr
+	/* C-bit is in EAX[31:24] */
+	shr $24, %eax
+	mov %eax, %ebx
+	jmp .sev_prepare_pgt
+
+.no_ghcb:
 	/* Check CPUID highest leaf */
 	mov $0x80000000, %eax
 	cpuid
@@ -105,6 +119,7 @@ SYM_CODE_START(pvh_start_xen)
 	bt $1, %eax
 	jnc .skip_sev_prepare_pgt
 
+.sev_prepare_pgt:
 	/* Check if SEV is enabled */
 	mov $MSR_AMD64_SEV, %ecx
 	rdmsr

@@ -24,6 +24,7 @@
 #include <asm/early_ioremap.h>
 #include <asm/set_memory.h>
 #include <asm/fixmap.h>
+#include <asm/sev.h>
 
 #include <asm/xen/fastabi.h>
 #include <asm/xen/cpuid.h>
@@ -355,6 +356,34 @@ static uint32_t __init xen_platform_hvm(void)
 	return xen_domain;
 }
 
+static void xen_sev_es_hcall_prepare(struct ghcb *ghcb, struct pt_regs *regs)
+{
+	/* TODO: Proper FastABI filtering */
+	ghcb->save.rax = regs->ax;
+	ghcb->save.rdi = regs->di;
+	ghcb->save.rsi = regs->si;
+	ghcb->save.r8 = regs->r8;
+	ghcb->save.r9 = regs->r9;
+	ghcb->save.r10 = regs->r10;
+	ghcb->save.r11 = regs->r11;
+	ghcb->save.r12 = regs->r12;
+}
+
+static bool xen_sev_es_hcall_finish(struct ghcb *ghcb, struct pt_regs *regs)
+{
+	/* TODO: Proper FastABI filtering */
+	regs->ax = ghcb->save.rax;
+	regs->di = ghcb->save.rdi;
+	regs->si = ghcb->save.rsi;
+	regs->r8 = ghcb->save.r8;
+	regs->r9 = ghcb->save.r9;
+	regs->r10 = ghcb->save.r10;
+	regs->r11 = ghcb->save.r11;
+	regs->r12 = ghcb->save.r12;
+
+	return true;
+}
+
 struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.name                   = "Xen HVM",
 	.detect                 = xen_platform_hvm,
@@ -365,5 +394,7 @@ struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.init.guest_late_init	= xen_hvm_guest_late_init,
 	.init.msi_ext_dest_id   = msi_ext_dest_id,
 	.runtime.pin_vcpu       = xen_pin_vcpu,
+	.runtime.sev_es_hcall_prepare = xen_sev_es_hcall_prepare,
+	.runtime.sev_es_hcall_finish = xen_sev_es_hcall_finish,
 	.ignore_nopv            = true,
 };
