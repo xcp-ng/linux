@@ -1328,7 +1328,7 @@ static __init int print_s5_reset_status_mmio(void)
 	void __iomem *addr;
 	int i;
 
-	if (!cpu_feature_enabled(X86_FEATURE_ZEN))
+	if (!cpu_feature_enabled(X86_FEATURE_ZEN) || cpu_feature_enabled(X86_FEATURE_HYPERVISOR))
 		return 0;
 
 	addr = ioremap(FCH_PM_BASE + FCH_PM_S5_RESET_STATUS, sizeof(value));
