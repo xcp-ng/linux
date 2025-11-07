@@ -113,6 +113,9 @@ static struct ctl_table xen_root[] = {
 
 #endif
 
+extern int xen_iommu_unmap_page(unsigned long pfn);
+extern dma_addr_t pv_iommu_1_to_1_offset;
+
 /*
  * Use one extent per PAGE_SIZE to avoid to break down the page into
  * multiple frame.
@@ -368,6 +371,15 @@ static enum bp_state reserve_additional_memory(void)
 
 static void xen_online_page(struct page *page)
 {
+#ifdef CONFIG_XEN_HAVE_PVMMU
+	/*
+	 * Clear any existing IOMMU mappings of the BFN (== PFN) for
+	 * this page, so the correct IOMMU mapping can be created when
+	 * the page is returned.
+	 */
+	if (pv_iommu_1_to_1_offset)
+		xen_iommu_unmap_page(page_to_pfn(page));
+#endif
 	__online_page_set_limits(page);
 
 	mutex_lock(&balloon_mutex);
