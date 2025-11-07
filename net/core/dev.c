@@ -3139,6 +3139,9 @@ int netif_get_num_default_rss_queues(void)
 	}
 	free_cpumask_var(cpus);
 
+	if (count == 1 && count < num_online_cpus())
+		return min_t(int, num_online_cpus(), 8);
+
 	return count > 2 ? DIV_ROUND_UP(count, 2) : count;
 }
 EXPORT_SYMBOL(netif_get_num_default_rss_queues);
