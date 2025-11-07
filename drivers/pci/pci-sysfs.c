@@ -1466,10 +1466,11 @@ static int pci_create_capabilities_sysfs(struct pci_dev *dev)
 	pcie_vpd_create_sysfs_dev_files(dev);
 	pcie_aspm_create_sysfs_dev_files(dev);
 
-	if (dev->reset_fn) {
+	if (!pci_probe_reset_function(dev)) {
 		retval = device_create_file(&dev->dev, &reset_attr);
 		if (retval)
 			goto error;
+		dev->reset_fn = 1;
 	}
 	return 0;
 
