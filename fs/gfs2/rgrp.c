@@ -19,6 +19,7 @@
 #include <linux/blkdev.h>
 #include <linux/rbtree.h>
 #include <linux/random.h>
+#include <linux/module.h>
 
 #include "gfs2.h"
 #include "incore.h"
@@ -38,6 +39,11 @@
 
 #define BFITNOENT ((u32)~0)
 #define NO_BLOCK ((u64)~0)
+
+static bool gfs2_skippy_rgrp_alloc;
+
+module_param_named(skippy_rgrp_alloc, gfs2_skippy_rgrp_alloc, bool, 0644);
+MODULE_PARM_DESC(skippy_rgrp_alloc, "Set skippiness of resource group allocator, 0|1. Where 1 will cause resource groups to be randomly skipped with the likelihood of skipping progressively decreasing after a skip has occured.");
 
 /*
  * These routines are used by the resource group routines (rgrp.c)
@@ -2010,6 +2016,11 @@ int gfs2_inplace_reserve(struct gfs2_inode *ip, struct gfs2_alloc_parms *ap)
 	u64 last_unlinked = NO_BLOCK;
 	int loops = 0;
 	u32 free_blocks, skip = 0;
+	/*                                                                           
+	 * randskip starts at 2, but won't be used unless gfs2_skippy_rgrp_alloc     
+	 * is set                                                                    
+	 */                                                                          
+	u8 randskip = 2; 
 
 	if (sdp->sd_args.ar_rgrplvb)
 		flags |= GL_SKIP;
@@ -2040,10 +2051,36 @@ int gfs2_inplace_reserve(struct gfs2_inode *ip, struct gfs2_alloc_parms *ap)
 				if (loops == 0 &&
 				    !fast_to_acquire(rs->rs_rbm.rgd))
 					goto next_rgrp;
-				if ((loops < 2) &&
-				    gfs2_rgrp_used_recently(rs, 1000) &&
-				    gfs2_rgrp_congested(rs->rs_rbm.rgd, loops))
-					goto next_rgrp;
+				if (loops < 2) {
+					/*
+					 * If resource group allocation is requested to be skippy,
+					 * roll a hypothetical dice of <randskip> sides and skip
+					 * straight to the next resource group anyway if it comes
+					 * up 1, but only if randskip has not wrapped to 0.
+					 */
+					if (gfs2_skippy_rgrp_alloc && randskip) {
+						u8 jitter;
+
+						/*
+						 * Pseudorandom numbers are good enough here. Do not consume
+						 * valuable entropy for something like this.
+						 */
+						prandom_bytes(&jitter, sizeof(jitter));
+						if ((jitter % randskip) == 0) {
+							/*
+							 * If we are choosing to skip, bump randskip to make it
+							 * successively less likely that we will skip again.
+							 * In extremely rare cases this will wrap to 0. We'll
+							 * stop skipping then.
+							 */
+							randskip ++;
+							goto next_rgrp;
+						}
+					}
+					if (gfs2_rgrp_used_recently(rs, 1000) &&
+						gfs2_rgrp_congested(rs->rs_rbm.rgd, loops))
+						goto next_rgrp;
+				}
 			}
 			error = gfs2_glock_nq_init(rs->rs_rbm.rgd->rd_gl,
 						   LM_ST_EXCLUSIVE, flags,
