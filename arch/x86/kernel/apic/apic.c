@@ -2341,9 +2341,10 @@ int generic_processor_info(int apicid, int version)
 	if (num_processors >= nr_cpu_ids) {
 		int thiscpu = max + disabled_cpus;
 
-		pr_warning("APIC: NR_CPUS/possible_cpus limit of %i "
-			   "reached. Processor %d/0x%x ignored.\n",
-			   max, thiscpu, apicid);
+		if (!xen_initial_domain())
+			pr_warning("APIC: NR_CPUS/possible_cpus limit of %i "
+				   "reached. Processor %d/0x%x ignored.\n",
+				   max, thiscpu, apicid);
 
 		disabled_cpus++;
 		return -EINVAL;
