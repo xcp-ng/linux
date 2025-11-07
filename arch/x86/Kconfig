@@ -619,7 +619,6 @@ config X86_AMD_PLATFORM_DEVICE
 	bool "AMD ACPI2Platform devices support"
 	depends on ACPI
 	select COMMON_CLK
-	select PINCTRL
 	---help---
 	  Select to interpret AMD specific ACPI device to platform device
 	  such as I2C, UART, GPIO found on AMD Carrizo and later chipsets.
