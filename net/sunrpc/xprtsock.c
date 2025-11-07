@@ -2271,6 +2271,8 @@ static void xs_tcp_shutdown(struct rpc_xprt *xprt)
 		break;
 	case TCP_CLOSE:
 	case TCP_TIME_WAIT:
+	case TCP_FIN_WAIT1:
+	case TCP_FIN_WAIT2:
 		xs_reset_transport(transport);
 	}
 }
