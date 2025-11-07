@@ -270,7 +270,8 @@ static inline bool bond_should_override_tx_queue(struct bonding *bond)
 static inline bool bond_is_lb(const struct bonding *bond)
 {
 	return BOND_MODE(bond) == BOND_MODE_TLB ||
-	       BOND_MODE(bond) == BOND_MODE_ALB;
+	       BOND_MODE(bond) == BOND_MODE_ALB ||
+	       BOND_MODE(bond) == BOND_MODE_SLB;
 }
 
 static inline bool bond_needs_speed_duplex(const struct bonding *bond)
