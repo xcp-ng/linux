@@ -1827,7 +1827,7 @@ static int dlm_listen_for_all(void)
 	add_listen_sock(sock, &listen_con);
 
 	INIT_WORK(&listen_con.rwork, process_listen_recv_socket);
-	result = sock->ops->listen(sock, 5);
+	result = sock->ops->listen(sock, 128);
 	if (result < 0) {
 		dlm_close_sock(&listen_con.sock);
 		return result;
