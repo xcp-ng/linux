@@ -49,6 +49,7 @@
 #include <linux/livepatch_sched.h>
 #include <linux/uidgid_types.h>
 #include <asm/kmap_size.h>
+#include <linux/lockdep.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -2063,6 +2064,13 @@ static inline void clear_tsk_need_resched(struct task_struct *tsk)
 static inline int test_tsk_need_resched(struct task_struct *tsk)
 {
 	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
+}
+
+static inline void set_need_resched_current(void)
+{
+        lockdep_assert_irqs_disabled();
+        set_tsk_need_resched(current);
+        set_preempt_need_resched();
 }
 
 /*
