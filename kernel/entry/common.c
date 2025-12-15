@@ -92,6 +92,9 @@ noinstr void syscall_enter_from_user_mode_prepare(struct pt_regs *regs)
 /* Workaround to allow gradual conversion of architecture code */
 void __weak arch_do_signal_or_restart(struct pt_regs *regs) { }
 
+/* TIF bits, which prevent a time slice extension. */
+#define TIF_SLICE_EXT_DENY	(EXIT_TO_USER_MODE_WORK & ~_TIF_NEED_RESCHED)
+
 /**
  * exit_to_user_mode_loop - do any pending work before leaving to user space
  * @regs:	Pointer to pt_regs on entry stack
@@ -108,8 +111,10 @@ __always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
 
 		local_irq_enable_exit_to_user(ti_work);
 
-		if (ti_work & _TIF_NEED_RESCHED)
-			schedule();
+		if (ti_work & _TIF_NEED_RESCHED) {
+			if (!rseq_grant_slice_extension(ti_work & TIF_SLICE_EXT_DENY))
+				schedule();
+		}
 
 		if (ti_work & _TIF_UPROBE)
 			uprobe_notify_resume(regs);
