@@ -224,12 +224,19 @@ static int rseq_update_cpu_node_id(struct task_struct *t)
 	unsafe_put_user(cpu_id, &rseq->cpu_id, efault_end);
 	unsafe_put_user(node_id, &rseq->node_id, efault_end);
 	unsafe_put_user(mm_cid, &rseq->mm_cid, efault_end);
+	/* Open coded, so it's in the same user access region */
+	if (rseq_slice_extension_enabled()) {
+		/* Unconditionally clear it, no point in conditionals */
+		unsafe_put_user(0U, &rseq->slice_ctrl.all, efault_end);
+	}
+
 	/*
 	 * Additional feature fields added after ORIG_RSEQ_SIZE
 	 * need to be conditionally updated only if
 	 * t->rseq_len != ORIG_RSEQ_SIZE.
 	 */
 	user_write_access_end();
+	rseq_slice_clear_grant(t);
 	trace_rseq_update(t);
 	return 0;
 
@@ -483,6 +490,11 @@ void __rseq_handle_notify_resume(struct ksignal *ksig, struct pt_regs *regs)
 	return;
 
 error:
+	/* Ensure grant is cleared in kernel state and user space */
+	if (t->rseq_slice.state.granted) {
+		t->rseq_slice.state.granted = false;
+		(void)put_user(0U, &t->rseq->slice_ctrl.all);
+	}
 	sig = ksig ? ksig->sig : 0;
 	force_sigsegv(sig);
 }
