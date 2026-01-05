@@ -36,7 +36,7 @@
  *    Sridhar Samudrala     <sri@us.ibm.com>
  *    Ardelle Fan           <ardelle.fan@intel.com>
  *    Ryan Layer            <rmlayer@us.ibm.com>
- *    Kevin Gao             <kevin.gao@intel.com> 
+ *    Kevin Gao             <kevin.gao@intel.com>
  */
 
 #ifndef __net_sctp_h__
@@ -628,6 +628,13 @@ static inline __u32 sctp_min_frag_point(struct sctp_sock *sp, __u16 datasize)
 static inline bool sctp_newsk_ready(const struct sock *sk)
 {
 	return sock_flag(sk, SOCK_DEAD) || sk->sk_socket;
+}
+
+static inline void sctp_sock_set_nodelay(struct sock *sk)
+{
+	lock_sock(sk);
+	sctp_sk(sk)->nodelay = true;
+	release_sock(sk);
 }
 
 #endif /* __net_sctp_h__ */
