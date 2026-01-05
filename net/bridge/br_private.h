@@ -320,6 +320,7 @@ struct net_bridge {
 	spinlock_t			hash_lock;
 	struct list_head		port_list;
 	struct net_device		*dev;
+	struct net_bridge_port		*phys_port; /* One of our ports will contains the route to the physical world */
 	struct pcpu_sw_netstats		__percpu *stats;
 	/* These fields are accessed on each packet */
 #ifdef CONFIG_BRIDGE_VLAN_FILTERING
