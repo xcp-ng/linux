@@ -129,4 +129,6 @@ br_fdb_find_port(const struct net_device *br_dev,
 }
 #endif
 
+extern void br_send_gratuitous_switch_learning_packet(struct net_device *dev);
+
 #endif
