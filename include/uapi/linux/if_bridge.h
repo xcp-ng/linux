@@ -292,4 +292,10 @@ struct br_mcast_stats {
 	__u64 mcast_bytes[BR_MCAST_DIR_SIZE];
 	__u64 mcast_packets[BR_MCAST_DIR_SIZE];
 };
+
+#ifdef __KERNEL_
+extern struct net_device *br_locate_physical_device(struct net_device *dev);
+extern void br_send_gratuitous_switch_learning_packet(struct net_device *dev);
+#endif
+
 #endif /* _UAPI_LINUX_IF_BRIDGE_H */
