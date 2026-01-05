@@ -191,6 +191,8 @@ struct net_bridge_fdb_entry {
 	unsigned long			flags;
 	unsigned char			offloaded:1;
 
+	unsigned long			garp_lock_until;
+
 	/* write-heavy members should not affect lookups */
 	unsigned long			updated ____cacheline_aligned_in_smp;
 	unsigned long			used;
@@ -553,8 +555,8 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf, unsigned long count,
 		   unsigned long off);
 int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 		  const unsigned char *addr, u16 vid);
-void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-		   const unsigned char *addr, u16 vid, bool added_by_user);
+int br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+		  struct sk_buff *skb, u16 vid, bool added_by_user);
 
 int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
 		  struct net_device *dev, const unsigned char *addr, u16 vid);
