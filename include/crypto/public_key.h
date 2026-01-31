@@ -35,9 +35,15 @@ extern void public_key_free(struct public_key *key);
 struct public_key_signature {
 	struct asymmetric_key_id *auth_ids[2];
 	u8 *s;			/* Signature */
+	u32 s_size; /* Number of bytes in signature */
+        // 4 bytes padding
 	u8 *digest;
-	u32 s_size;		/* Number of bytes in signature */
+#ifndef __GENKSYMS__
 	u32 digest_size;	/* Number of bytes in digest */
+#else
+	u8 digest_size;
+	// 3 bytes padding
+#endif
 	const char *pkey_algo;
 	const char *hash_algo;
 };
