@@ -66,3 +66,27 @@ int verify_signature(const struct key *key,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(verify_signature);
+
+void kabi_check_struct_public_key(void)
+{
+	struct old_public_key_signature {
+		struct asymmetric_key_id *auth_ids[2];
+		u8 *s;			/* Signature */
+		u32 s_size; 		/* Number of bytes in signature */
+		u8 *digest;
+		u8 digest_size;		/* Number of bytes in digest */
+		const char *pkey_algo;
+		const char *hash_algo;
+	};
+
+	BUILD_BUG_ON(sizeof(struct old_public_key_signature) != sizeof(struct public_key_signature));
+	BUILD_BUG_ON(
+		offsetof(struct old_public_key_signature, digest_size) !=
+		offsetof(struct public_key_signature, digest_size)
+		);
+	BUILD_BUG_ON(
+		offsetof(struct old_public_key_signature, pkey_algo) !=
+		offsetof(struct public_key_signature, pkey_algo)
+		);
+
+}
