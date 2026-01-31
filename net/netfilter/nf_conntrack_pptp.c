@@ -90,7 +90,11 @@ static const char *const pptp_msg_name_array[PPTP_MSG_MAX + 1] = {
 	[PPTP_SET_LINK_INFO]		= "SET_LINK_INFO"
 };
 
+#ifndef __GENKSYMS__
 const char *pptp_msg_name(u_int16_t msg)
+#else
+char *pptp_msg_name(u_int16_t msg)
+#endif
 {
 	if (msg > PPTP_MSG_MAX)
 		return pptp_msg_name_array[0];
