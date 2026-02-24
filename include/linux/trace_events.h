@@ -254,7 +254,15 @@ struct trace_event_call {
 	struct list_head	list;
 	struct trace_event_class *class;
 	union {
-		const char		*name;
+#ifndef __GENKSYMS__
+		/*
+		 * Was constified in f613189ab5c7 ("tracing: Constify
+		 * string literal data member in struct trace_event_call")
+		 */
+		const char *name;
+#else
+		char *name;
+#endif
 		/* Set TRACE_EVENT_FL_TRACEPOINT flag when using "tp" */
 		struct tracepoint	*tp;
 	};
