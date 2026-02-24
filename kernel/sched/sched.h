@@ -337,6 +337,15 @@ struct cfs_bandwidth {
 	u64			runtime;
 	s64			hierarchical_quota;
 
+#ifdef __GENKSYMS__
+	typedef u64 runtime_expires;
+	int expires_seq;
+#else
+	/* Removed in: 502bd151448c sched/fair: Fix low cpu usage with high throttling by removing expiration of cpu-local slices */
+	typedef u64 __unused_runtime_expires;
+	int __unused_expires_seq;
+#endif
+
 	short			idle;
 	short			period_active;
 	struct hrtimer		period_timer;
