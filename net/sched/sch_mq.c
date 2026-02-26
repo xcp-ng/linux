@@ -130,7 +130,7 @@ static void mq_attach(struct Qdisc *sch)
 	priv->qdiscs = NULL;
 }
 
-static void mq_change_real_num_tx(struct Qdisc *sch, unsigned int new_real_tx)
+void mq_change_real_num_tx(struct Qdisc *sch, unsigned int new_real_tx)
 {
 #ifdef CONFIG_NET_SCHED
 	struct net_device *dev = qdisc_dev(sch);
@@ -308,7 +308,12 @@ struct Qdisc_ops mq_qdisc_ops __read_mostly = {
 	.init		= mq_init,
 	.destroy	= mq_destroy,
 	.attach		= mq_attach,
-	.change_real_num_tx = mq_change_real_num_tx,
+	/*
+	 * See in sch_generic.c or how this gets used.  This work arounds
+	 * kABI changes introduced in aa90302e3189 ("net: sched: update
+	 * default qdisc visibility after Tx queue cnt changes")
+	 */
+	/* .change_real_num_tx = mq_change_real_num_tx, */
 	.dump		= mq_dump,
 	.owner		= THIS_MODULE,
 };
