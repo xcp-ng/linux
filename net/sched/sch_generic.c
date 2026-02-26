@@ -1441,3 +1441,42 @@ void mini_qdisc_pair_init(struct mini_Qdisc_pair *miniqp, struct Qdisc *qdisc,
 	miniqp->p_miniq = p_miniq;
 }
 EXPORT_SYMBOL(mini_qdisc_pair_init);
+
+void kabi_check_struct_Qdisk_size(void)
+{
+	struct old_Qdisc {
+		int 			(*enqueue)(struct sk_buff *skb,
+					   struct Qdisc *sch,
+					   struct sk_buff **to_free);
+		struct sk_buff *	(*dequeue)(struct Qdisc *sch);
+		unsigned int		flags;
+		const struct Qdisc_ops	*ops;
+		struct qdisc_size_table	__rcu *stab;
+		struct hlist_node       hash;
+		u32			handle;
+		u32			parent;
+
+		struct netdev_queue	*dev_queue;
+
+		struct net_rate_estimator __rcu *rate_est;
+		struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+		struct gnet_stats_queue	__percpu *cpu_qstats;
+		int			padded;
+		refcount_t		refcnt;
+
+		struct sk_buff_head	gso_skb ____cacheline_aligned_in_smp;
+		struct qdisc_skb_head	q;
+		struct gnet_stats_basic_packed bstats;
+		seqcount_t		running;
+		struct gnet_stats_queue	qstats;
+		unsigned long		state;
+		struct Qdisc            *next_sched;
+		struct sk_buff_head	skb_bad_txq;
+
+		spinlock_t		busylock ____cacheline_aligned_in_smp;
+		spinlock_t		seqlock;
+	};
+
+
+	BUILD_BUG_ON(sizeof(struct old_Qdisc) != sizeof(struct Qdisc));
+}

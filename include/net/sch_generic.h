@@ -2,6 +2,7 @@
 #ifndef __NET_SCHED_GENERIC_H
 #define __NET_SCHED_GENERIC_H
 
+#include <linux/build_bug.h>
 #include <linux/netdevice.h>
 #include <linux/types.h>
 #include <linux/rcupdate.h>
@@ -108,7 +109,14 @@ struct Qdisc {
 
 	spinlock_t		busylock ____cacheline_aligned_in_smp;
 	spinlock_t		seqlock;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in f602ed9f8574 ("net: sched: extend Qdisc with rcu"),
+	 * luckily ends up filling padding bytes, no changes in struct
+	 * layout/size.
+	 */
 	struct rcu_head		rcu;
+#endif
 };
 
 static inline void qdisc_refcount_inc(struct Qdisc *qdisc)
