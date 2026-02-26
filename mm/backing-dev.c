@@ -12,6 +12,8 @@
 #include <linux/device.h>
 #include <trace/events/writeback.h>
 
+#include <linux/shadow_var.h>
+
 struct backing_dev_info noop_backing_dev_info = {
 	.name		= "noop",
 	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
@@ -865,7 +867,14 @@ struct backing_dev_info *bdi_alloc_node(gfp_t gfp_mask, int node_id)
 	if (!bdi)
 		return NULL;
 
+
+	if (!shadow_var_alloc(bdi, "dev_name", sizeof(char[64]), gfp_mask)) {
+		kfree(bdi);
+		return NULL;
+	}
+
 	if (bdi_init(bdi)) {
+		shadow_var_free(bdi, "dev_name");
 		kfree(bdi);
 		return NULL;
 	}
@@ -876,12 +885,17 @@ EXPORT_SYMBOL(bdi_alloc_node);
 int bdi_register_va(struct backing_dev_info *bdi, const char *fmt, va_list args)
 {
 	struct device *dev;
+	char (*kabi_bdi_dev_name)[64];
 
 	if (bdi->dev)	/* The driver needs to use separate queues per device */
 		return 0;
 
-	vsnprintf(bdi->dev_name, sizeof(bdi->dev_name), fmt, args);
-	dev = device_create(bdi_class, NULL, MKDEV(0, 0), bdi, bdi->dev_name);
+	kabi_bdi_dev_name = shadow_var_get(bdi, "dev_name");
+	if (!kabi_bdi_dev_name)
+		return -ENOMEM;
+
+	vsnprintf(*kabi_bdi_dev_name, sizeof(*kabi_bdi_dev_name), fmt, args);
+	dev = device_create(bdi_class, NULL, MKDEV(0, 0), bdi, *kabi_bdi_dev_name);
 	if (IS_ERR(dev))
 		return PTR_ERR(dev);
 
@@ -975,6 +989,7 @@ static void release_bdi(struct kref *ref)
 	WARN_ON_ONCE(bdi->dev);
 	wb_exit(&bdi->wb);
 	cgwb_bdi_exit(bdi);
+	shadow_var_free(bdi, "dev_name");
 	kfree(bdi);
 }
 
@@ -986,9 +1001,16 @@ EXPORT_SYMBOL(bdi_put);
 
 const char *bdi_dev_name(struct backing_dev_info *bdi)
 {
+	char (*kabi_bdi_dev_name)[64];
+
 	if (!bdi || !bdi->dev)
 		return bdi_unknown_name;
-	return bdi->dev_name;
+
+	kabi_bdi_dev_name = shadow_var_get(bdi, "dev_name");
+	if (kabi_bdi_dev_name == NULL)
+		return bdi_unknown_name;
+
+	return *kabi_bdi_dev_name;
 }
 EXPORT_SYMBOL_GPL(bdi_dev_name);
 

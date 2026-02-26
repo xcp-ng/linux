@@ -197,7 +197,13 @@ struct backing_dev_info {
 	wait_queue_head_t wb_waitq;
 
 	struct device *dev;
-	char dev_name[64];
+	/*
+	 * Added in d6c434ae9d3b ("bdi: add a ->dev_name field to struct
+	 * backing_dev_info"), and causing kABI changes.  Use of shadow
+	 * live patching code to neutralize kABI change.
+	 *
+	 * char dev_name[64];
+	 */
 	struct device *owner;
 
 	struct timer_list laptop_mode_wb_timer;
