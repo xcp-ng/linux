@@ -696,19 +696,41 @@ static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
 	.init		= mqprio_init,
 	.destroy	= mqprio_destroy,
 	.attach		= mqprio_attach,
-	.change_real_num_tx = mqprio_change_real_num_tx,
+	 /* .change_real_num_tx = mqprio_change_real_num_tx, */
 	.dump		= mqprio_dump,
 	.owner		= THIS_MODULE,
 };
 
+/*
+ * Defined in net/sched/sch_generic.c - to avoid kABI changes from
+ * aa90302e3189 ("net: sched: update default qdisc visibility after Tx queue
+ * cnt changes")
+ */
+extern struct Qdisc_ops *kabi_mqprio_qdisc_ops;
+extern void (*kabi_mqprio_qdisc_change_real_num_tx)(struct Qdisc *, unsigned int);
+
 static int __init mqprio_module_init(void)
 {
+	/*
+	 * Avoid kABI changes from aa90302e3189 ("net: sched: update
+	 * default qdisc visibility after Tx queue cnt changes")
+	 */
+	kabi_mqprio_qdisc_change_real_num_tx = mqprio_change_real_num_tx;
+	kabi_mqprio_qdisc_ops = &mqprio_qdisc_ops;
+
 	return register_qdisc(&mqprio_qdisc_ops);
 }
 
 static void __exit mqprio_module_exit(void)
 {
 	unregister_qdisc(&mqprio_qdisc_ops);
+
+	/*
+	 * Avoid kABI changes from aa90302e3189 ("net: sched: update
+	 * default qdisc visibility after Tx queue cnt changes")
+	 */
+	kabi_mqprio_qdisc_ops = NULL;
+	kabi_mqprio_qdisc_change_real_num_tx = NULL;
 }
 
 module_init(mqprio_module_init);

@@ -238,9 +238,13 @@ struct Qdisc_ops {
 					  struct netlink_ext_ack *extack);
 	void			(*attach)(struct Qdisc *sch);
 	int			(*change_tx_queue_len)(struct Qdisc *, unsigned int);
-	void			(*change_real_num_tx)(struct Qdisc *sch,
-						      unsigned int new_real_tx);
-
+	/*
+	 * Added in aa90302e3189 ("net: sched: update default qdisc
+	 * visibility after Tx queue cnt changes"), causing kABI changes.
+	 *
+	 * void			(*change_real_num_tx)(struct Qdisc *sch,
+	 *                                            unsigned int new_real_tx);
+	 */
 	int			(*dump)(struct Qdisc *, struct sk_buff *);
 	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
 

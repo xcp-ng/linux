@@ -11,6 +11,7 @@
  *              - Ingress support
  */
 
+#include "linux/stddef.h"
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -1280,13 +1281,26 @@ static int qdisc_change_tx_queue_len(struct net_device *dev,
 	return 0;
 }
 
+void mq_change_real_num_tx(struct Qdisc *sch, unsigned int new_real_tx);
+
+struct Qdisc_ops *kabi_mqprio_qdisc_ops = NULL;
+EXPORT_SYMBOL(kabi_mqprio_qdisc_ops);
+void (*kabi_mqprio_qdisc_change_real_num_tx)(struct Qdisc *, unsigned int) = NULL;
+EXPORT_SYMBOL(kabi_mqprio_qdisc_change_real_num_tx);
+
 void dev_qdisc_change_real_num_tx(struct net_device *dev,
 				  unsigned int new_real_tx)
 {
 	struct Qdisc *qdisc = dev->qdisc;
 
-	if (qdisc->ops->change_real_num_tx)
-		qdisc->ops->change_real_num_tx(qdisc, new_real_tx);
+	if (qdisc->ops == &mq_qdisc_ops) {
+		mq_change_real_num_tx(qdisc, new_real_tx);
+	}
+
+	if (kabi_mqprio_qdisc_ops != NULL
+	    && qdisc->ops == kabi_mqprio_qdisc_ops) {
+		kabi_mqprio_qdisc_change_real_num_tx(qdisc, new_real_tx);
+	}
 }
 
 int dev_qdisc_change_tx_queue_len(struct net_device *dev)
