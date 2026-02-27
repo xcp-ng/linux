@@ -15,8 +15,14 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/seq_file.h>
+#ifndef __GENKSYMS__
+/*
+ * Added in 7c43f84efd6d ("driver core: Establish order of operations for
+ * device_add and device_del via bitflag") and causes struct dev_pagemap to
+ * be fully defined, which changes the kABI of sysfs_* exported symbols.
+ */
 #include <linux/mm.h>
-
+#endif
 #include "sysfs.h"
 #include "../kernfs/kernfs-internal.h"
 
