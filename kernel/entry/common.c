@@ -89,8 +89,7 @@ void __weak arch_do_signal_or_restart(struct pt_regs *regs) { }
  * @ti_work:	TIF work flags as read by the caller
  */
 __always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
-						     unsigned long ti_work,
-						     bool irq)
+						     unsigned long ti_work)
 {
 	/*
 	 * Before returning to user space ensure that all pending work
@@ -100,12 +99,8 @@ __always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
 
 		local_irq_enable_exit_to_user(ti_work);
 
-		if (ti_work & _TIF_NEED_RESCHED) {
-			if (irq && rseq_delay_resched())
-				clear_tsk_need_resched(current);
-			else
-				schedule();
-		}
+		if (ti_work & _TIF_NEED_RESCHED)
+			schedule();
 
 		if (ti_work & _TIF_UPROBE)
 			uprobe_notify_resume(regs);
@@ -213,7 +208,7 @@ static __always_inline void __syscall_exit_to_user_mode_work(struct pt_regs *reg
 {
 	syscall_exit_to_user_mode_prepare(regs);
 	local_irq_disable_exit_to_user();
-	exit_to_user_mode_prepare(regs, false);
+	exit_to_user_mode_prepare(regs);
 }
 
 void syscall_exit_to_user_mode_work(struct pt_regs *regs)
@@ -237,7 +232,7 @@ noinstr void irqentry_enter_from_user_mode(struct pt_regs *regs)
 noinstr void irqentry_exit_to_user_mode(struct pt_regs *regs)
 {
 	instrumentation_begin();
-	exit_to_user_mode_prepare(regs, true);
+	exit_to_user_mode_prepare(regs);
 	instrumentation_end();
 	exit_to_user_mode();
 }
