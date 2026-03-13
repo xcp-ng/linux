@@ -361,7 +361,6 @@ error:
 	force_sigsegv(sig);
 }
 
-#ifndef WITHOUT_ORACLE_EXTENSIONS
 bool rseq_delay_resched(void)
 {
 	struct task_struct *t = current;
@@ -418,7 +417,6 @@ void rseq_delay_resched_tick(void)
 		set_tsk_need_resched(t);
 #endif
 }
-#endif /* !WITHOUT_ORACLE_EXTENSIONS */
 
 #ifdef CONFIG_DEBUG_RSEQ
 
