@@ -1580,7 +1580,15 @@ enum ib_poll_context {
 	IB_POLL_DIRECT,		   /* caller context, no hw completions */
 	IB_POLL_SOFTIRQ,	   /* poll from softirq context */
 	IB_POLL_WORKQUEUE,	   /* poll from workqueue */
+#ifndef __GENKSYMS__
+	/**
+	 * 2661d462aaa9 ("IB/core: Add an unbound WQ type to the new CQ
+	 * API") adds a new enum value, which causes some exported symbols
+	 * to have a kABI change.  It is safe for prior users of the enum
+	 * to be constrained to the old values.
+	 */
 	IB_POLL_UNBOUND_WORKQUEUE, /* poll from unbound workqueue */
+#endif
 };
 
 struct ib_cq {
