@@ -23,7 +23,16 @@ struct blk_flush_queue {
 	unsigned int		flush_queue_delayed:1;
 	unsigned int		flush_pending_idx:1;
 	unsigned int		flush_running_idx:1;
+#ifndef __GENKSYMS__
+	/**
+	 *  Field added in 82652c06f976 ("block: fix null pointer
+	 *  dereference in blk_mq_rq_timed_out()"), causing kABI changes.
+	 *  We luckily have a struct hole at this exact place so simply
+	 *  hide the change from genksyms.  The field rq_status is only
+	 *  used internally in flush_end_io.
+	 */
 	blk_status_t 		rq_status;
+#endif
 	unsigned long		flush_pending_since;
 	struct list_head	flush_queue[2];
 	struct list_head	flush_data_in_flight;

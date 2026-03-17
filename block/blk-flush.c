@@ -616,3 +616,27 @@ void blk_free_flush_queue(struct blk_flush_queue *fq)
 	kfree(fq->flush_rq);
 	kfree(fq);
 }
+
+void kabi_check_blk_flush_queue(void)
+{
+	struct old_blk_flush_queue {
+		unsigned int		flush_queue_delayed:1;
+		unsigned int		flush_pending_idx:1;
+		unsigned int		flush_running_idx:1;
+
+		unsigned long		flush_pending_since;
+		struct list_head	flush_queue[2];
+		struct list_head	flush_data_in_flight;
+		struct request		*flush_rq;
+
+		/*
+		 * flush_rq shares tag with this rq, both can't be active
+		 * at the same time
+		 */
+		struct request		*orig_rq;
+		spinlock_t		mq_flush_lock;
+	};
+	BUILD_BUG_ON(sizeof(struct old_blk_flush_queue) != sizeof(struct blk_flush_queue));
+	BUILD_BUG_ON(offsetof(struct old_blk_flush_queue, flush_pending_since) != offsetof(struct blk_flush_queue, flush_pending_since));
+
+}
