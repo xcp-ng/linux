@@ -190,7 +190,13 @@ struct backing_dev_info {
 	struct radix_tree_root cgwb_tree; /* radix tree of active cgroup wbs */
 	struct rb_root cgwb_congested_tree; /* their congested states */
 	struct mutex cgwb_release_mutex;  /* protect shutdown of wb structs */
-	struct rw_semaphore wb_switch_rwsem; /* no cgwb switch while syncing */
+	/**
+	 * Added in edca54b897bb ("writeback: synchronize sync(2) against
+	 * cgroup writeback membership switches"), converted to use shadow
+	 * structs.
+	 *
+	 * struct rw_semaphore wb_switch_rwsem; * no cgwb switch while syncing *
+	 */
 #else
 	struct bdi_writeback_congested *wb_congested;
 #endif
@@ -212,6 +218,11 @@ struct backing_dev_info {
 	struct dentry *debug_dir;
 	struct dentry *debug_stats;
 #endif
+};
+
+struct kabi_shadow_backing_dev_info {
+	char dev_name[64];
+	struct rw_semaphore wb_switch_rwsem; /* no cgwb switch while syncing */
 };
 
 enum {

@@ -1,4 +1,5 @@
 
+#include "linux/gfp.h"
 #include <linux/wait.h>
 #include <linux/backing-dev.h>
 #include <linux/kthread.h>
@@ -252,10 +253,18 @@ static int __init default_bdi_init(void)
 {
 	int err;
 
+	if (!shadow_var_alloc(&noop_backing_dev_info, "kabi_shadow_backing_dev_info", sizeof(struct kabi_shadow_backing_dev_info), GFP_KERNEL)) {
+		return -ENOMEM;
+	}
+
+
 	bdi_wq = alloc_workqueue("writeback", WQ_MEM_RECLAIM | WQ_UNBOUND |
 				 WQ_SYSFS, 0);
-	if (!bdi_wq)
+	if (!bdi_wq) {
+		shadow_var_free(&noop_backing_dev_info, "kabi_shadow_backing_dev_info");
 		return -ENOMEM;
+	}
+
 
 	err = bdi_init(&noop_backing_dev_info);
 
@@ -687,12 +696,18 @@ struct bdi_writeback *wb_get_create(struct backing_dev_info *bdi,
 
 static int cgwb_bdi_init(struct backing_dev_info *bdi)
 {
+	struct kabi_shadow_backing_dev_info *shadow_bdi;
 	int ret;
+
+	shadow_bdi = shadow_var_get(bdi, "kabi_shadow_backing_dev_info");
+	if (!shadow_bdi)
+		return -ENOMEM;
+
 
 	INIT_RADIX_TREE(&bdi->cgwb_tree, GFP_ATOMIC);
 	bdi->cgwb_congested_tree = RB_ROOT;
 	mutex_init(&bdi->cgwb_release_mutex);
-	init_rwsem(&bdi->wb_switch_rwsem);
+	init_rwsem(&shadow_bdi->wb_switch_rwsem);
 
 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
 	if (!ret) {
@@ -868,13 +883,13 @@ struct backing_dev_info *bdi_alloc_node(gfp_t gfp_mask, int node_id)
 		return NULL;
 
 
-	if (!shadow_var_alloc(bdi, "dev_name", sizeof(char[64]), gfp_mask)) {
+	if (!shadow_var_alloc(bdi, "kabi_shadow_backing_dev_info", sizeof(struct kabi_shadow_backing_dev_info), gfp_mask)) {
 		kfree(bdi);
 		return NULL;
 	}
 
 	if (bdi_init(bdi)) {
-		shadow_var_free(bdi, "dev_name");
+		shadow_var_free(bdi, "kabi_shadow_backing_dev_info");
 		kfree(bdi);
 		return NULL;
 	}
@@ -885,17 +900,17 @@ EXPORT_SYMBOL(bdi_alloc_node);
 int bdi_register_va(struct backing_dev_info *bdi, const char *fmt, va_list args)
 {
 	struct device *dev;
-	char (*kabi_bdi_dev_name)[64];
+	struct kabi_shadow_backing_dev_info *shadow_bdi;
 
 	if (bdi->dev)	/* The driver needs to use separate queues per device */
 		return 0;
 
-	kabi_bdi_dev_name = shadow_var_get(bdi, "dev_name");
-	if (!kabi_bdi_dev_name)
+	shadow_bdi = shadow_var_get(bdi, "kabi_shadow_backing_dev_info");
+	if (!shadow_bdi)
 		return -ENOMEM;
 
-	vsnprintf(*kabi_bdi_dev_name, sizeof(*kabi_bdi_dev_name), fmt, args);
-	dev = device_create(bdi_class, NULL, MKDEV(0, 0), bdi, *kabi_bdi_dev_name);
+	vsnprintf(shadow_bdi->dev_name, sizeof(shadow_bdi->dev_name), fmt, args);
+	dev = device_create(bdi_class, NULL, MKDEV(0, 0), bdi, shadow_bdi->dev_name);
 	if (IS_ERR(dev))
 		return PTR_ERR(dev);
 
@@ -989,7 +1004,7 @@ static void release_bdi(struct kref *ref)
 	WARN_ON_ONCE(bdi->dev);
 	wb_exit(&bdi->wb);
 	cgwb_bdi_exit(bdi);
-	shadow_var_free(bdi, "dev_name");
+	shadow_var_free(bdi, "kabi_shadow_backing_dev_info");
 	kfree(bdi);
 }
 
@@ -1001,16 +1016,16 @@ EXPORT_SYMBOL(bdi_put);
 
 const char *bdi_dev_name(struct backing_dev_info *bdi)
 {
-	char (*kabi_bdi_dev_name)[64];
+	struct kabi_shadow_backing_dev_info *shadow_bdi;
 
 	if (!bdi || !bdi->dev)
 		return bdi_unknown_name;
 
-	kabi_bdi_dev_name = shadow_var_get(bdi, "dev_name");
-	if (kabi_bdi_dev_name == NULL)
+	shadow_bdi = shadow_var_get(bdi, "dev_name");
+	if (shadow_bdi == NULL)
 		return bdi_unknown_name;
 
-	return *kabi_bdi_dev_name;
+	return shadow_bdi->dev_name;
 }
 EXPORT_SYMBOL_GPL(bdi_dev_name);
 

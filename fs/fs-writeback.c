@@ -13,6 +13,7 @@
  *		Additions for address_space-based writeback
  */
 
+#include "linux/backing-dev-defs.h"
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/spinlock.h>
@@ -29,6 +30,8 @@
 #include <linux/device.h>
 #include <linux/memcontrol.h>
 #include "internal.h"
+
+#include <linux/shadow_var.h>
 
 /*
  * 4MB minimal write chunk size
@@ -333,14 +336,18 @@ struct inode_switch_wbs_context {
 	struct work_struct	work;
 };
 
-static void bdi_down_write_wb_switch_rwsem(struct backing_dev_info *bdi)
+static void bdi_down_write_wb_switch_rwsem(struct kabi_shadow_backing_dev_info *shadow_bdi)
 {
-	down_write(&bdi->wb_switch_rwsem);
+	if (unlikely(shadow_bdi == NULL))
+		return;
+	down_write(&shadow_bdi->wb_switch_rwsem);
 }
 
-static void bdi_up_write_wb_switch_rwsem(struct backing_dev_info *bdi)
+static void bdi_up_write_wb_switch_rwsem(struct kabi_shadow_backing_dev_info *shadow_bdi)
 {
-	up_write(&bdi->wb_switch_rwsem);
+	if (unlikely(shadow_bdi == NULL))
+		return;
+	up_write(&shadow_bdi->wb_switch_rwsem);
 }
 
 static void inode_switch_wbs_work_fn(struct work_struct *work)
@@ -349,6 +356,7 @@ static void inode_switch_wbs_work_fn(struct work_struct *work)
 		container_of(work, struct inode_switch_wbs_context, work);
 	struct inode *inode = isw->inode;
 	struct backing_dev_info *bdi = inode_to_bdi(inode);
+	struct kabi_shadow_backing_dev_info *shadow_bdi = shadow_var_get(bdi, "kabi_shadow_backing_dev_info");
 	struct address_space *mapping = inode->i_mapping;
 	struct bdi_writeback *old_wb = inode->i_wb;
 	struct bdi_writeback *new_wb = isw->new_wb;
@@ -360,7 +368,8 @@ static void inode_switch_wbs_work_fn(struct work_struct *work)
 	 * If @inode switches cgwb membership while sync_inodes_sb() is
 	 * being issued, sync_inodes_sb() might miss it.  Synchronize.
 	 */
-	down_read(&bdi->wb_switch_rwsem);
+	if (shadow_bdi)
+		down_read(&shadow_bdi->wb_switch_rwsem);
 
 	/*
 	 * By the time control reaches here, RCU grace period has passed
@@ -454,7 +463,8 @@ skip_switch:
 	spin_unlock(&new_wb->list_lock);
 	spin_unlock(&old_wb->list_lock);
 
-	up_read(&bdi->wb_switch_rwsem);
+	if (shadow_bdi)
+		up_read(&shadow_bdi->wb_switch_rwsem);
 
 	if (switched) {
 		wb_wakeup(new_wb);
@@ -489,6 +499,7 @@ static void inode_switch_wbs_rcu_fn(struct rcu_head *rcu_head)
 static void inode_switch_wbs(struct inode *inode, int new_wb_id)
 {
 	struct backing_dev_info *bdi = inode_to_bdi(inode);
+	struct kabi_shadow_backing_dev_info *shadow_bdi = shadow_var_get(bdi, "kabi_shadow_backing_dev_info");
 	struct cgroup_subsys_state *memcg_css;
 	struct inode_switch_wbs_context *isw;
 
@@ -502,7 +513,7 @@ static void inode_switch_wbs(struct inode *inode, int new_wb_id)
 	 * blocks heavily, we might end up starting a large number of
 	 * switches which will block on the rwsem.
 	 */
-	if (!down_read_trylock(&bdi->wb_switch_rwsem))
+	if (shadow_bdi && !down_read_trylock(&shadow_bdi->wb_switch_rwsem))
 		return;
 
 	isw = kzalloc(sizeof(*isw), GFP_ATOMIC);
@@ -554,7 +565,8 @@ out_free:
 		wb_put(isw->new_wb);
 	kfree(isw);
 out_unlock:
-	up_read(&bdi->wb_switch_rwsem);
+	if (shadow_bdi)
+		up_read(&shadow_bdi->wb_switch_rwsem);
 }
 
 /**
@@ -2453,6 +2465,7 @@ void sync_inodes_sb(struct super_block *sb)
 		.for_sync	= 1,
 	};
 	struct backing_dev_info *bdi = sb->s_bdi;
+	struct kabi_shadow_backing_dev_info *shadow_bdi = shadow_var_get(bdi, "kabi_shadow_backing_dev_info");
 
 	/*
 	 * Can't skip on !bdi_has_dirty() because we should wait for !dirty
@@ -2464,10 +2477,10 @@ void sync_inodes_sb(struct super_block *sb)
 	WARN_ON(!rwsem_is_locked(&sb->s_umount));
 
 	/* protect against inode wb switch, see inode_switch_wbs_work_fn() */
-	bdi_down_write_wb_switch_rwsem(bdi);
+	bdi_down_write_wb_switch_rwsem(shadow_bdi);
 	bdi_split_work_to_wbs(bdi, &work, false);
 	wb_wait_for_completion(bdi, &done);
-	bdi_up_write_wb_switch_rwsem(bdi);
+	bdi_up_write_wb_switch_rwsem(shadow_bdi);
 
 	wait_sb_inodes(sb);
 }
