@@ -2353,7 +2353,7 @@ static const struct blk_mq_ops scsi_mq_ops = {
 	.init_request	= scsi_mq_init_request,
 	.exit_request	= scsi_mq_exit_request,
 	.initialize_rq_fn = scsi_initialize_rq,
-	.cleanup_rq	= scsi_cleanup_rq,
+	/* .cleanup_rq	= scsi_cleanup_rq, */
 	.map_queues	= scsi_map_queues,
 };
 
@@ -2470,8 +2470,14 @@ void scsi_unblock_requests(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_unblock_requests);
 
+extern cleanup_rq_fn *scsi_cleanup_rq_fn;
+extern struct blk_mq_ops* scsi_mq_ops_ptr;
+
 int __init scsi_init_queue(void)
 {
+	scsi_mq_ops_ptr = &scsi_mq_ops;
+	scsi_cleanup_rq_fn = scsi_cleanup_rq;
+
 	scsi_sdb_cache = kmem_cache_create("scsi_data_buffer",
 					   sizeof(struct scsi_data_buffer),
 					   0, 0, NULL);

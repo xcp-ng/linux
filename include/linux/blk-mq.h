@@ -166,11 +166,16 @@ struct blk_mq_ops {
 	/* Called from inside blk_get_request() */
 	void (*initialize_rq_fn)(struct request *rq);
 
-	/*
+	/**
+	 * New field added in 4ec3ca2770e7 ("blk-mq: add callback of
+	 * .cleanup_rq"), with a single user in-kernel,
+	 * drivers/scsi/scsi_lib.c, convert to a code change.
+	 *
 	 * Called before freeing one request which isn't completed yet,
 	 * and usually for freeing the driver private data
+	 *
+	 * cleanup_rq_fn		*cleanup_rq;
 	 */
-	cleanup_rq_fn		*cleanup_rq;
 
 	map_queues_fn		*map_queues;
 
@@ -331,10 +336,16 @@ static inline void *blk_mq_rq_to_pdu(struct request *rq)
 	for ((i) = 0; (i) < (hctx)->nr_ctx &&				\
 	     ({ ctx = (hctx)->ctxs[(i)]; 1; }); (i)++)
 
+
+extern cleanup_rq_fn *scsi_cleanup_rq_fn;
+extern struct blk_mq_ops *scsi_mq_ops_ptr;
+
 static inline void blk_mq_cleanup_rq(struct request *rq)
 {
-	if (rq->q->mq_ops->cleanup_rq)
-		rq->q->mq_ops->cleanup_rq(rq);
+	if (scsi_mq_ops_ptr != NULL
+	    && rq->q->mq_ops == scsi_mq_ops_ptr
+	    && scsi_cleanup_rq_fn != NULL)
+		scsi_cleanup_rq_fn(rq);
 }
 
 #endif

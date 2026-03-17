@@ -468,6 +468,12 @@ static void init_tio(struct dm_rq_target_io *tio, struct request *rq,
 		kthread_init_work(&tio->work, map_tio_request);
 }
 
+cleanup_rq_fn *scsi_cleanup_rq_fn = NULL;
+EXPORT_SYMBOL(scsi_cleanup_rq_fn);
+
+struct blk_mq_ops* scsi_mq_ops_ptr = NULL;
+EXPORT_SYMBOL(scsi_mq_ops_ptr);
+
 /*
  * Returns:
  * DM_MAPIO_*       : the request has been processed as indicated
