@@ -30,6 +30,8 @@
 
 #include <libcxgb_ppm.h>
 
+#include <linux/shadow_var.h>
+
 enum cxgbi_dbg_flag {
 	CXGBI_DBG_ISCSI,
 	CXGBI_DBG_DDP,
@@ -146,7 +148,13 @@ struct cxgbi_sock {
 	struct sk_buff_head receive_queue;
 	struct sk_buff_head write_queue;
 	struct timer_list retry_timer;
-	struct completion cmpl;
+	/**
+	 * Added in 4c3b23e90307 ("scsi: cxgb4i: add
+	 * wait_for_completion()") but it doesn't fit in a hole.  We'll use
+	 * the shadow_var API.
+	 *
+	 * struct completion cmpl;
+	 */
 	int err;
 	rwlock_t callback_lock;
 	void *user_data;
@@ -296,6 +304,7 @@ static inline void cxgbi_sock_free(struct kref *kref)
 		log_debug(1 << CXGBI_DBG_SOCK,
 			"free csk 0x%p, state %u, flags 0x%lx\n",
 			csk, csk->state, csk->flags);
+		shadow_var_free(csk, "shadow_cxgbi_sock");
 		kfree(csk);
 	}
 }
@@ -487,10 +496,24 @@ struct cxgbi_device {
 	void (*csk_ddp_clear_map)(struct cxgbi_device *cdev,
 				  struct cxgbi_ppm *,
 				  struct cxgbi_task_tag_info *);
+#ifndef __GENKSYMS__
+	/**
+	 * Extra arguments removed in 4c3b23e90307 ("scsi: cxgb4i: add
+	 * wait_for_completion()") - it is fine to hide them from genksyms
+	 * as both amd64 and arm architectures, prior modules built with
+	 * the old definition and calling those functors would simply pass
+	 * one extra un-used argument in either in r8 (amd64) or x4 (arm).
+	 */
 	int (*csk_ddp_setup_digest)(struct cxgbi_sock *,
 				    unsigned int, int, int);
 	int (*csk_ddp_setup_pgidx)(struct cxgbi_sock *,
 				   unsigned int, int);
+#else
+	int (*csk_ddp_setup_digest)(struct cxgbi_sock *,
+				    unsigned int, int, int, int);
+	int (*csk_ddp_setup_pgidx)(struct cxgbi_sock *,
+				   unsigned int, int, bool);
+#endif
 
 	void (*csk_release_offload_resources)(struct cxgbi_sock *);
 	int (*csk_rx_pdu_ready)(struct cxgbi_sock *, struct sk_buff *);

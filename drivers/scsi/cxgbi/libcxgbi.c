@@ -556,16 +556,21 @@ EXPORT_SYMBOL_GPL(cxgbi_sock_free_cpl_skbs);
 
 static struct cxgbi_sock *cxgbi_sock_create(struct cxgbi_device *cdev)
 {
-	struct cxgbi_sock *csk = kzalloc(sizeof(*csk), GFP_NOIO);
+	gfp_t gfp_flags = GFP_NOIO;
+	struct cxgbi_sock *csk = kzalloc(sizeof(*csk), gfp_flags);
+	struct completion *cmpl = shadow_var_alloc(csk, "shadow_cxgbi_sock", sizeof(*cmpl), gfp_flags);
 
 	if (!csk) {
 		pr_info("alloc csk %zu failed.\n", sizeof(*csk));
+		kfree(csk);
+		kfree(cmpl);
 		return NULL;
 	}
 
 	if (cdev->csk_alloc_cpls(csk) < 0) {
 		pr_info("csk 0x%p, alloc cpls failed.\n", csk);
 		kfree(csk);
+		kfree(cmpl);
 		return NULL;
 	}
 
@@ -574,7 +579,7 @@ static struct cxgbi_sock *cxgbi_sock_create(struct cxgbi_device *cdev)
 	skb_queue_head_init(&csk->receive_queue);
 	skb_queue_head_init(&csk->write_queue);
 	timer_setup(&csk->retry_timer, NULL, 0);
-	init_completion(&csk->cmpl);
+	init_completion(cmpl);
 	rwlock_init(&csk->callback_lock);
 	csk->cdev = cdev;
 	csk->flags = 0;

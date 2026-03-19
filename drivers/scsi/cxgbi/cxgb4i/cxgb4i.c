@@ -11,6 +11,7 @@
  *		Rakesh Ranjan (rranjan@chelsio.com)
  */
 
+#include "linux/shadow_var.h"
 #define pr_fmt(fmt) KBUILD_MODNAME ":%s: " fmt, __func__
 
 #include <linux/kernel.h>
@@ -1515,6 +1516,7 @@ static void do_set_tcb_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
 	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
 	struct tid_info *t = lldi->tids;
 	struct cxgbi_sock *csk;
+	struct completion *cmpl;
 
 	csk = lookup_tid(t, tid);
 	if (!csk) {
@@ -1532,7 +1534,9 @@ static void do_set_tcb_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
 		csk->err = -EINVAL;
 	}
 
-	complete(&csk->cmpl);
+	cmpl = shadow_var_get(csk, "shadow_cxgbi_sock");
+	if (cmpl)
+		complete(cmpl);
 
 	__kfree_skb(skb);
 }
@@ -1913,9 +1917,15 @@ static int ddp_setup_conn_pgidx(struct cxgbi_sock *csk, unsigned int tid,
 {
 	struct sk_buff *skb;
 	struct cpl_set_tcb_field *req;
+	struct completion *cmpl;
 
 	if (!pg_idx || pg_idx >= DDP_PGIDX_MAX)
 		return 0;
+
+
+	cmpl = shadow_var_get(csk, "shadow_cxgbi_sock");
+	if (!cmpl)
+		return -ENOMEM;
 
 	skb = alloc_wr(sizeof(*req), 0, GFP_KERNEL);
 	if (!skb)
@@ -1934,9 +1944,10 @@ static int ddp_setup_conn_pgidx(struct cxgbi_sock *csk, unsigned int tid,
 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
 		"csk 0x%p, tid 0x%x, pg_idx %u.\n", csk, csk->tid, pg_idx);
 
-	reinit_completion(&csk->cmpl);
+	cmpl = shadow_var_get(csk, "shadow_cxgbi_sock");
+	reinit_completion(cmpl);
 	cxgb4_ofld_send(csk->cdev->ports[csk->port_id], skb);
-	wait_for_completion(&csk->cmpl);
+	wait_for_completion(cmpl);
 
 	return csk->err;
 }
@@ -1946,9 +1957,14 @@ static int ddp_setup_conn_digest(struct cxgbi_sock *csk, unsigned int tid,
 {
 	struct sk_buff *skb;
 	struct cpl_set_tcb_field *req;
+	struct completion *cmpl;
 
 	if (!hcrc && !dcrc)
 		return 0;
+
+	cmpl = shadow_var_get(csk, "shadow_cxgbi_sock");
+	if (!cmpl)
+		return -ENOMEM;
 
 	skb = alloc_wr(sizeof(*req), 0, GFP_KERNEL);
 	if (!skb)
@@ -1970,9 +1986,9 @@ static int ddp_setup_conn_digest(struct cxgbi_sock *csk, unsigned int tid,
 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
 		"csk 0x%p, tid 0x%x, crc %d,%d.\n", csk, csk->tid, hcrc, dcrc);
 
-	reinit_completion(&csk->cmpl);
+	reinit_completion(cmpl);
 	cxgb4_ofld_send(csk->cdev->ports[csk->port_id], skb);
-	wait_for_completion(&csk->cmpl);
+	wait_for_completion(cmpl);
 
 	return csk->err;
 }
