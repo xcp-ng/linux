@@ -114,6 +114,7 @@ void *shadow_var_alloc(void *obj, char *var, size_t size, gfp_t gfp)
 
 	return shadow->data;
 }
+EXPORT_SYMBOL(shadow_var_alloc);
 
 static void kpatch_shadow_rcu_free(struct rcu_head *head)
 {
@@ -146,6 +147,7 @@ void shadow_var_free(void *obj, char *var)
 
 	spin_unlock_irqrestore(&kpatch_shadow_lock, flags);
 }
+EXPORT_SYMBOL(shadow_var_free);
 
 void *shadow_var_get(void *obj, char *var)
 {
@@ -168,3 +170,4 @@ void *shadow_var_get(void *obj, char *var)
 
 	return NULL;
 }
+EXPORT_SYMBOL(shadow_var_get);
