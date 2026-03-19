@@ -151,10 +151,19 @@ struct cred {
 	struct user_namespace *user_ns; /* user_ns the caps and keyrings are relative to. */
 	struct group_info *group_info;	/* supplementary groups for euid/fsgid */
 	/* RCU deletion */
+#ifndef __GENKSYMS__
+	/**
+	 * Union added in 408af82309a7 ("access: avoid the RCU grace period
+	 * for the temporary subjective credentials") and doesn't change
+	 * the size of struct or offsets.
+	 */
 	union {
 		int non_rcu;			/* Can we skip RCU deletion? */
 		struct rcu_head	rcu;		/* RCU deletion hook */
 	};
+#else
+	struct rcu_head	rcu;		/* RCU deletion hook */
+#endif
 } __randomize_layout;
 
 extern void __put_cred(struct cred *);
