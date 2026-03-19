@@ -1010,7 +1010,12 @@ struct device {
 	struct dev_pin_info	*pins;
 #endif
 #ifdef CONFIG_GENERIC_MSI_IRQ
-	raw_spinlock_t		msi_lock;
+	/**
+	 * Added in 3c9534778d4c ("PCI/MSI: Protect msi_desc::masked for
+	 * multi-MSI") and moved up into a hole.
+	 *
+	 * raw_spinlock_t		msi_lock;
+	 */
 	struct list_head	msi_list;
 #endif
 
@@ -1047,6 +1052,12 @@ struct device {
 	u32			id;	/* device instance */
 
 	spinlock_t		devres_lock;
+#ifdef CONFIG_GENERIC_MSI_IRQ
+#ifndef __GENKSYMS__
+	raw_spinlock_t		msi_lock;
+#endif
+#endif
+
 	struct list_head	devres_head;
 
 	struct klist_node	knode_class;
