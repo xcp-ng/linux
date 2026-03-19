@@ -3543,3 +3543,22 @@ void kabi_check_struct_device(void)
 	BUILD_BUG_ON(sizeof(struct old_device) != sizeof(struct device));
 	BUILD_BUG_ON(offsetof(struct old_device, devres_lock) != offsetof(struct device, devres_lock));
 }
+
+void kabi_check_struct_device_private(void)
+{
+	struct old_device_private {
+		struct klist klist_children;
+		struct klist_node knode_parent;
+		struct klist_node knode_driver;
+		struct klist_node knode_bus;
+		struct list_head deferred_probe;
+		struct device *device;
+	};
+	BUILD_BUG_ON(sizeof(struct old_device_private) != sizeof(struct device_private));
+	BUILD_BUG_ON(offsetof(struct old_device_private, knode_driver) != offsetof(struct device_private, knode_driver));
+	/*
+	 *Verify there is indeed padding at the end of the struct for our
+	 * usage, and that it equals four bytes.
+	 */
+	BUILD_BUG_ON(sizeof(struct klist_node) != offsetof(struct klist_node, n_ref) + sizeof(((struct klist_node*)0)->n_ref) + 4);
+}

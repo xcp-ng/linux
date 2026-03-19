@@ -74,12 +74,32 @@ struct driver_private {
  */
 struct device_private {
 	struct klist klist_children;
+#ifndef __GENKSYMS__
+	/**
+	 * 7c43f84efd6d ("driver core: Establish order of operations for
+	 * device_add and device_del via bitflag") added a new field, dead,
+	 * to the device_private struct but we have no holes to stick it
+	 * into and there is no padding at the end of the device_private
+	 * struct.
+	 *
+	 * Luckily, there are padding bytes at the end of the struct
+	 * klist_node, so abuse them to store our one bit data.
+	 */
+	union {
+		struct klist_node knode_parent;
+		struct {
+			/* The struct klist_node has 4 bytes of padding at the end */
+			u8 padding[sizeof(struct klist_node) - 4];
+			u8 dead:1;
+		};
+	};
+#else
 	struct klist_node knode_parent;
+#endif
 	struct klist_node knode_driver;
 	struct klist_node knode_bus;
 	struct list_head deferred_probe;
 	struct device *device;
-	u8 dead:1;
 };
 #define to_device_private_parent(obj)	\
 	container_of(obj, struct device_private, knode_parent)
