@@ -535,7 +535,6 @@ struct cftype {
 
 	int (*open)(struct kernfs_open_file *of);
 	void (*release)(struct kernfs_open_file *of);
-
 	/*
 	 * read_u64() is a shortcut for the common case of returning a
 	 * single integer. Use it in place of read()
@@ -604,7 +603,16 @@ struct cgroup_subsys {
 	void (*cancel_fork)(struct task_struct *task);
 	void (*fork)(struct task_struct *task);
 	void (*exit)(struct task_struct *task);
+#ifndef __GENKSYMS__
+	/**
+	 * Field renamed in d0bc74c5632f ("cgroup/pids: turn
+	 * cgroup_subsys->free() into cgroup_subsys->release() to fix the
+	 * accounting").
+	 */
 	void (*release)(struct task_struct *task);
+#else
+	void (*free)(struct task_struct *task);
+#endif
 	void (*bind)(struct cgroup_subsys_state *root_css);
 
 	bool early_init:1;
