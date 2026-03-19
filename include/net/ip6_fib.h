@@ -171,8 +171,17 @@ struct fib6_info {
 					dst_nocount:1,
 					dst_nopolicy:1,
 					dst_host:1,
+#ifndef __GENKSYMS__
+	/*
+	 * c3240adde5 ("ipv6: prevent possible fib6 leaks") added the new
+	 * fib6_destroying bitfield, hide it from genksyms to avoid
+	 * unecessary kABI changes.
+	 */
 					fib6_destroying:1,
 					unused:2;
+#else
+					unused:3;
+#endif
 
 	struct fib6_nh			fib6_nh;
 	struct rcu_head			rcu;
