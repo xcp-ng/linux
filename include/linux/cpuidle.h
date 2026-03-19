@@ -81,7 +81,13 @@ struct cpuidle_device {
 	unsigned int		registered:1;
 	unsigned int		enabled:1;
 	unsigned int		use_deepest_state:1;
+#ifndef __GENKSYMS__
+	/**
+	 *  Added in 27ab8f1648ac ("cpuidle: menu: Fix wakeup statistics
+	 *  updates for polling state") but fits into a hole.
+	 */
 	unsigned int		poll_time_limit:1;
+#endif
 	unsigned int		cpu;
 
 	int			last_residency;

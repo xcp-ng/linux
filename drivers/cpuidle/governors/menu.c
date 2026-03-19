@@ -615,3 +615,27 @@ static int __init init_menu(void)
 }
 
 postcore_initcall(init_menu);
+
+void kabi_check_cpui_idle(void)
+{
+	struct old_cpuidle_device {
+		unsigned int		registered:1;
+		unsigned int		enabled:1;
+		unsigned int		use_deepest_state:1;
+		unsigned int		cpu;
+
+		int			last_residency;
+		struct cpuidle_state_usage	states_usage[CPUIDLE_STATE_MAX];
+		struct cpuidle_state_kobj *kobjs[CPUIDLE_STATE_MAX];
+		struct cpuidle_driver_kobj *kobj_driver;
+		struct cpuidle_device_kobj *kobj_dev;
+		struct list_head 	device_list;
+
+#ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
+		cpumask_t		coupled_cpus;
+		struct cpuidle_coupled	*coupled;
+#endif
+	};
+	BUILD_BUG_ON(sizeof(struct old_cpuidle_device) != sizeof(struct cpuidle_device));
+	BUILD_BUG_ON(offsetof(struct old_cpuidle_device, cpu) != offsetof(struct cpuidle_device, cpu));
+}
