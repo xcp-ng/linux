@@ -37,18 +37,24 @@ struct anon_vma {
 	 * anon_vma if they are the last user on release
 	 */
 	atomic_t refcount;
-
-	/*
-	 * Count of child anon_vmas. Equals to the count of all anon_vmas that
-	 * have ->parent pointing to this one, including itself.
+#ifdef __GENKSYMS__
+	/**
+	 * 6dbfc25d68d9 ("mm/rmap: Fix anon_vma->degree ambiguity leading
+	 * to double-reuse") (fixing CVE-2022-42703) removed the degree
+	 * field and added num_children and num_active_vmas instead, but
+	 * that causes changes in the kABI of the struct mm_area_struct,
+	 * which is passed to the two exported functions find_vma and
+	 * remap_pfn_range, used by broadcom-bnxt-en and qlogic-fastlinq.
 	 *
-	 * This counter is used for making decision about reusing anon_vma
-	 * instead of forking new one. See comments in function anon_vma_clone.
+	 * So leave the unused field in place such as to not change the
+	 * kABI and offsets of subsequent fields in the very unlikely event
+	 * they are used by third party drivers, but rename the field to
+	 * get build errors if that happens so we can know about them.
 	 */
-	unsigned long num_children;
-	/* Count of VMAs whose ->anon_vma pointer points to this object. */
-	unsigned long num_active_vmas;
-
+	unsigned degree;
+#else
+	unsigned __unused_degree;
+#endif
 	struct anon_vma *parent;	/* Parent of this anon_vma */
 
 	/*
@@ -62,6 +68,29 @@ struct anon_vma {
 
 	/* Interval tree of private "related" vmas */
 	struct rb_root_cached rb_root;
+#ifndef __GENKSYMS__
+	/**
+	 * 6dbfc25d68d9 ("mm/rmap: Fix anon_vma->degree ambiguity leading
+	 * to double-reuse") added those two new fields which are only used
+	 * internally by the rmap code in (mm/rmap.c).
+	 *
+	 * It is somewhat dangerous to hide this from genksyms but
+	 * out-of-tree kernel modules are not supposed to allocate anon_vma
+	 * structures, instead it is an opaque struct attached as a pointer
+	 * to a vm_area_struct.
+	 */
+
+        /*
+	 * Count of child anon_vmas. Equals to the count of all anon_vmas that
+	 * have ->parent pointing to this one, including itself.
+         *
+         * This counter is used for making decision about reusing anon_vma
+         * instead of forking new one. See comments in function anon_vma_clone.
+         */
+	unsigned long num_children;
+	/* Count of VMAs whose ->anon_vma pointer points to this object. */
+	unsigned long num_active_vmas;
+#endif
 };
 
 /*
