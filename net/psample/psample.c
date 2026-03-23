@@ -286,6 +286,10 @@ EXPORT_SYMBOL_GPL(psample_sample_packet);
 
 static int __init psample_module_init(void)
 {
+	if !(shadow_var_alloc((void*) &psample_nl_mcgrps[PSAMPLE_NL_MCGRP_SAMPLE],
+			 "shadow_genl_multicast_group_genl_uns_admin_perm",
+		0, GFP_KERNEL))
+		return -ENOMEM;
 	return genl_register_family(&psample_nl_family);
 }
 

@@ -15,7 +15,14 @@
  */
 struct genl_multicast_group {
 	char			name[GENL_NAMSIZ];
-	u8			flags;
+	/**
+	 * 30cc13fe8940 ("genetlink: add CAP_NET_ADMIN test for multicast
+	 * bind") added the flags field for later commit ac38a8b34cd0
+	 * ("psample: Require 'CAP_NET_ADMIN' when joining "packets"
+	 * group"), use shadow variables instead.
+	 *
+	 * u8			flags;
+	 */
 	/**
 	 * 855a2b559df1 ("drop_monitor: Require 'CAP_SYS_ADMIN' when
 	 * joining "events" group") added the cap_sys_admin bitfield for
