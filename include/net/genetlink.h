@@ -59,6 +59,23 @@ struct genl_family {
 	void			(*post_doit)(const struct genl_ops *ops,
 					     struct sk_buff *skb,
 					     struct genl_info *info);
+#ifdef __GENKSYMS__
+	int         (*mcast_bind)(struct net *net, int group);
+	void            (*mcast_unbind)(struct net *net, int group);
+#else
+	/**
+	 * 0845447d9c78 ("genetlink: remove genl_bind") removed those two
+	 * fields to avoid a deadlock, no in-tree drivers uses those fields
+	 * and the only out-of-tree driver that uses genl_register_family
+	 * is mellanox-mlxen, which does not set those two functors.  So
+	 * hide it from genksyms as to avoid kABI changes, and rename the
+	 * field to be defensive and catch out-of-tree drivers using them
+	 * (unlikely).
+	 */
+	int         (*__unused_mcast_bind)(struct net *net, int group);
+	void            (*__unused_mcast_unbind)(struct net *net, int group);
+
+#endif
 	struct nlattr **	attrbuf;	/* private */
 	const struct genl_ops *	ops;
 	const struct genl_multicast_group *mcgrps;
