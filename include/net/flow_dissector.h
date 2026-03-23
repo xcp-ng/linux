@@ -256,7 +256,15 @@ struct flow_keys_basic {
 struct flow_keys {
 	struct flow_dissector_key_control control;
 #define FLOW_KEYS_HASH_START_FIELD basic
-	struct flow_dissector_key_basic basic __aligned(SIPHASH_ALIGNMENT);
+	/**
+	 * 558d2bdad5f6 ("net/flow_dissector: switch to siphash") added the
+	 * extra alignment attribute, but it is not required as the `basic`
+	 * field is already aligned correctly.  Because this causes kABI
+	 * changes, simply hide it.  It should be noted the flow dissector
+	 * already has BUILD_BUG_ON scattered in the code to make sure the
+	 * `basic` field has correct alignment.
+	 */
+	struct flow_dissector_key_basic basic; /* __aligned(SIPHASH_ALIGNMENT); */
 	struct flow_dissector_key_tags tags;
 	struct flow_dissector_key_vlan vlan;
 	struct flow_dissector_key_vlan cvlan;
