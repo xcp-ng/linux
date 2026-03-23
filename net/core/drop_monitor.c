@@ -33,6 +33,8 @@
 
 #include <asm/unaligned.h>
 
+#include <linux/shadow_var.h>
+
 #define TRACE_ON 1
 #define TRACE_OFF 0
 
@@ -122,7 +124,7 @@ out:
 }
 
 static const struct genl_multicast_group dropmon_mcgrps[] = {
-	{ .name = "events", .cap_sys_admin = 1 },
+	{ .name = "events", /* .cap_sys_admin = 1 */ },
 };
 
 static void send_dm_alert(struct work_struct *work)
@@ -405,6 +407,10 @@ static int __init init_net_drop_monitor(void)
 		pr_err("Unable to store program counters on this arch, Drop monitor failed\n");
 		return -ENOSPC;
 	}
+
+	if (!shadow_var_alloc((void*)dropmon_mcgrps, "shadow_genl_multicast_group_cap_sys_admin", 0, GFP_KERNEL))
+		return -ENOMEM;
+
 
 	rc = genl_register_family(&net_drop_monitor_family);
 	if (rc) {

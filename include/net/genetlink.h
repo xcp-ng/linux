@@ -16,7 +16,15 @@
 struct genl_multicast_group {
 	char			name[GENL_NAMSIZ];
 	u8			flags;
-	u8			cap_sys_admin:1;
+	/**
+	 * 855a2b559df1 ("drop_monitor: Require 'CAP_SYS_ADMIN' when
+	 * joining "events" group") added the cap_sys_admin bitfield for
+	 * later commit 855a2b559df1 ("drop_monitor: Require
+	 * 'CAP_SYS_ADMIN' when joining "events" group"), use shadow
+	 * variables instead.
+	 *
+	 * u8                   cap_sys_admin:1;
+	 */
 };
 
 struct genl_ops;
