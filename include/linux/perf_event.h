@@ -750,11 +750,6 @@ struct perf_event_context {
 	int				nr_stat;
 	int				nr_freq;
 	int				rotate_disable;
-	/*
-	 * Set when nr_events != nr_active, except tolerant to events not
-	 * necessary to be active due to scheduling constraints, such as cgroups.
-	 */
-	int				rotate_necessary;
 	atomic_t			refcount;
 	struct task_struct		*task;
 
@@ -772,12 +767,29 @@ struct perf_event_context {
 	u64				parent_gen;
 	u64				generation;
 	int				pin_count;
+#ifndef __GENKSYMS__
+	/*
+	 * Added in 0b4c9255a1d0, moved into 4-byte hole after pin_count.
+	 * Set when nr_events != nr_active, except tolerant to events not
+	 * necessary to be active due to scheduling constraints, such as cgroups.
+	 */
+	int				rotate_necessary;
+#endif
 #ifdef CONFIG_CGROUP_PERF
 	int				nr_cgroups;	 /* cgroup evts */
 #endif
 	void				*task_ctx_data; /* pmu specific data */
 	struct rcu_head			rcu_head;
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_perf_event_context(void)
+{
+	BUILD_BUG_ON(sizeof(struct perf_event_context) != 256);
+	BUILD_BUG_ON(offsetof(struct perf_event_context, refcount) != 168);
+}
+#endif
 
 /*
  * Number of contexts where an event can trigger:
