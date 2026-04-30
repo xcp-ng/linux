@@ -56,8 +56,10 @@ struct net {
 						 *  namespace should be shut down.
 						 */
 	spinlock_t		rules_mod_lock;
-
+#ifndef __GENKSYMS__
+	/* Added in a1c2f3229734, fits in 4-byte hole after rules_mod_lock */
 	u32			hash_mix;
+#endif
 	atomic64_t		cookie_gen;
 
 	struct list_head	list;		/* list of network namespaces */
