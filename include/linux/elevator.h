@@ -99,7 +99,6 @@ struct elevator_mq_ops {
 	void (*exit_sched)(struct elevator_queue *);
 	int (*init_hctx)(struct blk_mq_hw_ctx *, unsigned int);
 	void (*exit_hctx)(struct blk_mq_hw_ctx *, unsigned int);
-	void (*depth_updated)(struct blk_mq_hw_ctx *);
 
 	bool (*allow_merge)(struct request_queue *, struct request *, struct bio *);
 	bool (*bio_merge)(struct blk_mq_hw_ctx *, struct bio *);
@@ -119,7 +118,21 @@ struct elevator_mq_ops {
 	struct request *(*next_request)(struct request_queue *, struct request *);
 	void (*init_icq)(struct io_cq *);
 	void (*exit_icq)(struct io_cq *);
+#ifndef __GENKSYMS__
+	/* Added in 824c212908b6, moved to end to preserve preceding field offsets */
+	void (*depth_updated)(struct blk_mq_hw_ctx *);
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_elevator_mq_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct elevator_mq_ops) != 184);
+	BUILD_BUG_ON(offsetof(struct elevator_mq_ops, allow_merge) != 32);
+	BUILD_BUG_ON(offsetof(struct elevator_mq_ops, exit_icq) != 168);
+}
+#endif
 
 #define ELV_NAME_MAX	(16)
 
