@@ -1163,7 +1163,12 @@ struct proto {
 	unsigned int		inuse_idx;
 #endif
 
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; real signature adds int wake — see 0d70e638abbf */
+	bool			(*stream_memory_free)(const struct sock *sk);
+#else
 	bool			(*stream_memory_free)(const struct sock *sk, int wake);
+#endif
 	bool			(*stream_memory_read)(const struct sock *sk);
 	/* Memory pressure */
 	void			(*enter_memory_pressure)(struct sock *sk);
@@ -1216,6 +1221,15 @@ struct proto {
 #endif
 	int			(*diag_destroy)(struct sock *sk, int err);
 } __randomize_layout;
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_proto(void)
+{
+	BUILD_BUG_ON(sizeof(struct proto) != 424);
+	BUILD_BUG_ON(offsetof(struct proto, stream_memory_free) != 208);
+}
+#endif
 
 int proto_register(struct proto *prot, int alloc_slab);
 void proto_unregister(struct proto *prot);
