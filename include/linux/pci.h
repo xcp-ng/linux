@@ -365,8 +365,10 @@ struct pci_dev {
 	unsigned int	hotplug_user_indicators:1; /* SlotCtl indicators
 						      controlled exclusively by
 						      user sysfs */
-	unsigned int	clear_retrain_link:1;	/* Need to clear Retrain Link
-						   bit manually */
+#ifndef __GENKSYMS__
+	/* Added in d5c352305d42, fits in 5-bit hole after hotplug_user_indicators */
+	unsigned int	clear_retrain_link:1;
+#endif
 	unsigned int	d3_delay;	/* D3->D0 transition time in ms */
 	unsigned int	d3cold_delay;	/* D3cold->D0 transition time in ms */
 
@@ -392,9 +394,6 @@ struct pci_dev {
 	bool		match_driver;		/* Skip attaching driver */
 
 	unsigned int	transparent:1;		/* Subtractive decode bridge */
-	unsigned int	io_window:1;		/* Bridge has I/O window */
-	unsigned int	pref_window:1;		/* Bridge has pref mem window */
-	unsigned int	pref_64_window:1;	/* Pref mem window is 64-bit */
 	unsigned int	multifunction:1;	/* Multi-function device */
 
 	unsigned int	is_busmaster:1;		/* Is busmaster */
@@ -426,6 +425,12 @@ struct pci_dev {
 	unsigned int	has_secondary_link:1;
 	unsigned int	non_compliant_bars:1;	/* Broken BARs; ignore them */
 	unsigned int	is_probed:1;		/* Device probing in progress */
+#ifndef __GENKSYMS__
+	/* Added in 54a7a9d75c07, moved into 8-bit hole after is_probed */
+	unsigned int	io_window:1;		/* Bridge has I/O window */
+	unsigned int	pref_window:1;		/* Bridge has pref mem window */
+	unsigned int	pref_64_window:1;	/* Pref mem window is 64-bit */
+#endif
 #ifndef __GENKSYMS__
 	/*
 	 * Added in 53441f8e0185 ("PCI/ACPI: Fix runtime PM ref imbalance
@@ -476,6 +481,14 @@ struct pci_dev {
 
 	unsigned long	priv_flags;	/* Private flags for the PCI driver */
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_pci_dev(void)
+{
+	BUILD_BUG_ON(sizeof(struct pci_dev) != 2448);
+}
+#endif
 
 static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
 {
@@ -605,8 +618,19 @@ struct pci_bus {
 	struct bin_attribute	*legacy_io;	/* Legacy I/O for this bus */
 	struct bin_attribute	*legacy_mem;	/* Legacy mem */
 	unsigned int		is_added:1;
-	unsigned int		unsafe_warn:1;	/* warned about RW1C config write */
+#ifndef __GENKSYMS__
+	/* Added in b09700574652, fits in 31-bit hole after is_added */
+	unsigned int		unsafe_warn:1;
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_pci_bus(void)
+{
+	BUILD_BUG_ON(sizeof(struct pci_bus) != 1040);
+}
+#endif
 
 #define to_pci_bus(n)	container_of(n, struct pci_bus, dev)
 
