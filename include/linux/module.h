@@ -359,7 +359,6 @@ struct module {
 	unsigned int num_gpl_syms;
 	const struct kernel_symbol *gpl_syms;
 	const s32 *gpl_crcs;
-	bool using_gplonly_symbols;
 
 #ifdef CONFIG_UNUSED_SYMBOLS
 	/* unused exported symbols. */
@@ -379,6 +378,10 @@ struct module {
 #endif
 
 	bool async_probe_requested;
+#ifndef __GENKSYMS__
+	/* Added in 2ab98abf0d2a, moved into 7-byte hole after async_probe_requested */
+	bool using_gplonly_symbols;
+#endif
 
 	/* symbols that will be GPL-only in the near future. */
 	const struct kernel_symbol *gpl_future_syms;
