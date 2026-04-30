@@ -283,8 +283,20 @@ struct header_ops {
 				const struct net_device *dev,
 				const unsigned char *haddr);
 	bool	(*validate)(const char *ll_header, unsigned int len);
+#ifndef __GENKSYMS__
+	/* Added in 6eef125294f5, extends struct by 8 bytes (no prior padding) */
 	__be16	(*parse_protocol)(const struct sk_buff *skb);
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_header_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct header_ops) != 48);
+	BUILD_BUG_ON(offsetof(struct header_ops, validate) != 32);
+}
+#endif
 
 /* These flag bits are private to the generic network queueing
  * layer; they may not be explicitly referenced by any other
@@ -1377,11 +1389,6 @@ struct net_device_ops {
 					       struct net_device *dev,
 					       const unsigned char *addr,
 					       u16 vid);
-	int			(*ndo_fdb_del_bulk)(struct ndmsg *ndm,
-						    struct nlattr *tb[],
-						    struct net_device *dev,
-						    u16 vid,
-						    struct netlink_ext_ack *extack);
 	int			(*ndo_fdb_dump)(struct sk_buff *skb,
 						struct netlink_callback *cb,
 						struct net_device *dev,
@@ -1432,7 +1439,24 @@ struct net_device_ops {
 						u32 flags);
 	int			(*ndo_xsk_async_xmit)(struct net_device *dev,
 						      u32 queue_id);
+#ifndef __GENKSYMS__
+	/* Added in 162c7dccf876, moved to end to preserve preceding field offsets */
+	int			(*ndo_fdb_del_bulk)(struct ndmsg *ndm,
+						    struct nlattr *tb[],
+						    struct net_device *dev,
+						    u16 vid,
+						    struct netlink_ext_ack *extack);
+#endif
 };
+
+#ifndef __GENKSYMS__
+static inline void kabi_check_net_device_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct net_device_ops) != 600);
+	BUILD_BUG_ON(offsetof(struct net_device_ops, ndo_fdb_del) != 424);
+	BUILD_BUG_ON(offsetof(struct net_device_ops, ndo_xsk_async_xmit) != 584);
+}
+#endif
 
 /**
  * enum net_device_priv_flags - &struct net_device priv_flags
