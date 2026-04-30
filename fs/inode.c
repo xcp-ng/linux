@@ -21,6 +21,7 @@
 #include <linux/iversion.h>
 #include <trace/events/writeback.h>
 #include "internal.h"
+#include <linux/shadow_var.h>
 
 /*
  * Inode locking rules:
@@ -136,7 +137,6 @@ int inode_init_always(struct super_block *sb, struct inode *inode)
 	inode->i_sb = sb;
 	inode->i_blkbits = sb->s_blocksize_bits;
 	inode->i_flags = 0;
-	atomic64_set(&inode->i_sequence, 0);
 	atomic_set(&inode->i_count, 1);
 	inode->i_op = &empty_iops;
 	inode->i_fop = &no_open_fops;
@@ -234,6 +234,8 @@ EXPORT_SYMBOL(free_inode_nonrcu);
 void __destroy_inode(struct inode *inode)
 {
 	BUG_ON(inode_has_buffers(inode));
+	/* Free shadow_inode_sequence allocated lazily in get_inode_sequence_number() */
+	shadow_var_free(inode, "shadow_inode_sequence");
 	inode_detach_wb(inode);
 	security_inode_free(inode);
 	fsnotify_inode_delete(inode);

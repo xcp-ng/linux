@@ -72,6 +72,7 @@
 #include <asm/futex.h>
 
 #include "locking/rtmutex_common.h"
+#include <linux/shadow_var.h>
 
 /*
  * READ this before attempting to hack on futexes!
@@ -507,10 +508,36 @@ static void drop_futex_key_refs(union futex_key *key)
 static u64 get_inode_sequence_number(struct inode *inode)
 {
 	static atomic64_t i_seq;
+	atomic64_t *i_sequence;
 	u64 old;
 
+	/*
+	 * i_sequence was added to struct inode by e6d506cd2243 but is stored
+	 * in a shadow variable to avoid growing the struct.  Allocation is
+	 * lazy (first shared futex use on this inode); the shadow var is freed
+	 * in __destroy_inode().  In the rare case two threads race on first
+	 * use, re-reading after alloc lets them converge on the same atomic;
+	 * the losing alloc leaks a few bytes until the inode is destroyed.
+	 */
+	i_sequence = shadow_var_get(inode, "shadow_inode_sequence");
+	if (unlikely(!i_sequence)) {
+		atomic64_t *new_seq;
+
+		new_seq = shadow_var_alloc(inode, "shadow_inode_sequence",
+					   sizeof(*new_seq), GFP_ATOMIC);
+		if (unlikely(!new_seq)) {
+			WARN_ON_ONCE(1);
+			return 0;
+		}
+		atomic64_set(new_seq, 0);
+		/* Re-read so racing threads converge on the same atomic */
+		i_sequence = shadow_var_get(inode, "shadow_inode_sequence");
+		if (WARN_ON_ONCE(!i_sequence))
+			return 0;
+	}
+
 	/* Does the inode already have a sequence number? */
-	old = atomic64_read(&inode->i_sequence);
+	old = atomic64_read(i_sequence);
 	if (likely(old))
 		return old;
 
@@ -519,7 +546,7 @@ static u64 get_inode_sequence_number(struct inode *inode)
 		if (WARN_ON_ONCE(!new))
 			continue;
 
-		old = atomic64_cmpxchg_relaxed(&inode->i_sequence, 0, new);
+		old = atomic64_cmpxchg_relaxed(i_sequence, 0, new);
 		if (old)
 			return old;
 		return new;
