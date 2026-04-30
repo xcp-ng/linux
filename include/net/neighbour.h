@@ -172,8 +172,21 @@ struct pneigh_entry {
 	possible_net_t		net;
 	struct net_device	*dev;
 	u8			flags;
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; type changed to u32 for alignment in f451d1a013fd */
+	u8			key[0];
+#else
 	u32			key[0];
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_pneigh_entry(void)
+{
+	BUILD_BUG_ON(sizeof(struct pneigh_entry) != 32);
+}
+#endif
 
 /*
  *	neighbour table manipulation
