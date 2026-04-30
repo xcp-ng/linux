@@ -12,7 +12,13 @@ struct timerqueue_node {
 };
 
 struct timerqueue_head {
+#ifdef __GENKSYMS__
+	/* Kept for genksyms — replaced by rb_root_cached in b9a1ac8e7c03, same size */
+	struct rb_root head;
+	struct timerqueue_node *next;
+#else
 	struct rb_root_cached rb_root;
+#endif
 };
 
 
