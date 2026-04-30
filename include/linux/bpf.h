@@ -34,7 +34,6 @@ struct bpf_map_ops {
 	void (*map_free)(struct bpf_map *map);
 	int (*map_get_next_key)(struct bpf_map *map, void *key, void *next_key);
 	void (*map_release_uref)(struct bpf_map *map);
-	void *(*map_lookup_elem_sys_only)(struct bpf_map *map, void *key);
 
 	/* funcs callable from userspace and from eBPF programs */
 	void *(*map_lookup_elem)(struct bpf_map *map, void *key);
@@ -48,7 +47,12 @@ struct bpf_map_ops {
 	 * the to-be-put element is still alive before the bpf program, which
 	 * may manipulate it, exists.
 	 */
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; real signature adds map and need_defer — see 5aa1e7d3f6d0 */
+	void (*map_fd_put_ptr)(void *ptr);
+#else
 	void (*map_fd_put_ptr)(struct bpf_map *map, void *ptr, bool need_defer);
+#endif
 	u32 (*map_gen_lookup)(struct bpf_map *map, struct bpf_insn *insn_buf);
 	u32 (*map_fd_sys_lookup_elem)(void *ptr);
 	void (*map_seq_show_elem)(struct bpf_map *map, void *key,
@@ -56,7 +60,22 @@ struct bpf_map_ops {
 	int (*map_check_btf)(const struct bpf_map *map,
 			     const struct btf_type *key_type,
 			     const struct btf_type *value_type);
+#ifndef __GENKSYMS__
+	/* Added in 2bb3c5470aaf, moved to end to preserve preceding field offsets */
+	void *(*map_lookup_elem_sys_only)(struct bpf_map *map, void *key);
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_bpf_map_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct bpf_map_ops) != 128);
+	BUILD_BUG_ON(offsetof(struct bpf_map_ops, map_lookup_elem) != 48);
+	BUILD_BUG_ON(offsetof(struct bpf_map_ops, map_fd_put_ptr) != 80);
+	BUILD_BUG_ON(offsetof(struct bpf_map_ops, map_check_btf) != 112);
+}
+#endif
 
 struct bpf_map {
 	/* The first two cachelines with read-mostly members of which some
