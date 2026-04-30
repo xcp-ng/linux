@@ -115,11 +115,25 @@ struct inet_bind_hashbucket {
 struct inet_listen_hashbucket {
 	spinlock_t		lock;
 	unsigned int		count;
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; replaced by nulls union in 28f0d54dbed8, same size */
+	struct hlist_head	head;
+#else
 	union {
 		struct hlist_head	head;
 		struct hlist_nulls_head	nulls_head;
 	};
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_inet_listen_hashbucket(void)
+{
+	BUILD_BUG_ON(sizeof(struct inet_listen_hashbucket) != 16);
+	BUILD_BUG_ON(offsetof(struct inet_listen_hashbucket, head) != 8);
+}
+#endif
 
 /* This is for listening sockets, thus all sockets which possess wildcards. */
 #define INET_LHTABLE_SIZE	32	/* Yes, really, this is all you need. */
