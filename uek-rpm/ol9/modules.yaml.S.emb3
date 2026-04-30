@@ -507,6 +507,7 @@ modules:
 - mdio-mux-gpio
 - mdio-mux-mmioreg
 - mhi_pci_generic
+- mlxreg-dpu
 - mlxreg-hotplug
 - mlxreg-io
 - msdos

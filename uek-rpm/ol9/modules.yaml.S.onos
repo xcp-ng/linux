@@ -1557,6 +1557,7 @@ modules-core:
 - mlx90635
 - mlxfw
 - mlx-platform
+- mlxreg-dpu
 - mlxreg-fan
 - mlxreg-hotplug
 - mlxreg-io

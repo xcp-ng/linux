@@ -1089,6 +1089,7 @@ modules:
 - microchip
 - microchip_t1
 - mlx5_dpll
+- mlxreg-dpu
 - mlxreg-hotplug
 - mlxreg-io
 - mlxsw_core
