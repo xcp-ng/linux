@@ -48,12 +48,26 @@ struct qdisc_size_table {
 struct qdisc_skb_head {
 	struct sk_buff	*head;
 	struct sk_buff	*tail;
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; wrapped in union with atomic_t in 3043bfe024e8, same size */
+	__u32		qlen;
+#else
 	union {
 		u32		qlen;
 		atomic_t	atomic_qlen;
 	};
+#endif
 	spinlock_t	lock;
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_qdisc_skb_head(void)
+{
+	BUILD_BUG_ON(sizeof(struct qdisc_skb_head) != 24);
+	BUILD_BUG_ON(offsetof(struct qdisc_skb_head, qlen) != 16);
+}
+#endif
 
 struct Qdisc {
 	int 			(*enqueue)(struct sk_buff *skb,
@@ -301,8 +315,13 @@ struct tcf_proto_ops {
 	int			(*reoffload)(struct tcf_proto *tp, bool add,
 					     tc_setup_cb_t *cb, void *cb_priv,
 					     struct netlink_ext_ack *extack);
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; real signature adds void* and ulong — see 9f7a32834b62 */
+	void			(*bind_class)(void *, u32, unsigned long);
+#else
 	void			(*bind_class)(void *, u32, unsigned long,
 					      void *, unsigned long);
+#endif
 	void *			(*tmplt_create)(struct net *net,
 						struct tcf_chain *chain,
 						struct nlattr **tca,
@@ -318,6 +337,14 @@ struct tcf_proto_ops {
 
 	struct module		*owner;
 };
+
+#ifndef __GENKSYMS__
+static inline void kabi_check_tcf_proto_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct tcf_proto_ops) != 144);
+	BUILD_BUG_ON(offsetof(struct tcf_proto_ops, bind_class) != 96);
+}
+#endif
 
 struct tcf_proto {
 	/* Fast access part */
