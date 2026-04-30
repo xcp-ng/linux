@@ -409,8 +409,14 @@ struct pmu {
 	/*
 	 * Set up pmu-private data structures for an AUX area
 	 */
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; first arg changed from int to perf_event* — see efd85d83ac0f */
+	void *(*setup_aux)		(int cpu, void **pages,
+					 int nr_pages, bool overwrite);
+#else
 	void *(*setup_aux)		(struct perf_event *event, void **pages,
 					 int nr_pages, bool overwrite);
+#endif
 					/* optional */
 
 	/*
@@ -448,11 +454,23 @@ struct pmu {
 	 */
 	int (*filter_match)		(struct perf_event *event); /* optional */
 
+#ifndef __GENKSYMS__
 	/*
 	 * Check period value for PERF_EVENT_IOC_PERIOD ioctl.
+	 * Added in 74cbb754d63f, extends struct by 8 bytes.
 	 */
 	int (*check_period)		(struct perf_event *event, u64 value); /* optional */
+#endif
 };
+
+#ifndef __GENKSYMS__
+static inline void kabi_check_pmu(void)
+{
+	BUILD_BUG_ON(sizeof(struct pmu) != 264);
+	BUILD_BUG_ON(offsetof(struct pmu, setup_aux) != 216);
+	BUILD_BUG_ON(offsetof(struct pmu, filter_match) != 248);
+}
+#endif
 
 enum perf_addr_filter_action_t {
 	PERF_ADDR_FILTER_ACTION_STOP = 0,
