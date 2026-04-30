@@ -235,10 +235,16 @@ struct ipv6_stub {
 				 const struct in6_addr *addr);
 	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
 				 const struct in6_addr *addr);
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; replaced by ipv6_dst_lookup_flow in 5dd683527845 */
+	int (*ipv6_dst_lookup)(struct net *net, struct sock *sk,
+			       struct dst_entry **dst, struct flowi6 *fl6);
+#else
 	struct dst_entry *(*ipv6_dst_lookup_flow)(struct net *net,
 						  const struct sock *sk,
 						  struct flowi6 *fl6,
 						  const struct in6_addr *final_dst);
+#endif
 
 	struct fib6_table *(*fib6_get_table)(struct net *net, u32 id);
 	struct fib6_info *(*fib6_lookup)(struct net *net, int oif,
@@ -261,6 +267,14 @@ struct ipv6_stub {
 			      bool router, bool solicited, bool override, bool inc_opt);
 	struct neigh_table *nd_tbl;
 };
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_ipv6_stub(void)
+{
+	BUILD_BUG_ON(sizeof(struct ipv6_stub) != 88);
+	BUILD_BUG_ON(offsetof(struct ipv6_stub, ipv6_dst_lookup_flow) != 16);
+}
+#endif
 extern const struct ipv6_stub *ipv6_stub __read_mostly;
 
 /* A stub used by bpf helpers. Similarly ugly as ipv6_stub */
