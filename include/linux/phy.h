@@ -412,13 +412,16 @@ struct phy_device {
 	unsigned is_pseudo_fixed_link:1;
 	unsigned has_fixups:1;
 	unsigned suspended:1;
-	unsigned suspended_by_mdio_bus:1;
 	unsigned sysfs_links:1;
 	unsigned loopback_enabled:1;
 
 	unsigned autoneg:1;
 	/* The most recently read link state */
 	unsigned link:1;
+#ifndef __GENKSYMS__
+	/* Added in e37fc53a1ea7, moved into 23-bit hole after link */
+	unsigned suspended_by_mdio_bus:1;
+#endif
 
 	enum phy_state state;
 
@@ -482,6 +485,15 @@ struct phy_device {
 	void (*phy_link_change)(struct phy_device *, bool up, bool do_carrier);
 	void (*adjust_link)(struct net_device *dev);
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_phy_device(void)
+{
+	BUILD_BUG_ON(sizeof(struct phy_device) != 1128);
+}
+#endif
+
 #define to_phy_device(d) container_of(to_mdio_device(d), \
 				      struct phy_device, mdio)
 
