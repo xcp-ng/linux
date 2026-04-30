@@ -12,7 +12,12 @@
  */
 
 struct trace_seq {
+#ifdef __GENKSYMS__
+	/* Kept for genksyms — type changed from unsigned char to char in d494ddccf25f */
+	unsigned char		buffer[PAGE_SIZE];
+#else
 	char			buffer[PAGE_SIZE];
+#endif
 	struct seq_buf		seq;
 	int			full;
 };
