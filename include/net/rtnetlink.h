@@ -78,7 +78,6 @@ struct rtnl_link_ops {
 	size_t			priv_size;
 	void			(*setup)(struct net_device *dev);
 
-	bool			netns_refund;
 	unsigned int		maxtype;
 	const struct nla_policy	*policy;
 	int			(*validate)(struct nlattr *tb[],
@@ -108,6 +107,10 @@ struct rtnl_link_ops {
 	unsigned int		(*get_num_rx_queues)(void);
 
 	unsigned int		slave_maxtype;
+#ifndef __GENKSYMS__
+	/* Added in 00e17e57a3c7, moved into 4-byte hole after slave_maxtype */
+	bool			netns_refund;
+#endif
 	const struct nla_policy	*slave_policy;
 	int			(*slave_changelink)(struct net_device *dev,
 						    struct net_device *slave_dev,
@@ -126,6 +129,16 @@ struct rtnl_link_ops {
 						   const struct net_device *dev,
 						   int *prividx, int attr);
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_rtnl_link_ops(void)
+{
+	BUILD_BUG_ON(sizeof(struct rtnl_link_ops) != 200);
+	BUILD_BUG_ON(offsetof(struct rtnl_link_ops, maxtype) != 40);
+	BUILD_BUG_ON(offsetof(struct rtnl_link_ops, slave_maxtype) != 136);
+}
+#endif
 
 int __rtnl_link_register(struct rtnl_link_ops *ops);
 void __rtnl_link_unregister(struct rtnl_link_ops *ops);
