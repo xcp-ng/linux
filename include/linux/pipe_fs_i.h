@@ -108,8 +108,22 @@ struct pipe_buf_operations {
 	/*
 	 * Get a reference to the pipe buffer.
 	 */
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; real type is bool(*) — see 0311ff82b70f */
+	void (*get)(struct pipe_inode_info *, struct pipe_buffer *);
+#else
 	bool (*get)(struct pipe_inode_info *, struct pipe_buffer *);
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_pipe_buf_operations(void)
+{
+	BUILD_BUG_ON(sizeof(struct pipe_buf_operations) != 40);
+	BUILD_BUG_ON(offsetof(struct pipe_buf_operations, get) != 32);
+}
+#endif
 
 /**
  * pipe_buf_get - get a reference to a pipe_buffer
