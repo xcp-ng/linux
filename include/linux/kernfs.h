@@ -186,7 +186,10 @@ struct kernfs_root {
 
 	/* private fields, do not use outside kernfs proper */
 	struct idr		ino_idr;
+#ifndef __GENKSYMS__
+	/* Added in 18493bac1ae0, fits in 4-byte hole after ino_idr */
 	u32			last_ino;
+#endif
 	u32			next_generation;
 	struct kernfs_syscall_ops *syscall_ops;
 
