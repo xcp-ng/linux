@@ -33,7 +33,12 @@ struct platform_device {
 	 * Driver name to force a match.  Do not set directly, because core
 	 * frees it.  Use driver_set_override() to set or clear it.
 	 */
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; type gained const in a7ad5e3faf8c, same pointer size */
+	char *driver_override;
+#else
 	const char *driver_override;
+#endif
 
 	/* MFD cell pointer */
 	struct mfd_cell *mfd_cell;
@@ -41,6 +46,15 @@ struct platform_device {
 	/* arch specific additions */
 	struct pdev_archdata	archdata;
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_platform_device(void)
+{
+	BUILD_BUG_ON(sizeof(struct platform_device) != 784);
+	BUILD_BUG_ON(offsetof(struct platform_device, driver_override) != 768);
+}
+#endif
 
 #define platform_get_device_id(pdev)	((pdev)->id_entry)
 
