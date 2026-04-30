@@ -72,7 +72,12 @@ struct netns_ipv6 {
 	struct dst_ops		ip6_dst_ops;
 	rwlock_t		fib6_walker_lock;
 	spinlock_t		fib6_gc_lock;
+#ifdef __GENKSYMS__
+	/* Kept for genksyms; type changed from unsigned int to atomic_t in b4cfbeaebeb3 */
+	unsigned int		ip6_rt_gc_expire;
+#else
 	atomic_t		ip6_rt_gc_expire;
+#endif
 	unsigned long		ip6_rt_last_gc;
 #ifdef CONFIG_IPV6_MULTIPLE_TABLES
 	unsigned int		fib6_rules_require_fldissect;
@@ -107,6 +112,15 @@ struct netns_ipv6 {
 		u32		seq;
 	} ip6addrlbl_table;
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_netns_ipv6(void)
+{
+	BUILD_BUG_ON(sizeof(struct netns_ipv6) != 1088);
+	BUILD_BUG_ON(offsetof(struct netns_ipv6, ip6_rt_gc_expire) != 908);
+}
+#endif
 
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
 struct netns_nf_frag {
