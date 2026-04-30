@@ -207,8 +207,11 @@ struct hrtimer_cpu_base {
 	unsigned int			hres_active		: 1,
 					in_hrtirq		: 1,
 					hang_detected		: 1,
-					softirq_activated       : 1,
-					online			: 1;
+					softirq_activated       : 1;
+#ifndef __GENKSYMS__
+	/* Added in 1aa4f696306d ("hrtimer: Report offline hrtimer enqueue"), moved into 28-bit hole */
+	unsigned int			online			: 1;
+#endif
 #ifdef CONFIG_HIGH_RES_TIMERS
 	unsigned int			nr_events;
 	unsigned short			nr_retries;
