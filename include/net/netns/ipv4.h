@@ -114,9 +114,12 @@ struct netns_ipv4 {
 #endif
 	int sysctl_tcp_mtu_probing;
 	int sysctl_tcp_base_mss;
-	int sysctl_tcp_min_snd_mss;
 	int sysctl_tcp_probe_threshold;
 	u32 sysctl_tcp_probe_interval;
+#ifndef __GENKSYMS__
+	/* Added in 7f9f8a37e563, moved into 16-byte hole after sysctl_tcp_probe_interval */
+	int sysctl_tcp_min_snd_mss;
+#endif
 
 	int sysctl_tcp_keepalive_time;
 	int sysctl_tcp_keepalive_probes;
@@ -216,6 +219,17 @@ struct netns_ipv4 {
 	unsigned int	ipmr_seq;	/* protected by rtnl_mutex */
 
 	atomic_t	rt_genid;
+#ifndef __GENKSYMS__
+	/* Added in 07480da0c8a1, fits in 16 bytes of 32-byte end padding */
 	siphash_key_t	ip_id_key;
+#endif
 };
+
+#ifndef __GENKSYMS__
+#include <linux/build_bug.h>
+static inline void kabi_check_netns_ipv4_size(void)
+{
+	BUILD_BUG_ON(sizeof(struct netns_ipv4) != 1216);
+}
+#endif
 #endif
