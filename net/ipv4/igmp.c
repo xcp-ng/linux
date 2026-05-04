@@ -103,6 +103,7 @@
 #ifdef CONFIG_IP_MROUTE
 #include <linux/mroute.h>
 #endif
+#include <linux/shadow_var.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -158,6 +159,13 @@ static int unsolicited_report_interval(struct in_device *in_dev)
 		interval_jiffies = 1;
 	return interval_jiffies;
 }
+
+static inline struct kabi_shadow_in_device_igmp *
+in_dev_igmp_shadow(struct in_device *in_dev)
+{
+	return shadow_var_get(in_dev, "shadow_in_device_igmp");
+}
+
 
 static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
 static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im);
@@ -958,20 +966,24 @@ static bool igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
 
 
 	if (len == 8) {
+		struct kabi_shadow_in_device_igmp *shadow_in_dev = in_dev_igmp_shadow(in_dev);
+		unsigned long mr_qi  = shadow_in_dev ? shadow_in_dev->mr_qi  : IGMP_QUERY_INTERVAL;
+		unsigned long mr_qri = shadow_in_dev ? shadow_in_dev->mr_qri : IGMP_QUERY_RESPONSE_INTERVAL;
+
 		if (ih->code == 0) {
 			/* Alas, old v1 router presents here. */
 
 			max_delay = IGMP_QUERY_RESPONSE_INTERVAL;
 			in_dev->mr_v1_seen = jiffies +
-				(in_dev->mr_qrv * in_dev->mr_qi) +
-				in_dev->mr_qri;
+				(in_dev->mr_qrv * mr_qi) +
+				mr_qri;
 			group = 0;
 		} else {
 			/* v2 router present */
 			max_delay = ih->code*(HZ/IGMP_TIMER_SCALE);
 			in_dev->mr_v2_seen = jiffies +
-				(in_dev->mr_qrv * in_dev->mr_qi) +
-				in_dev->mr_qri;
+				(in_dev->mr_qrv * mr_qi) +
+				mr_qri;
 		}
 		/* cancel the interface change timer */
 		WRITE_ONCE(in_dev->mr_ifc_count, 0);
@@ -1017,14 +1029,20 @@ static bool igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
 		 * configured value.
 		 */
 		in_dev->mr_qrv = ih3->qrv ?: READ_ONCE(net->ipv4.sysctl_igmp_qrv);
-		in_dev->mr_qi = IGMPV3_QQIC(ih3->qqic)*HZ ?: IGMP_QUERY_INTERVAL;
+		{
+			struct kabi_shadow_in_device_igmp *shadow_in_dev = in_dev_igmp_shadow(in_dev);
 
-		/* RFC3376, 8.3. Query Response Interval:
-		 * The number of seconds represented by the [Query Response
-		 * Interval] must be less than the [Query Interval].
-		 */
-		if (in_dev->mr_qri >= in_dev->mr_qi)
-			in_dev->mr_qri = (in_dev->mr_qi/HZ - 1)*HZ;
+			if (shadow_in_dev) {
+				shadow_in_dev->mr_qi = IGMPV3_QQIC(ih3->qqic)*HZ ?: IGMP_QUERY_INTERVAL;
+
+				/* RFC3376, 8.3. Query Response Interval:
+				 * The number of seconds represented by the [Query Response
+				 * Interval] must be less than the [Query Interval].
+				 */
+				if (shadow_in_dev->mr_qri >= shadow_in_dev->mr_qi)
+					shadow_in_dev->mr_qri = (shadow_in_dev->mr_qi/HZ - 1)*HZ;
+			}
+		}
 
 		if (!group) { /* general query */
 			if (ih3->nsrcs)
@@ -1771,9 +1789,12 @@ void ip_mc_down(struct in_device *in_dev)
 static void ip_mc_reset(struct in_device *in_dev)
 {
 	struct net *net = dev_net(in_dev->dev);
+	struct kabi_shadow_in_device_igmp *s = in_dev_igmp_shadow(in_dev);
 
-	in_dev->mr_qi = IGMP_QUERY_INTERVAL;
-	in_dev->mr_qri = IGMP_QUERY_RESPONSE_INTERVAL;
+	if (s) {
+		s->mr_qi = IGMP_QUERY_INTERVAL;
+		s->mr_qri = IGMP_QUERY_RESPONSE_INTERVAL;
+	}
 	in_dev->mr_qrv = READ_ONCE(net->ipv4.sysctl_igmp_qrv);
 }
 #else
@@ -3140,8 +3161,6 @@ void kabi_check_in_device_mr_ifc_count(void)
 		unsigned long		mr_v1_seen;
 		unsigned long		mr_v2_seen;
 		unsigned long		mr_maxdelay;
-		unsigned long		mr_qi;		/* Query Interval */
-		unsigned long		mr_qri;		/* Query Response Interval */
 		unsigned char		mr_qrv;		/* Query Robustness Variable */
 		unsigned char		mr_gq_running;
 		unsigned char		mr_ifc_count;
