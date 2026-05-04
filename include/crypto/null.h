@@ -9,7 +9,18 @@
 #define NULL_DIGEST_SIZE	0
 #define NULL_IV_SIZE		0
 
+#ifndef __GENKSYMS__
+/**
+ * Backport of 8d6053984258 ("crypto: null - Remove VLA usage of skcipher")
+ * changed the return type from crypto_skcipher to crypto_sync_skcipher,
+ * but the later is pretty much an alias to the former, used to know which
+ * sub-system are still using Variable Length Arrays stack allocations.
+ */
 struct crypto_sync_skcipher *crypto_get_default_null_skcipher(void);
+#else
+struct crypto_skcipher *crypto_get_default_null_skcipher(void);
+#endif
+
 void crypto_put_default_null_skcipher(void);
 
 #endif
