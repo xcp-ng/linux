@@ -3122,3 +3122,36 @@ reg_notif_fail:
 	return register_netdevice_notifier(&igmp_notifier);
 #endif
 }
+
+void kabi_check_in_device_mr_ifc_count(void)
+{
+	struct old_in_device {
+		struct net_device	*dev;
+		refcount_t		refcnt;
+		int			dead;
+		struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
+
+		struct ip_mc_list __rcu	*mc_list;	/* IP multicast filter chain    */
+		struct ip_mc_list __rcu	* __rcu *mc_hash;
+
+		int			mc_count;	/* Number of installed mcasts	*/
+		spinlock_t		mc_tomb_lock;
+		struct ip_mc_list	*mc_tomb;
+		unsigned long		mr_v1_seen;
+		unsigned long		mr_v2_seen;
+		unsigned long		mr_maxdelay;
+		unsigned long		mr_qi;		/* Query Interval */
+		unsigned long		mr_qri;		/* Query Response Interval */
+		unsigned char		mr_qrv;		/* Query Robustness Variable */
+		unsigned char		mr_gq_running;
+		unsigned char		mr_ifc_count;
+		struct timer_list	mr_gq_timer;	/* general query timer */
+		struct timer_list	mr_ifc_timer;	/* interface change timer */
+
+		struct neigh_parms	*arp_parms;
+		struct ipv4_devconf	cnf;
+		struct rcu_head		rcu_head;
+	};
+	BUILD_BUG_ON(sizeof(struct old_in_device) != sizeof(struct in_device));
+	BUILD_BUG_ON(offsetof(struct old_in_device, mr_gq_timer) != offsetof(struct in_device, mr_gq_timer));
+}

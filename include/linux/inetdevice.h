@@ -41,7 +41,14 @@ struct in_device {
 	unsigned long		mr_qri;		/* Query Response Interval */
 	unsigned char		mr_qrv;		/* Query Robustness Variable */
 	unsigned char		mr_gq_running;
+#ifdef __GENKSYMS__
+	/**
+	 * Type change in ec75ebd1645e ("net: igmp: increase size of mr_ifc_count")
+	 */
+	unsigned char		mr_ifc_count;
+#else
 	u32			mr_ifc_count;
+#endif
 	struct timer_list	mr_gq_timer;	/* general query timer */
 	struct timer_list	mr_ifc_timer;	/* interface change timer */
 
@@ -194,7 +201,7 @@ static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
 /*
  *	Check if a mask is acceptable.
  */
- 
+
 static __inline__ bool bad_mask(__be32 mask, __be32 addr)
 {
 	__u32 hmask;
