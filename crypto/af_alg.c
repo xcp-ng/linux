@@ -753,7 +753,7 @@ EXPORT_SYMBOL_GPL(af_alg_wmem_wakeup);
  * @min Set to minimum request size if partial requests are allowed.
  * @return 0 when writable memory is available, < 0 upon error
  */
-int af_alg_wait_for_data(struct sock *sk, unsigned flags, unsigned min)
+int af_alg_wait_for_data_with_min(struct sock *sk, unsigned flags, unsigned min)
 {
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 	struct alg_sock *ask = alg_sk(sk);
@@ -784,6 +784,12 @@ int af_alg_wait_for_data(struct sock *sk, unsigned flags, unsigned min)
 	sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
 
 	return err;
+}
+EXPORT_SYMBOL_GPL(af_alg_wait_for_data_with_min);
+
+int af_alg_wait_for_data(struct sock *sk, unsigned flags)
+{
+	return af_alg_wait_for_data_with_min(sk, flags, 0);
 }
 EXPORT_SYMBOL_GPL(af_alg_wait_for_data);
 
@@ -1212,3 +1218,25 @@ module_init(af_alg_init);
 module_exit(af_alg_exit);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_NETPROTO(AF_ALG);
+
+void kabi_check_struct_af_alg_ctx(void)
+{
+	struct old_af_alg_ctx {
+		struct list_head tsgl_list;
+
+		void *iv;
+		size_t aead_assoclen;
+
+		struct crypto_wait wait;
+
+		size_t used;
+		atomic_t rcvused;
+
+		bool more;
+		bool merge;
+		bool enc;
+		unsigned int len;
+	};
+	BUILD_BUG_ON(sizeof(struct old_af_alg_ctx) != sizeof(struct af_alg_ctx));
+	BUILD_BUG_ON(offsetof(struct old_af_alg_ctx, len) != offsetof(struct af_alg_ctx, len));
+}

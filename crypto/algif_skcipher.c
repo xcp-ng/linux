@@ -66,7 +66,7 @@ static int _skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
 	size_t len = 0;
 
 	if (!ctx->init || (ctx->more && ctx->used < bs)) {
-		err = af_alg_wait_for_data(sk, flags, bs);
+		err = af_alg_wait_for_data_with_min(sk, flags, bs);
 		if (err)
 			return err;
 	}

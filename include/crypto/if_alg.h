@@ -157,7 +157,15 @@ struct af_alg_ctx {
 	bool more;
 	bool merge;
 	bool enc;
+#ifndef __GENKSYMS__
+	/**
+	 * Backports of f3c802a1f300 ("crypto: algif_aead - Only wake up
+	 * when ctx->more is zero") adds this field, which changes the
+	 * kABI.  We can hide it because it fits in a hole.  Verified with
+	 * kabi_check_af_alg_ctx.
+	 */
 	bool init;
+#endif
 
 	unsigned int len;
 };
@@ -239,7 +247,8 @@ void af_alg_pull_tsgl(struct sock *sk, size_t used, struct scatterlist *dst,
 void af_alg_free_areq_sgls(struct af_alg_async_req *areq);
 int af_alg_wait_for_wmem(struct sock *sk, unsigned int flags);
 void af_alg_wmem_wakeup(struct sock *sk);
-int af_alg_wait_for_data(struct sock *sk, unsigned flags, unsigned min);
+int af_alg_wait_for_data_with_min(struct sock *sk, unsigned flags, unsigned min);
+int af_alg_wait_for_data(struct sock *sk, unsigned flags);
 void af_alg_data_wakeup(struct sock *sk);
 int af_alg_sendmsg(struct socket *sock, struct msghdr *msg, size_t size,
 		   unsigned int ivsize);
