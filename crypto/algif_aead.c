@@ -111,7 +111,7 @@ static int _aead_recvmsg(struct socket *sock, struct msghdr *msg,
 	size_t processed = 0;		/* [in]  TX bufs to be consumed */
 
 	if (!ctx->init || ctx->more) {
-		err = af_alg_wait_for_data(sk, flags, 0);
+		err = af_alg_wait_for_data_with_min(sk, flags, 0);
 		if (err)
 			return err;
 	}
