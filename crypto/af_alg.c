@@ -528,9 +528,12 @@ EXPORT_SYMBOL_GPL(af_alg_alloc_tsgl);
  *
  * @sk: socket of connection to user space
  * @bytes: Count the number of SG entries holding given number of bytes.
+ * @offset: Ignored, kept for kABI invariance to fix CopyFail with backport
+ * of 893d22e0135f ("crypto: algif_aead - Revert to operating
+ * out-of-place")
  * Return: Number of TX SG entries found given the constraints
  */
-unsigned int af_alg_count_tsgl(struct sock *sk, size_t bytes)
+unsigned int af_alg_count_tsgl(struct sock *sk, size_t bytes, size_t offset)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	struct af_alg_ctx *ctx = ask->private;
@@ -567,8 +570,11 @@ EXPORT_SYMBOL_GPL(af_alg_count_tsgl);
  * @used: Number of bytes to pull from TX SGL
  * @dst: If non-NULL, buffer is reassigned to dst SGL instead of releasing. The
  *	 caller must release the buffers in dst.
+ * @dst_offset: Ignored, kept for kABI invariance to fix CopyFail with backport
+ * of 893d22e0135f ("crypto: algif_aead - Revert to operating
+ * out-of-place")
  */
-void af_alg_pull_tsgl(struct sock *sk, size_t used, struct scatterlist *dst)
+void af_alg_pull_tsgl(struct sock *sk, size_t used, struct scatterlist *dst, size_t dst_offset)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	struct af_alg_ctx *ctx = ask->private;
