@@ -66,8 +66,6 @@
 #include <net/net_namespace.h>
 #include <net/addrconf.h>
 
-#include <linux/shadow_var.h>
-
 #define IPV6ONLY_FLAGS	\
 		(IFA_F_NODAD | IFA_F_OPTIMISTIC | IFA_F_DADFAILED | \
 		 IFA_F_HOMEADDRESS | IFA_F_TENTATIVE | \
@@ -237,7 +235,6 @@ void in_dev_finish_destroy(struct in_device *idev)
 	pr_debug("%s: %p=%s\n", __func__, idev, dev ? dev->name : "NIL");
 #endif
 	dev_put(dev);
-	shadow_var_free(idev, "shadow_in_device_igmp");
 	if (!idev->dead)
 		pr_err("Freeing alive in_device %p\n", idev);
 	else
@@ -255,9 +252,6 @@ static struct in_device *inetdev_init(struct net_device *dev)
 	in_dev = kzalloc(sizeof(*in_dev), GFP_KERNEL);
 	if (!in_dev)
 		goto out;
-	if (!shadow_var_alloc(in_dev, "shadow_in_device_igmp", sizeof(struct kabi_shadow_in_device_igmp), GFP_KERNEL)) {
-		goto out_kfree;
-	}
 	memcpy(&in_dev->cnf, dev_net(dev)->ipv4.devconf_dflt,
 			sizeof(in_dev->cnf));
 	in_dev->cnf.sysctl = NULL;
@@ -276,7 +270,6 @@ static struct in_device *inetdev_init(struct net_device *dev)
 	if (err) {
 		in_dev->dead = 1;
 		neigh_parms_release(&arp_tbl, in_dev->arp_parms);
-		shadow_var_free(in_dev, "shadow_in_device_igmp");
 		in_dev_put(in_dev);
 		in_dev = NULL;
 		goto out;
@@ -290,7 +283,6 @@ static struct in_device *inetdev_init(struct net_device *dev)
 out:
 	return in_dev ?: ERR_PTR(err);
 out_kfree:
-	shadow_var_free(in_dev, "shadow_in_device_igmp");
 	kfree(in_dev);
 	in_dev = NULL;
 	goto out;

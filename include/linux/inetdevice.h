@@ -37,30 +37,17 @@ struct in_device {
 	unsigned long		mr_v1_seen;
 	unsigned long		mr_v2_seen;
 	unsigned long		mr_maxdelay;
+	unsigned long		mr_qi;		/* Query Interval */
+	unsigned long		mr_qri;		/* Query Response Interval */
 	unsigned char		mr_qrv;		/* Query Robustness Variable */
 	unsigned char		mr_gq_running;
-#ifdef __GENKSYMS__
-	/* Kept for genksyms; real type is u32 — see ec75ebd1645e */
-	unsigned char		mr_ifc_count;
-#else
 	u32			mr_ifc_count;
-#endif
 	struct timer_list	mr_gq_timer;	/* general query timer */
 	struct timer_list	mr_ifc_timer;	/* interface change timer */
 
 	struct neigh_parms	*arp_parms;
 	struct ipv4_devconf	cnf;
 	struct rcu_head		rcu_head;
-};
-
-/*
- * mr_qi and mr_qri were added to struct in_device by 32d7474b7a08 and grow the
- * struct by 16 bytes with no available padding to absorb them.  Store them in a
- * shadow variable instead so the on-wire kABI layout is preserved.
- */
-struct kabi_shadow_in_device_igmp {
-	unsigned long mr_qi;
-	unsigned long mr_qri;
 };
 
 #define IPV4_DEVCONF(cnf, attr) ((cnf).data[IPV4_DEVCONF_ ## attr - 1])
@@ -207,7 +194,7 @@ static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
 /*
  *	Check if a mask is acceptable.
  */
-
+ 
 static __inline__ bool bad_mask(__be32 mask, __be32 addr)
 {
 	__u32 hmask;
