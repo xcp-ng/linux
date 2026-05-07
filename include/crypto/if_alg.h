@@ -185,7 +185,7 @@ struct af_alg_ctx {
 	 */
 	bool inflight:1;
 #endif
-	u32 write:1;
+	bool write:1;
 
 	unsigned int len;
 
