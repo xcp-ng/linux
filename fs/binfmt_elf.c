@@ -273,8 +273,12 @@ create_elf_tables(struct linux_binprm *bprm, const struct elfhdr *exec,
 		NEW_AUX_ENT(AT_EXECFD, bprm->execfd);
 	}
 #ifdef CONFIG_RSEQ
-	NEW_AUX_ENT(AT_RSEQ_FEATURE_SIZE, offsetof(struct rseq, end));
-	NEW_AUX_ENT(AT_RSEQ_ALIGN, __alignof__(struct rseq));
+	/*
+	 * XXX UEK - user exposed size is + 1 byte due to KABI definition
+	 * of struct rseq.
+	 */
+	NEW_AUX_ENT(AT_RSEQ_FEATURE_SIZE, offsetof(struct rseq, end) + 1);
+	NEW_AUX_ENT(AT_RSEQ_ALIGN, rseq_alloc_align());
 #endif
 	NEW_AUX_ENT(AT_VA_RESERVATION, 1);
 #undef NEW_AUX_ENT

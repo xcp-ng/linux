@@ -227,7 +227,8 @@ static int rseq_update_cpu_node_id(struct task_struct *t)
 	unsafe_put_user(node_id, &rseq->node_id, efault_end);
 	unsafe_put_user(mm_cid, &rseq->mm_cid, efault_end);
 	/* Open coded, so it's in the same user access region */
-	if (rseq_slice_extension_enabled()) {
+	if (rseq_slice_extension_enabled() &&
+		t->rseq_len > ORIG_RSEQ_SIZE) {
 		/* Unconditionally clear it, no point in conditionals */
 		unsafe_put_user(0U, &rseq->slice_ctrl.all, efault_end);
 	}
@@ -578,7 +579,7 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 	 */
 	if (rseq_len < ORIG_RSEQ_SIZE ||
 	    (rseq_len == ORIG_RSEQ_SIZE && !IS_ALIGNED((unsigned long)rseq, ORIG_RSEQ_SIZE)) ||
-	    (rseq_len != ORIG_RSEQ_SIZE && (!IS_ALIGNED((unsigned long)rseq, __alignof__(*rseq)) ||
+	    (rseq_len != ORIG_RSEQ_SIZE && (!IS_ALIGNED((unsigned long)rseq, rseq_alloc_align()) ||
 					    rseq_len < offsetof(struct rseq, end))))
 		return -EINVAL;
 	if (!access_ok(rseq, rseq_len))
@@ -600,7 +601,8 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 	current->rseq_len = rseq_len;
 	current->rseq_sig = sig;
 
-	if (IS_ENABLED(CONFIG_RSEQ_SLICE_EXTENSION)) {
+	if (IS_ENABLED(CONFIG_RSEQ_SLICE_EXTENSION) &&
+                       rseq_len > ORIG_RSEQ_SIZE) {
 		if (rseq_slice_extension_enabled()) {
 			rseqfl |= RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE;
 			if (flags & RSEQ_FLAG_SLICE_EXT_DEFAULT_ON)
@@ -612,7 +614,8 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 		return -EFAULT;
 
 	unsafe_put_user(rseqfl, &rseq->flags, efault);
-	unsafe_put_user(0U, &rseq->slice_ctrl.all, efault);
+	if (rseq_len > ORIG_RSEQ_SIZE)
+		unsafe_put_user(0U, &rseq->slice_ctrl.all, efault);
 	user_write_access_end();
 
 #ifdef CONFIG_RSEQ_SLICE_EXTENSION
@@ -826,6 +829,8 @@ int rseq_slice_extension_prctl(unsigned long arg2, unsigned long arg3)
 			return -ENOTSUPP;
 		if (!current->rseq)
 			return -ENXIO;
+		if (current->rseq_len <= ORIG_RSEQ_SIZE)
+			return -ENOTSUPP;
 
 		/* No change? */
 		if (enable == !!current->rseq_slice.state.enabled)
