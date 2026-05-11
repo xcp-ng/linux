@@ -174,12 +174,19 @@ struct af_alg_ctx {
 	 * kABI.  We can hide it because it fits in a hole.  Verified with
 	 * kabi_check_af_alg_ctx.
 	 */
-	bool init;
+	bool init:1;
+	/**
+	 * Backport of 67b164a871af ("crypto: af_alg - Disallow multiple
+	 * in-flight AIO requests") added a new inflight field as unsigned
+	 * int.  Convert it to bool:1 such that it can fit in the same hole
+	 * used by the init field above.  Note that init is also converted
+	 * to a bool:1 from bool, otherwise we can't fit both.
+	 */
+	bool inflight:1;
 #endif
 
 	unsigned int len;
 
-	unsigned int inflight;
 };
 
 int af_alg_register_type(const struct af_alg_type *type);
