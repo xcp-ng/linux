@@ -34,9 +34,18 @@ struct alg_sock {
 
 	struct sock *parent;
 
+#ifdef __GENKSYMS__
+	/**
+	 * Changed from unsigned int to atomic_t in 794706b54241 ("crypto:
+	 * af_alg - fix use-after-free in af_alg_accept() due to
+	 * bh_lock_sock()") - both are using 4 bytes.
+	 */
+	unsigned int refcnt;
+	unsigned int nokey_refcnt;
+#else
 	atomic_t refcnt;
 	atomic_t nokey_refcnt;
-
+#endif
 	const struct af_alg_type *type;
 	void *private;
 };

@@ -1205,3 +1205,23 @@ module_init(af_alg_init);
 module_exit(af_alg_exit);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_NETPROTO(AF_ALG);
+
+#include <linux/build_bug.h>
+
+void kabi_check_struct_alg_sock(void)
+{
+	struct old_alg_sock {
+		/* struct sock must be the first member of struct alg_sock */
+		struct sock sk;
+
+		struct sock *parent;
+
+		unsigned int refcnt;
+		unsigned int nokey_refcnt;
+
+		const struct af_alg_type *type;
+		void *private;
+	};
+	BUILD_BUG_ON(sizeof(struct old_alg_sock) != sizeof(struct alg_sock));
+	BUILD_BUG_ON(offsetof(struct old_alg_sock, type) != offsetof(struct alg_sock, type));
+}
