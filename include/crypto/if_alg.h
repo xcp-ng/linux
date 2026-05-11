@@ -184,8 +184,16 @@ struct af_alg_ctx {
 	 * to a bool:1 from bool, otherwise we can't fit both.
 	 */
 	bool inflight:1;
-#endif
+	/**
+	 * Backport of 3a21698ace91 ("crypto: af_alg - Fix incorrect
+	 * boolean values in af_alg_ctx") + 1b34cbbf4f01 ("crypto: af_alg -
+	 * Disallow concurrent writes in af_alg_sendmsg") added this field
+	 * (first as u32:1 then as bool:1).  Luckily the above init and
+	 * inflight fields were also added in this branch as bool:1, so
+	 * convert write to bool:1 too so it can fit in the hole.
+	 */
 	bool write:1;
+#endif
 
 	unsigned int len;
 
