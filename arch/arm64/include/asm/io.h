@@ -287,7 +287,7 @@ int arm64_ioremap_prot_hook_register(const ioremap_prot_hook_t hook);
 
 
 #define ioremap_encrypted(addr, size)	\
-	ioremap_prot((addr), (size), PAGE_KERNEL)
+	ioremap_prot((addr), (size), pgprot_val(PAGE_KERNEL))
 
 /*
  * io{read,write}{16,32,64}be() macros
