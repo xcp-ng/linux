@@ -609,12 +609,19 @@ static void inode_switch_wbs(struct inode *inode, int new_wb_id)
 
 	atomic_inc(&isw_nr_in_flight);
 
-	/* find and pin the new wb */
+	/*
+	 * Paired with synchronize_rcu() in cgroup_writeback_umount().
+	 * Holding rcu_read_lock() across inode_prepare_wbs_switch() (covering
+	 * the SB_ACTIVE check and inode grab) and queue_rcu_work() ensures
+	 * synchronize_rcu() cannot return until the RCU callback is queued.
+	 * The subsequent rcu_barrier() and flush_workqueue() then wait for the
+	 * switch to complete.
+	 */
 	rcu_read_lock();
+	/* find and pin the new wb */
 	memcg_css = css_from_id(new_wb_id, &memory_cgrp_subsys);
 	if (memcg_css && !css_tryget(memcg_css))
 		memcg_css = NULL;
-	rcu_read_unlock();
 	if (!memcg_css)
 		goto out_free;
 
@@ -636,9 +643,11 @@ static void inode_switch_wbs(struct inode *inode, int new_wb_id)
 	 */
 	INIT_RCU_WORK(&isw->work, inode_switch_wbs_work_fn);
 	queue_rcu_work(isw_wq, &isw->work);
+	rcu_read_unlock();
 	return;
 
 out_free:
+	rcu_read_unlock();
 	atomic_dec(&isw_nr_in_flight);
 	if (isw->new_wb)
 		wb_put(isw->new_wb);
@@ -695,6 +704,15 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
 		isw->new_wb = &wb->bdi->wb; /* wb_get() is noop for bdi's wb */
 
 	nr = 0;
+	/*
+	 * Paired with synchronize_rcu() in cgroup_writeback_umount().
+	 * Holding rcu_read_lock() across inode_prepare_wbs_switch() (covering
+	 * the SB_ACTIVE check and inode grab) and queue_rcu_work() ensures
+	 * synchronize_rcu() cannot return until the RCU callback is queued.
+	 * The subsequent rcu_barrier() and flush_workqueue() then wait for the
+	 * switch to complete.
+	 */
+	rcu_read_lock();
 	spin_lock(&wb->list_lock);
 	/*
 	 * In addition to the inodes that have completed writeback, also switch
@@ -711,6 +729,7 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
 
 	/* no attached inodes? bail out */
 	if (nr == 0) {
+		rcu_read_unlock();
 		atomic_dec(&isw_nr_in_flight);
 		wb_put(isw->new_wb);
 		kfree(isw);
@@ -725,6 +744,7 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
 	 */
 	INIT_RCU_WORK(&isw->work, inode_switch_wbs_work_fn);
 	queue_rcu_work(isw_wq, &isw->work);
+	rcu_read_unlock();
 
 	return restart;
 }
@@ -1163,6 +1183,15 @@ void cgroup_writeback_umount(struct super_block *sb)
 	smp_mb();
 
 	if (atomic_read(&isw_nr_in_flight)) {
+		/*
+		 * Paired with rcu_read_lock() in inode_switch_wbs() and
+		 * cleanup_offline_cgwb().  synchronize_rcu() waits for any
+		 * in-flight switcher that already passed the SB_ACTIVE check
+		 * to finish queueing its RCU callback.  rcu_barrier() then
+		 * waits for those callbacks to queue their work, and
+		 * flush_workqueue() drains it.
+		 */
+		synchronize_rcu();
 		/*
 		 * Use rcu_barrier() to wait for all pending callbacks to
 		 * ensure that all in-flight wb switches are in the workqueue.
