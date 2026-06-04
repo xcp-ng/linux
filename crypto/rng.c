@@ -227,5 +227,16 @@ void CRYPTO_API(crypto_unregister_rngs)(struct rng_alg *algs, int count)
 }
 DEFINE_CRYPTO_API(crypto_unregister_rngs);
 
+static void __exit rng_exit(void)
+{
+	int err;
+
+	err = crypto_del_default_rng();
+	if (err)
+		pr_err("Failed delete default RNG: %d\n", err);
+}
+
+module_exit(rng_exit);
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Random Number Generator");
