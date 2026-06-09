@@ -42,6 +42,7 @@
 #include <linux/restart_block.h>
 #include <linux/uek_kabi.h>
 #include <uapi/linux/rseq.h>
+#include <linux/rseq_types.h>
 #include <linux/seqlock_types.h>
 #include <linux/kcsan.h>
 #include <linux/rv.h>
@@ -1584,7 +1585,11 @@ struct task_struct {
 	UEK_KABI_RESERVE(2)
 #endif
 
+#ifdef CONFIG_RSEQ
+	UEK_KABI_USE(3, struct rseq_slice rseq_slice)
+#else
 	UEK_KABI_RESERVE(3)
+#endif
 	UEK_KABI_RESERVE(4)
 	UEK_KABI_RESERVE(5)
 	UEK_KABI_RESERVE(6)

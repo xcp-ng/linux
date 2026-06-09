@@ -24,6 +24,8 @@
 #define RSEQ_CS_NO_RESTART_FLAGS (RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT | \
 				  RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL | \
 				  RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE)
+#define RSEQ_CS_SLICE_EXT_FLAGS (RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE | \
+				 RSEQ_CS_FLAG_SLICE_EXT_ENABLED)
 
 /*
  *
@@ -226,12 +228,13 @@ static bool rseq_warn_flags(const char *str, u32 flags)
 {
 	u32 test_flags;
 
-	if (!flags)
+	test_flags = flags & ~RSEQ_CS_SLICE_EXT_FLAGS;
+	if (!test_flags)
 		return false;
 	test_flags = flags & RSEQ_CS_NO_RESTART_FLAGS;
 	if (test_flags)
 		pr_warn_once("Deprecated flags (%u) in %s ABI structure", test_flags, str);
-	test_flags = flags & ~RSEQ_CS_NO_RESTART_FLAGS;
+	test_flags = flags & ~(RSEQ_CS_NO_RESTART_FLAGS | RSEQ_CS_SLICE_EXT_FLAGS);
 	if (test_flags)
 		pr_warn_once("Unknown flags (%u) in %s ABI structure", test_flags, str);
 	return true;
@@ -389,6 +392,7 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 {
 	int ret;
 	u64 rseq_cs;
+	u32 rseqfl = 0;
 
 	if (flags & RSEQ_FLAG_UNREGISTER) {
 		if (flags & ~RSEQ_FLAG_UNREGISTER)
@@ -403,9 +407,7 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 		ret = rseq_reset_rseq_cpu_node_id(current);
 		if (ret)
 			return ret;
-		current->rseq = NULL;
-		current->rseq_sig = 0;
-		current->rseq_len = 0;
+		rseq_reset(current);
 		return 0;
 	}
 
@@ -460,6 +462,17 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 	current->rseq = rseq;
 	current->rseq_len = rseq_len;
 	current->rseq_sig = sig;
+
+	if (IS_ENABLED(CONFIG_RSEQ_SLICE_EXTENSION))
+		rseqfl |= RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE;
+
+	if (!user_write_access_begin(rseq, current->rseq_len))
+		return -EFAULT;
+
+	unsafe_put_user(rseqfl, &rseq->flags, efault);
+	unsafe_put_user(0U, &rseq->slice_ctrl.all, efault);
+	user_write_access_end();
+
 	/*
 	 * If rseq was previously inactive, and has just been
 	 * registered, ensure the cpu_id_start and cpu_id fields
@@ -468,4 +481,7 @@ SYSCALL_DEFINE4(rseq, struct rseq __user *, rseq, u32, rseq_len,
 	rseq_set_notify_resume(current);
 
 	return 0;
+efault:
+	user_write_access_end();
+	return -EFAULT;
 }
