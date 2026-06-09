@@ -6,6 +6,7 @@
 #include <linux/highmem.h>
 #include <linux/jump_label.h>
 #include <linux/kmsan.h>
+#include <linux/rseq_entry.h>
 #include <linux/livepatch.h>
 #include <linux/audit.h>
 #include <linux/tick.h>
@@ -235,12 +236,14 @@ __visible noinstr void syscall_exit_to_user_mode(struct pt_regs *regs)
 noinstr void irqentry_enter_from_user_mode(struct pt_regs *regs)
 {
 	enter_from_user_mode(regs);
+	rseq_note_user_irq_entry();
 }
 
 noinstr void irqentry_exit_to_user_mode(struct pt_regs *regs)
 {
 	instrumentation_begin();
 	exit_to_user_mode_prepare(regs);
+	rseq_irqentry_exit_to_user_mode();
 	instrumentation_end();
 	exit_to_user_mode();
 }

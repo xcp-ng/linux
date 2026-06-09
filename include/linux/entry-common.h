@@ -7,6 +7,7 @@
 #include <linux/syscalls.h>
 #include <linux/seccomp.h>
 #include <linux/sched.h>
+#include <linux/rseq_entry.h>
 #include <linux/context_tracking.h>
 #include <linux/livepatch.h>
 #include <linux/resume_user_mode.h>
@@ -326,7 +327,19 @@ static __always_inline void exit_to_user_mode_prepare(struct pt_regs *regs)
 
 	ti_work = read_thread_flags();
 	if (unlikely(ti_work & EXIT_TO_USER_MODE_WORK))
-		ti_work = exit_to_user_mode_loop(regs, ti_work);
+		for (;;) {
+			ti_work = exit_to_user_mode_loop(regs, ti_work);
+			/*
+			 * This will try to arm time slice extension timer.
+			 * It can fail(returns true) if expiry time
+			 * exceeds the scheduling latency, sets resched
+			 * flags on the current task. So need to get
+			 * ti_work and repeat.
+			 */
+			if (likely(!rseq_exit_to_user_mode_restart()))
+				break;
+			ti_work = read_thread_flags();
+		}
 
 	arch_exit_to_user_mode_prepare(regs, ti_work);
 

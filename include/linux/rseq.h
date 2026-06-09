@@ -74,6 +74,7 @@ static inline void rseq_reset(struct task_struct *t)
 	t->rseq_len = 0;
 	t->rseq_sig = 0;
 	t->rseq_event_mask = 0;
+	t->rseq_slice_expires = 0;
 	memset(&t->rseq_slice, 0, sizeof(t->rseq_slice));
 }
 
@@ -90,6 +91,7 @@ static inline void rseq_fork(struct task_struct *t, unsigned long clone_flags)
 		t->rseq_len = current->rseq_len;
 		t->rseq_sig = current->rseq_sig;
 		t->rseq_event_mask = current->rseq_event_mask;
+		t->rseq_slice_expires = current->rseq_slice_expires;
 		t->rseq_slice = current->rseq_slice;
 	}
 }

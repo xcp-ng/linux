@@ -1588,10 +1588,11 @@ struct task_struct {
 
 #ifdef CONFIG_RSEQ
 	UEK_KABI_USE(3, struct rseq_slice rseq_slice)
+	UEK_KABI_USE(4, u64 rseq_slice_expires)
 #else
 	UEK_KABI_RESERVE(3)
-#endif
 	UEK_KABI_RESERVE(4)
+#endif
 	UEK_KABI_RESERVE(5)
 	UEK_KABI_RESERVE(6)
 	UEK_KABI_RESERVE(7)
