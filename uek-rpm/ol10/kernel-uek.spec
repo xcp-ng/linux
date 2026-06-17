@@ -1182,7 +1182,7 @@ BuildKernel() {
     # temporary FIPS payload can be reused by the real build.
     printf '\0' > crypto/fips140.ko
     printf '\0' > crypto/fips140.hmac
-    %{make} ARCH=$Arch %{?_kernel_cc} %{?_smp_mflags} KBUILD_MODPOST_NOFINAL=1 modules
+    %{make} ARCH=$Arch %{?_kernel_cc} %{?_smp_mflags} KBUILD_SYMTYPES=y KBUILD_MODPOST_NOFINAL=1 modules
 
     # Build fips140.ko
     %{make} ARCH=$Arch M=fips/ KBUILD_SYMTYPES=y
