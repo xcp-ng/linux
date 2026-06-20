@@ -150,6 +150,7 @@ modules-core:
 - adm1026
 - adm1029
 - adm1031
+- adm1266
 - adm9240
 - adp5588-keys
 - ads7828
@@ -444,6 +445,7 @@ modules-core:
 - cm3323
 - cm36651
 - cmac
+- cmdlinepart
 - cnic
 - coda
 - com20020
@@ -1027,6 +1029,7 @@ modules-core:
 - i2c-via
 - i2c-viapro
 - i2c-viperboard
+- i2c-xiic
 - i3000_edac
 - i3200_edac
 - i40e
@@ -1254,6 +1257,7 @@ modules-core:
 - isl29028
 - isl29125
 - isl29501
+- isl68137
 - isofs
 - isst_if_common
 - isst_if_mbox_msr
@@ -2451,6 +2455,7 @@ modules-core:
 - spi-pxa2xx-core
 - spi-pxa2xx-pci
 - spi-pxa2xx-platform
+- spi-xilinx
 - squashfs
 - sr9700
 - sr9800
@@ -2597,6 +2602,7 @@ modules-core:
 - tmp102
 - tmp401
 - tmp421
+- tmp464
 - tmp468
 - topstar-laptop
 - toshiba_bluetooth
@@ -2861,6 +2867,7 @@ modules-core:
 - xcbc
 - xdpe12284
 - xdpe152c4
+- xdpe1a2g7b
 - xen-acpi-processor
 - xen-blkback
 - xen-blkfront
