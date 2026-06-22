@@ -22,3 +22,5 @@ source "drivers/platform/x86/Kconfig"
 source "drivers/platform/arm64/Kconfig"
 
 source "drivers/platform/arista-sonic/Kconfig"
+
+source "drivers/platform/pddf-sonic/Kconfig"
