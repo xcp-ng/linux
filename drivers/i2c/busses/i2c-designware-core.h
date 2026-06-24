@@ -78,6 +78,8 @@
 #define DW_IC_TX_ABRT_SOURCE			0x80
 #define DW_IC_ENABLE_STATUS			0x9c
 #define DW_IC_CLR_RESTART_DET			0xa8
+#define DW_IC_SCL_STUCK_AT_LOW			0xac
+#define DW_IC_SDA_STUCK_AT_LOW			0xb0
 #define DW_IC_SMBUS_INTR_MASK			0xcc
 #define DW_IC_COMP_PARAM_1			0xf4
 #define DW_IC_COMP_VERSION			0xf8
@@ -99,6 +101,7 @@
 #define DW_IC_INTR_GEN_CALL			BIT(11)
 #define DW_IC_INTR_RESTART_DET			BIT(12)
 #define DW_IC_INTR_MST_ON_HOLD			BIT(13)
+#define DW_IC_INTR_SCL_STUCK_AT_LOW		BIT(14)
 
 #define DW_IC_INTR_DEFAULT_MASK			(DW_IC_INTR_RX_FULL | \
 						 DW_IC_INTR_TX_ABRT | \
@@ -111,6 +114,7 @@
 
 #define DW_IC_ENABLE_ENABLE			BIT(0)
 #define DW_IC_ENABLE_ABORT			BIT(1)
+#define DW_IC_SDA_STUCK_RECOVERY_ENABLE		BIT(3)
 
 #define DW_IC_STATUS_ACTIVITY			BIT(0)
 #define DW_IC_STATUS_TFE			BIT(2)
@@ -118,6 +122,7 @@
 #define DW_IC_STATUS_MASTER_ACTIVITY		BIT(5)
 #define DW_IC_STATUS_SLAVE_ACTIVITY		BIT(6)
 #define DW_IC_STATUS_MASTER_HOLD_TX_FIFO_EMPTY	BIT(7)
+#define DW_IC_STATUS_SDA_STUCK_NOT_RECOVERED	BIT(11)
 
 #define DW_IC_SDA_HOLD_RX_SHIFT			16
 #define DW_IC_SDA_HOLD_RX_MASK			GENMASK(23, 16)
@@ -163,6 +168,7 @@
 #define ABRT_SLAVE_FLUSH_TXFIFO			13
 #define ABRT_SLAVE_ARBLOST			14
 #define ABRT_SLAVE_RD_INTX			15
+#define ABRT_SDA_STUCK_AT_LOW			17
 
 #define DW_IC_TX_ABRT_7B_ADDR_NOACK		BIT(ABRT_7B_ADDR_NOACK)
 #define DW_IC_TX_ABRT_10ADDR1_NOACK		BIT(ABRT_10ADDR1_NOACK)
@@ -175,6 +181,7 @@
 #define DW_IC_TX_ABRT_10B_RD_NORSTRT		BIT(ABRT_10B_RD_NORSTRT)
 #define DW_IC_TX_ABRT_MASTER_DIS		BIT(ABRT_MASTER_DIS)
 #define DW_IC_TX_ARB_LOST			BIT(ARB_LOST)
+#define DW_IC_TX_ABRT_SDA_STUCK_AT_LOW		BIT(ABRT_SDA_STUCK_AT_LOW)
 #define DW_IC_RX_ABRT_SLAVE_RD_INTX		BIT(ABRT_SLAVE_RD_INTX)
 #define DW_IC_RX_ABRT_SLAVE_ARBLOST		BIT(ABRT_SLAVE_ARBLOST)
 #define DW_IC_RX_ABRT_SLAVE_FLUSH_TXFIFO	BIT(ABRT_SLAVE_FLUSH_TXFIFO)
@@ -242,6 +249,7 @@ struct reset_control;
  * @init: function to initialize the I2C hardware
  * @set_sda_hold_time: callback to retrieve IP specific SDA hold timing
  * @mode: operation mode - DW_IC_MASTER or DW_IC_SLAVE
+ * @mctp-controller: interface switches between DW_IC_MASTER and DW_IC_SLAVE
  * @rinfo: I²C GPIO recovery information
  *
  * HCNT and LCNT parameters can be used if the platform knows more accurate
@@ -284,6 +292,7 @@ struct dw_i2c_dev {
 	int			rx_outstanding;
 	struct i2c_timings	timings;
 	u32			sda_hold_time;
+	u32			sda_timeout_ms;
 	u16			ss_hcnt;
 	u16			ss_lcnt;
 	u16			fs_hcnt;
@@ -299,6 +308,7 @@ struct dw_i2c_dev {
 	int			(*init)(struct dw_i2c_dev *dev);
 	int			(*set_sda_hold_time)(struct dw_i2c_dev *dev);
 	int			mode;
+	bool			mctp_controller;
 	struct i2c_bus_recovery_info rinfo;
 };
 
@@ -342,6 +352,26 @@ int i2c_dw_wait_bus_not_busy(struct dw_i2c_dev *dev);
 int i2c_dw_handle_tx_abort(struct dw_i2c_dev *dev);
 int i2c_dw_set_fifo_size(struct dw_i2c_dev *dev);
 u32 i2c_dw_func(struct i2c_adapter *adap);
+int i2c_dw_set_mode(struct dw_i2c_dev *dev, int mode);
+void i2c_dw_configure_fifo_master(struct dw_i2c_dev *dev);
+int i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num);
+
+/* Master and slave interrupt handlers (used by i2c_dw_set_mode for mctp) */
+irqreturn_t i2c_dw_isr(int irq, void *dev_id);
+#if IS_ENABLED(CONFIG_I2C_DESIGNWARE_SLAVE)
+irqreturn_t i2c_dw_isr_slave(int irq, void *dev_id);
+#else
+static inline irqreturn_t i2c_dw_isr_slave(int irq, void *dev_id)
+{
+	return IRQ_NONE;
+}
+#endif
+
+#if IS_ENABLED(CONFIG_I2C_DESIGNWARE_SLAVE)
+void i2c_dw_configure_fifo_slave(struct dw_i2c_dev *dev);
+#else
+static inline void i2c_dw_configure_fifo_slave(struct dw_i2c_dev *dev) { }
+#endif
 
 extern const struct dev_pm_ops i2c_dw_dev_pm_ops;
 
@@ -384,6 +414,8 @@ extern int i2c_dw_probe_master(struct dw_i2c_dev *dev);
 #if IS_ENABLED(CONFIG_I2C_DESIGNWARE_SLAVE)
 extern void i2c_dw_configure_slave(struct dw_i2c_dev *dev);
 extern int i2c_dw_probe_slave(struct dw_i2c_dev *dev);
+int i2c_dw_reg_slave(struct i2c_client *slave);
+int i2c_dw_unreg_slave(struct i2c_client *slave);
 #else
 static inline void i2c_dw_configure_slave(struct dw_i2c_dev *dev) { }
 static inline int i2c_dw_probe_slave(struct dw_i2c_dev *dev) { return -EINVAL; }

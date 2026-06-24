@@ -21,7 +21,7 @@
 
 #include "i2c-designware-core.h"
 
-static void i2c_dw_configure_fifo_slave(struct dw_i2c_dev *dev)
+void i2c_dw_configure_fifo_slave(struct dw_i2c_dev *dev)
 {
 	/* Configure Tx/Rx FIFO threshold levels. */
 	regmap_write(dev->map, DW_IC_TX_TL, 0);
@@ -61,7 +61,7 @@ static int i2c_dw_init_slave(struct dw_i2c_dev *dev)
 	return 0;
 }
 
-static int i2c_dw_reg_slave(struct i2c_client *slave)
+int i2c_dw_reg_slave(struct i2c_client *slave)
 {
 	struct dw_i2c_dev *dev = i2c_get_adapdata(slave->adapter);
 
@@ -86,7 +86,7 @@ static int i2c_dw_reg_slave(struct i2c_client *slave)
 	return 0;
 }
 
-static int i2c_dw_unreg_slave(struct i2c_client *slave)
+int i2c_dw_unreg_slave(struct i2c_client *slave)
 {
 	struct dw_i2c_dev *dev = i2c_get_adapdata(slave->adapter);
 
@@ -150,7 +150,7 @@ static u32 i2c_dw_read_clear_intrbits_slave(struct dw_i2c_dev *dev)
  * Interrupt service routine. This gets called whenever an I2C slave interrupt
  * occurs.
  */
-static irqreturn_t i2c_dw_isr_slave(int this_irq, void *dev_id)
+irqreturn_t i2c_dw_isr_slave(int this_irq, void *dev_id)
 {
 	struct dw_i2c_dev *dev = dev_id;
 	unsigned int raw_stat, stat, enabled, tmp;
@@ -221,6 +221,17 @@ static const struct i2c_algorithm i2c_dw_algo = {
 	.unreg_slave = i2c_dw_unreg_slave,
 };
 
+/*
+ * The MCTP-over-I2C controller alternates between slave and master mode, so
+ * it needs a master_xfer method.
+ */
+static const struct i2c_algorithm i2c_dw_mctp_algo = {
+	.functionality = i2c_dw_func,
+	.reg_slave = i2c_dw_reg_slave,
+	.unreg_slave = i2c_dw_unreg_slave,
+	.master_xfer = i2c_dw_xfer,
+};
+
 void i2c_dw_configure_slave(struct dw_i2c_dev *dev)
 {
 	dev->functionality = I2C_FUNC_SLAVE;
@@ -258,9 +269,18 @@ int i2c_dw_probe_slave(struct dw_i2c_dev *dev)
 	snprintf(adap->name, sizeof(adap->name),
 		 "Synopsys DesignWare I2C Slave adapter");
 	adap->retries = 3;
-	adap->algo = &i2c_dw_algo;
+	if (dev->mctp_controller) {
+		adap->algo = &i2c_dw_mctp_algo;
+		dev->functionality = I2C_FUNC_SLAVE | DW_IC_DEFAULT_FUNCTIONALITY;
+	} else {
+		adap->algo = &i2c_dw_algo;
+		dev->functionality = I2C_FUNC_SLAVE;
+	}
 	adap->dev.parent = dev->dev;
 	i2c_set_adapdata(adap, dev);
+
+	/* Fix null pointer in mctp response send */
+	init_completion(&dev->cmd_complete);
 
 	ret = devm_request_irq(dev->dev, dev->irq, i2c_dw_isr_slave,
 			       IRQF_SHARED, dev_name(dev->dev), dev);

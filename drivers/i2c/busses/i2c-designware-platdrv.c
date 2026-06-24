@@ -239,6 +239,13 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 
 	reset_control_deassert(dev->rst);
 
+	/* MCTP controller support: force slave mode */
+	if (device_property_read_bool(&pdev->dev, "mctp-controller")) {
+		dev->mctp_controller = true;
+		dev_info(&pdev->dev, "MCTP controller mode enabled on this bus\n");
+		dev->mode = DW_IC_SLAVE;
+	}
+
 	ret = i2c_dw_fw_parse_and_configure(dev);
 	if (ret)
 		goto exit_reset;
