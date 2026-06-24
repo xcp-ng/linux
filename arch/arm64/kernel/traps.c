@@ -966,8 +966,26 @@ bool arm64_is_fatal_ras_serror(struct pt_regs *regs, unsigned long esr)
 	}
 }
 
+/*
+ * Platform SError hook.
+ *
+ * This is called from the arm64 SError exception path. Although do_serror()
+ * is not marked noinstr, callers must treat this as NMI/error context:
+ * do not sleep, allocate memory, or take ordinary blocking locks.
+ *
+ * Return nonzero only for platform errors that are known to be containable
+ * and intentionally handled by the platform.
+ */
+int __weak platform_serror(struct pt_regs *regs, unsigned long esr)
+{
+	return 0;
+}
+
 void do_serror(struct pt_regs *regs, unsigned long esr)
 {
+	if (platform_serror(regs, esr))
+		return;	/* platform handled the error */
+
 	/* non-RAS errors are not containable */
 	if (!arm64_is_ras_serror(esr) || arm64_is_fatal_ras_serror(regs, esr))
 		arm64_serror_panic(regs, esr);
