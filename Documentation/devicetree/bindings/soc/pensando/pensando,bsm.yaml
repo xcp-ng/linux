@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/pensando/pensando,bsm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando boot state machine device
+
+maintainers:
+  - Brad Larson <blarson@amd.com>
+
+properties:
+  compatible:
+    const: pensando,bsm
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+
+additionalProperties: true
+
+examples:
+  - |
+    bsm {
+        compatible = "pensando,bsm";
+    };
+
+...

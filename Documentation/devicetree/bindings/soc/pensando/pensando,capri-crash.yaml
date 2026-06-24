@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/pensando/pensando,capri-crash.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando persistent panic crash log memory
+
+maintainers:
+  - Brad Larson <blarson@amd.com>
+
+properties:
+  compatible:
+    const: pensando,capri-crash
+
+  reg:
+    maxItems: 1
+
+  status: true
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    panicdump@0 {
+        compatible = "pensando,capri-crash";
+        reg = <0x0 0x100000>;
+    };
+
+...

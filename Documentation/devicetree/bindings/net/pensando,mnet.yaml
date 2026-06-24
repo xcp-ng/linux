@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/pensando,mnet.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando MNET (Management Network) Device
+
+description:
+  AMD Pensando internal management network device.
+
+maintainers:
+  - Brad Larson <bradley.larson@amd.com>
+
+properties:
+  compatible:
+    const: pensando,mnet
+
+  msi-parent:
+    description:
+      MSI parent for the MNET device.
+
+  memory-region:
+    maxItems: 1
+    description:
+      Reserved memory region shared by MNET devices.
+
+required:
+  - compatible
+  - msi-parent
+  - memory-region
+
+additionalProperties: false
+
+examples:
+  - |
+    / {
+        model = "AMD Pensando MNET example";
+        compatible = "amd,pensando-elba-ortano", "amd,pensando-elba";
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        soc {
+            compatible = "simple-bus";
+            #address-cells = <2>;
+            #size-cells = <2>;
+            ranges;
+
+            gic_its: interrupt-controller@1040000 {
+                compatible = "arm,gic-v3-its";
+                msi-controller;
+                #msi-cells = <1>;
+                reg = <0x0 0x1040000 0x0 0x20000>;
+            };
+        };
+
+        reserved-memory {
+            #address-cells = <2>;
+            #size-cells = <2>;
+            ranges;
+
+            mnet_reserved: mnet-dma-region@80000000 {
+                compatible = "shared-dma-pool";
+                reg = <0x0 0x80000000 0x0 0x100000>;
+                no-map;
+            };
+        };
+
+        mnet@0 {
+            compatible = "pensando,mnet";
+            msi-parent = <&gic_its 0x0>;
+            memory-region = <&mnet_reserved>;
+        };
+    };

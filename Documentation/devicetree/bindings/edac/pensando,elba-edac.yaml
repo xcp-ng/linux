@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/edac/pensando,elba-edac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando Elba and Giglio memory controller EDAC
+
+maintainers:
+  - Brad Larson <blarson@amd.com>
+
+properties:
+  compatible:
+    enum:
+      - pensando,elba-edac-mc
+      - pensando,giglio-edac-mc
+      - pensando,salina-edac-mc
+
+  reg:
+    minItems: 1
+    maxItems: 8
+
+  interrupts:
+    minItems: 1
+    maxItems: 8
+
+required:
+  - compatible
+
+additionalProperties: true
+
+examples:
+  - |
+    memory-controller {
+        compatible = "pensando,elba-edac-mc";
+    };
+
+...

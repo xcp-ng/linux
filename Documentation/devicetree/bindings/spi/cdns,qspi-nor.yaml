@@ -50,7 +50,9 @@ allOf:
       properties:
         compatible:
           contains:
-            const: amd,pensando-elba-qspi
+            enum:
+            - amd,pensando-elba-qspi
+            - amd,pensando-salina-qspi
     then:
       properties:
         cdns,fifo-depth:
@@ -68,6 +70,7 @@ properties:
       - items:
           - enum:
               - amd,pensando-elba-qspi
+              - amd,pensando-salina-qspi
               - intel,lgm-qspi
               - intel,socfpga-qspi
               - mobileye,eyeq5-ospi

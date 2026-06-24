@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/pensando/pensando,mcrypt.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando MCRYPT platform device
+
+maintainers:
+  - Brad Larson <bradley.larson@amd.com>
+
+description:
+  AMD Pensando MCRYPT platform device using platform MSI interrupts.
+
+properties:
+  compatible:
+    const: pensando,mcrypt
+
+  msi-parent:
+    description:
+      MSI parent for the MCRYPT device.
+
+required:
+  - compatible
+  - msi-parent
+
+additionalProperties: false
+
+examples:
+  - |
+    / {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        soc {
+            compatible = "simple-bus";
+            #address-cells = <2>;
+            #size-cells = <2>;
+            ranges;
+
+            gic_its: interrupt-controller@1040000 {
+                compatible = "arm,gic-v3-its";
+                msi-controller;
+                #msi-cells = <1>;
+                reg = <0x0 0x1040000 0x0 0x20000>;
+            };
+        };
+
+        mcrypt0 {
+            compatible = "pensando,mcrypt";
+            msi-parent = <&gic_its 0xb>;
+        };
+    };

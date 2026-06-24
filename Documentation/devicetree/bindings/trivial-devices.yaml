@@ -388,12 +388,16 @@ properties:
           - ti,tmp125
             # TI DC-DC converter on PMBus
           - ti,tps40400
+            # TI Dual channel DCAP+ multiphase controller TPS53659
+          - ti,tps53659
             # TI Dual channel DCAP+ multiphase controller TPS53676 with AVSBus
           - ti,tps53676
             # TI Dual channel DCAP+ multiphase controller TPS53679
           - ti,tps53679
             # TI Dual channel DCAP+ multiphase controller TPS53688
           - ti,tps53688
+            # TI Dual channel DCAP+ multiphase controller TPS53689
+          - ti,tps53689
             # TI DC-DC converters on PMBus
           - ti,tps544b20
           - ti,tps544b25

@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/pensando/pensando,capmem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AMD Pensando capability memory window
+
+maintainers:
+  - Brad Larson <blarson@amd.com>
+
+description:
+  Memory ranges made accessible to Pensando PCIe endpoints with per-range
+  attributes.
+
+properties:
+  compatible:
+    const: pensando,capmem
+
+  pensando,capmem-fixed-ranges:
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    description: Fixed capability memory ranges and attributes.
+
+  pensando,capmem-ranges:
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    deprecated: true
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    capmem {
+        compatible = "pensando,capmem";
+        pensando,capmem-fixed-ranges = <0x0 0x10000 0x0 0x70000000 0x0>;
+    };
+
+...

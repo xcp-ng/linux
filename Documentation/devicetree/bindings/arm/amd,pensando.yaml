@@ -7,19 +7,38 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: AMD Pensando SoC Platforms
 
 maintainers:
-  - Brad Larson <blarson@amd.com>
+  - Brad Larson <bradley.larson@amd.com>
+
+description:
+  Device trees for AMD Pensando Elba, Giglio, and Salina platform variants.
 
 properties:
   $nodename:
     const: "/"
+
   compatible:
     oneOf:
-
-      - description: Boards with Pensando Elba SoC
+      - description: Boards with AMD Pensando Elba SoC
         items:
           - enum:
               - amd,pensando-elba-ortano
           - const: amd,pensando-elba
+
+      - description: Boards with AMD Pensando Giglio SoC
+        items:
+          - const: amd,pensando-giglio
+
+      - description: Boards with Pensando Giglio SoC
+        items:
+          - const: pensando,giglio
+
+      - description: Boards with Pensando Salina SoC
+        items:
+          - const: pensando,salina
+
+      - description: Boards with Pensando Salina A35 SoC
+        items:
+          - const: pensando,salina-a35
 
 additionalProperties: true
 

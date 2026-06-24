@@ -1136,6 +1136,8 @@ patternProperties:
     description: Parade Technologies Inc.
   "^parallax,.*":
     description: Parallax Inc.
+  "^pensando,.*":
+    description: AMD Pensando (formerly Pensando Systems, Inc)
   "^pda,.*":
     description: Precision Design Associates, Inc.
   "^pericom,.*":
