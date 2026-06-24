@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+// SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
 /*
  * Copyright 2020-2023 Advanced Micro Devices, Inc.
  */
@@ -16,7 +16,7 @@
 
 		partition@10000 {
 			label = "flash";
-			reg = <0x10000 0xfff0000>;
+			reg = <0x10000 0x7ff0000>;
 		};
 
 		partition@f0000 {
@@ -95,23 +95,12 @@
 		};
 
 		partition@6a00000 {
-			label = "diaguboot";
-			reg = <0x6a00000 0x400000>;
-		};
-
-		partition@6e00000 {
-			label = "flashobfl";
-			reg = <0x6e00000 0x1200000>;
-		};
-
-		partition@8000000 {
 			label = "diagfw";
-			reg = <0x8000000 0x7fe0000>;
+			reg = <0x6a00000 0x15e0000>;
 		};
-
-		partition@ffe0000 {
+		partition@7fe0000 {
 			label = "ubootenv";
-			reg = <0xffe0000 0x10000>;
+			reg = <0x7fe0000 0x10000>;
 		};
 	};
 };
