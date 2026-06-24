@@ -554,6 +554,26 @@ config EDAC_NPCM
 	  error detection (in-line ECC in which a section 1/8th of the memory
 	  device used to store data is used for ECC storage).
 
+config EDAC_ELBA
+	tristate "Pensando Elba Memory ECC"
+	depends on ARCH_PENSANDO_ELBA_SOC || ARCH_PENSANDO_GIGLIO_SOC
+	help
+	  Support for error detection and correction on the
+	  Pensando Elba SoC.
+
+	  The memory controller supports single bit error correction and
+	  double bit error detection.
+
+config EDAC_SALINA
+	tristate "Pensando Salina Memory ECC"
+	depends on ARCH_PENSANDO
+	help
+	  Support for ECC error detection and correction on the AMD
+	  Pensando Salina SoC, which has four DDR5 memory controllers.
+	  Reports correctable single-bit errors and uncorrectable
+	  multi-bit errors through the EDAC subsystem. Say Y, or M to
+	  build it as a module.
+
 config EDAC_VERSAL
 	tristate "Xilinx Versal DDR Memory Controller"
 	depends on ARCH_ZYNQMP || COMPILE_TEST
