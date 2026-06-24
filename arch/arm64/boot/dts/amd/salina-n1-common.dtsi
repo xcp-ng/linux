@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+/*
+ * Copyright 2023-2024 Advanced Micro Devices, Inc.
+ */
+
+&ahb_clk {
+	clock-frequency = <400000000>;
+};
+
+&emmc_clk {
+	clock-frequency = <200000000>;
+};
+
+&flash_clk {
+	clock-frequency = <400000000>;
+};
+
+&ref_clk {
+	clock-frequency = <100000000>;
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "ok";
+};
+
+&gpio1 {
+	status = "ok";
+};
+
+&spi0 {
+	status = "okay";
+
+	spi@0 {
+		compatible = "amd,pensando-cpld-spimux";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cs0 = <&spi0 0>;
+		cs1 = <&spi0 1>;
+
+		spi@0 {
+			compatible = "amd,pensando-elbasr", "simple-mfd";
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <5000000>;
+
+			rstc: reset-controller@0 {
+				compatible = "amd,pensando-elbasr-reset";
+				reg = <0>;
+				spi-reset-frequency = <500000>;
+				#reset-cells = <1>;
+			};
+		};
+
+		spi@1 {
+			compatible = "amd,pensando-elbasr", "simple-mfd";
+			reg = <1>;
+			spi-max-frequency = <5000000>;
+		};
+
+		spi@2 {
+			compatible = "amd,pensando-cpld-rd1173";
+			reg = <2>;
+			spi-max-frequency = <12000000>;
+			interrupt-gpios = <&porta 0 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&porta>;
+			interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		spi@3 {
+			compatible = "amd,pensando-elbasr", "simple-mfd";
+			reg = <3>;
+			spi-max-frequency = <12000000>;
+		};
+	};
+};
+
+/*
+ * SPI1 (spi@c0000) drives the 512KB SST25WF040B (U6 on Leni), which is
+ * dedicated to ARM secure-mode code storage and owned by TF-A. Linux must
+ * not share the controller, so it is left disabled (SoC default) and is not
+ * enabled here.
+ */
+
+&qspi1 {
+	status = "okay";
+
+	flash0: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <40000000>;
+		spi-rx-bus-width = <2>;
+		m25p,fast-read;
+		cdns,read-delay = <6>;
+		cdns,tshsl-ns = <200>;
+		cdns,tsd2d-ns = <0>;
+		cdns,tchsh-ns = <0>;
+		cdns,tslch-ns = <0>;
+		write-block-size = <1024>;
+		erase-block-size = <4096>;
+	};
+};

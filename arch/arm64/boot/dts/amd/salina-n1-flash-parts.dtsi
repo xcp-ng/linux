@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+/*
+ * Copyright 2024 Advanced Micro Devices, Inc.
+ */
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* DPU 256MB Layout Partitions */
+		partition@40000 {
+			label = "pentrustfw0";
+			reg = <0x00040000 0x00020000>;
+		};
+
+		partition@60000 {
+			label = "pentrustfw1";
+			reg = <0x00060000 0x00020000>;
+		};
+
+		partition@80000 {
+			label = "a35_bl1_0";
+			reg = <0x00080000 0x00020000>;
+		};
+
+		partition@a0000 {
+			label = "a35_bl1_1";
+			reg = <0x000a0000 0x00020000>;
+		};
+
+		partition@c0000 {
+			label = "n1_bl1_0";
+			reg = <0x000c0000 0x00020000>;
+		};
+
+		partition@e0000 {
+			label = "n1_bl1_1";
+			reg = <0x000e0000 0x00020000>;
+		};
+
+		partition@100000 {
+			label = "a35_boot0";
+			reg = <0x00100000 0x00020000>;
+		};
+
+		partition@120000 {
+			label = "brdcfg0";
+			reg = <0x00120000 0x00010000>;
+		};
+
+		partition@130000 {
+			label = "brdcfg1";
+			reg = <0x00130000 0x00010000>;
+		};
+
+		partition@140000 {
+			label = "a35_gold_fip";
+			reg = <0x00140000 0x01e00000>;
+		};
+
+		partition@1f40000 {
+			label = "n1_gold_ubootenv";
+			reg = <0x01f40000 0x00010000>;
+		};
+
+		partition@1f50000 {
+			label = "n1_gold_fip";
+			reg = <0x01f50000 0x00400000>;
+		};
+
+		partition@2350000 {
+			label = "n1_gold_linux";
+			reg = <0x02350000 0x04000000>;
+		};
+
+		partition@6350000 {
+			label = "n1_boot0";
+			reg = <0x06350000 0x00020000>;
+		};
+
+		partition@6400000 {
+			label = "a35_gold_ubootenv";
+			reg = <0x06400000 0x00010000>;
+		};
+
+		partition@6800000 {
+			label = "a35_uboota";
+			reg = <0x06800000 0x00800000>;
+		};
+
+		partition@7000000 {
+			label = "a35_ubootb";
+			reg = <0x07000000 0x00800000>;
+		};
+
+		partition@7800000 {
+			label = "a35_golduboot";
+			reg = <0x07800000 0x07c00000>;
+		};
+
+		partition@7c00000 {
+			label = "a35_cpld_prgm";
+			reg = <0x07c00000 0x003e0000>;
+		};
+
+		partition@7fe0000 {
+			label = "a35_ubootenv";
+			reg = <0x07fe0000 0x00010000>;
+		};
+
+		partition@8000000 {
+			label = "a35_fip_a";
+			reg = <0x08000000 0x01e00000>;
+		};
+
+		partition@9e00000 {
+			label = "a35_fip_b";
+			reg = <0x09e00000 0x01e00000>;
+		};
+
+		partition@bc00000 {
+			label = "a35_fwsel";
+			reg = <0x0bc00000 0x00010000>;
+		};
+
+		partition@bc10000 {
+			label = "a35_runcfg0";
+			reg = <0x0bc10000 0x00020000>;
+		};
+
+		partition@bc30000 {
+			label = "a35_runcfg1";
+			reg = <0x0bc30000 0x00020000>;
+		};
+
+		partition@bc50000 {
+			label = "a35_bootlog";
+			reg = <0x0bc50000 0x00020000>;
+		};
+
+		partition@bc70000 {
+			label = "a35_runtime_log";
+			reg = <0x0bc70000 0x01000000>;
+		};
+
+		partition@cc70000 {
+			label = "n1_fip_a";
+			reg = <0x0cc70000 0x00400000>;
+		};
+
+		partition@d070000 {
+			label = "n1_fip_b";
+			reg = <0x0d070000 0x00400000>;
+		};
+
+		partition@d470000 {
+			label = "n1_uefi_vars";
+			reg = <0x0d470000 0x00020000>;
+		};
+
+		partition@d490000 {
+			label = "n1_user_vars";
+			reg = <0x0d490000 0x00020000>;
+		};
+
+		partition@d4b0000 {
+			label = "n1_fwsel";
+			reg = <0x0d4b0000 0x00010000>;
+		};
+
+		partition@d4c0000 {
+			label = "oprom";
+			reg = <0x0d4c0000 0x00080000>;
+		};
+
+		partition@fec0000 {
+			label = "fwcfg0";
+			reg = <0x0fec0000 0x00010000>;
+		};
+
+		partition@fed0000 {
+			label = "fwcfg1";
+			reg = <0x0fed0000 0x00010000>;
+		};
+
+		partition@ffc0000 {
+			label = "coredump_partition";
+			reg = <0x0ffc0000 0x00020000>;
+		};
+
+		partition@ffe0000 {
+			label = "n1_ubootenv";
+			reg = <0x0ffe0000 0x00010000>;
+		};
+	};
+};

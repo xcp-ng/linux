@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+/*
+ * Device Tree file for AMD Pensando Salina Board.
+ *
+ * Copyright 2023-2024 Advanced Micro Devices, Inc.
+ */
+
+/dts-v1/;
+
+#include "salina-asic.dtsi"
+#include "salina-16core.dtsi"
+#include "salina-16core-psci.dtsi"
+#include "salina-n1-common.dtsi"
+#include "salina-n1-flash-parts.dtsi"
+#include "elba-asic-memory.dtsi"
+#include "elba-mdev.dtsi"
+#include "salina-asic-common.dtsi"
+
+/ {
+	model = "Salina ASIC Board";
+	compatible = "pensando,salina";
+
+	aliases {
+		serial1 = &uart1;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		i2c0 = &i2c1;	/* i2c@20000 -> Linux i2c-0 */
+		i2c1 = &i2c2;   /* i2c@30000 -> Linux i2c-1 (Sensors) */
+		i2c2 = &i2c3;   /* i2c@40000 -> Linux i2c-2 (MCTP) */
+	};
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+
+	tawkipc {
+		compatible = "amd,tawk-ipc";
+		peer-id = <1>;
+		#address-cells = <2>;
+		#size-cells = <1>;
+		reg = <0x0 0x0 0x0 0x0>,  /* doorbells */
+			<0x0 0x0 0x0 0x0>, /* msix-like table */
+			<0x47 0xe1d2b100 0x0 0x8>,  /* reset signal registers */
+			<0x47 0xe1d2c100 0x0 0x10>,     /* mailbox control registers */
+			<0x47 0xe1d2d100 0x0 0x800>;    /* mailbox buffers */
+		rst-sigs = <0x4 0x0>;
+		nmboxes = <2>;
+		mbox-ctl = <0x0 0x3>;
+		mbox-buf = <0x0 0xa 0x400>;
+		status = "okay";
+	};
+};

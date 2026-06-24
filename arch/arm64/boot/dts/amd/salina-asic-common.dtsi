@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+/*
+ * Copyright 2023-2024 Advanced Micro Devices, Inc.
+ */
+
+#include <dt-bindings/i2c/i2c.h>
+#include <dt-bindings/reset/amd,pensando-elba-reset.h>
+
+&spi0 {
+	status = "okay";
+};
+
+/* SPI1 (U6 flash) is owned by ARM secure firmware (TF-A); not used by Linux. */
+&spi1 {
+	status = "disabled";
+};
+
+&emmc_clk {
+	clock-frequency = <208000000>;
+};
+
+&emmc0 {
+	bus-width = <8>;
+	cap-mmc-hw-reset;
+	reset-names = "hw";
+	resets = <&rstc EMMC_HW_RESET>;
+	status = "ok";
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	status = "disabled";
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+	temp-sensor@4c {
+		compatible = "ti,tmp451";
+		reg = <0x4c>;
+	};
+
+	ina3221@43 {
+		compatible = "ti,ina3221";
+		reg = <0x43>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		input@0 {
+			reg = <0>;
+			label = "P12VDIN";
+			shunt-resistor-micro-ohms = <2000>;
+		};
+
+		input@1 {
+			reg = <1>;
+			label = "V33";
+			shunt-resistor-micro-ohms = <1000>;
+		};
+
+		input@2 {
+			reg = <2>;
+			label = "VDDR";
+			shunt-resistor-micro-ohms = <1000>;
+		};
+	};
+
+	rtc@51 {
+		compatible = "nxp,pcf85263";
+		reg = <0x51>;
+	};
+
+	regulator@60 {
+		compatible = "ti,tps53659";
+		reg = <0x60>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+	multi-master;
+	mctp-controller;
+	status = "okay";
+
+	mctp@32 {
+		compatible = "mctp-i2c-controller";
+		reg = <(0x32 | I2C_OWN_SLAVE_ADDRESS)>;
+	};
+};
+
+&edac {
+	status = "okay";
+};
