@@ -66,6 +66,15 @@ config RESET_BRCMSTB_RESCAL
 	  This enables the RESCAL reset controller for SATA, PCIe0, or PCIe1 on
 	  BCM7216 or the BCM2712.
 
+config RESET_ELBASR
+	tristate "Pensando Elba System Resource reset controller"
+	depends on MFD_PENSANDO_ELBASR || COMPILE_TEST
+	help
+	  This option enables support for the external reset functions
+	  on the Pensando Elba System Resource Chip.  Reset control
+	  of peripherals is accessed over SPI to the system resource
+	  chip device registers using CS0.
+
 config RESET_EYEQ
 	bool "Mobileye EyeQ reset controller"
 	depends on MACH_EYEQ5 || MACH_EYEQ6H || COMPILE_TEST
