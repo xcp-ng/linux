@@ -2099,9 +2099,15 @@ static int arm_cmn_init_irqs(struct arm_cmn *cmn)
 				goto next;
 			}
 		}
+#ifdef CONFIG_ARCH_PENSANDO_SALINA_SOC
+		err = devm_request_irq(cmn->dev, irq, arm_cmn_handle_irq,
+				       IRQF_NOBALANCING | IRQF_NO_THREAD | IRQF_SHARED,
+				       dev_name(cmn->dev), &cmn->dtc[i]);
+#else
 		err = devm_request_irq(cmn->dev, irq, arm_cmn_handle_irq,
 				       IRQF_NOBALANCING | IRQF_NO_THREAD,
 				       dev_name(cmn->dev), &cmn->dtc[i]);
+#endif
 		if (err)
 			return err;
 
