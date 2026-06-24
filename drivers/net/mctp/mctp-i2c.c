@@ -315,6 +315,13 @@ static int mctp_i2c_recv(struct mctp_i2c_dev *midev)
 		return -EINVAL;
 	}
 
+	pr_debug("mctp-i2c rx: dst=0x%02x src=0x%02x cmd=0x%02x bytes=%u len=%zu\n",
+		 hdr->dest_slave >> 1, hdr->source_slave >> 1,
+		 hdr->command, hdr->byte_count, recvlen);
+
+	print_hex_dump_debug("mctp-i2c rx: ", DUMP_PREFIX_NONE, 16, 1,
+			     midev->rx_buffer, recvlen, false);
+
 	skb = netdev_alloc_skb(ndev, recvlen);
 	if (!skb) {
 		ndev->stats.rx_dropped++;
@@ -525,6 +532,13 @@ static void mctp_i2c_xmit(struct mctp_i2c_dev *midev, struct sk_buff *skb)
 	/* command, bytecount, data, pec */
 	msg.len = 2 + hdr->byte_count + 1;
 	msg.addr = hdr->dest_slave >> 1;
+
+	pr_debug("mctp-i2c tx: dst=0x%02x src=0x%02x cmd=0x%02x bytes=%u len=%d\n",
+		 hdr->dest_slave >> 1, hdr->source_slave >> 1,
+		 hdr->command, hdr->byte_count, msg.len);
+
+	print_hex_dump_debug("mctp-i2c tx: ", DUMP_PREFIX_NONE, 16, 1,
+			     msg.buf, msg.len, false);
 
 	switch (fs) {
 	case MCTP_I2C_TX_FLOW_NONE:
