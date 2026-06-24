@@ -12,6 +12,7 @@
 	__cpu_present_mask
 	__cpuhp_remove_state
 	__cpuhp_setup_state
+	__filemap_set_wb_err
 	__folio_lock
 	__folio_put
 	__fortify_panic
@@ -136,6 +137,7 @@
 	dump_stack
 	emergency_restart
 	end_page_writeback
+	errseq_set
 	fdget
 	fget
 	fiemap_fill_next_extent

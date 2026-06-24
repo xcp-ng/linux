@@ -20,6 +20,7 @@
 	__cpuhp_remove_state
 	__cpuhp_setup_state
 	__fentry__
+	__filemap_set_wb_err
 	__flush_workqueue
 	__folio_lock
 	__folio_put
@@ -209,6 +210,7 @@
 	emergency_restart
 	empty_zero_page
 	end_page_writeback
+	errseq_set
 	fc_attach_transport
 	fc_block_scsi_eh
 	fc_eh_timed_out
