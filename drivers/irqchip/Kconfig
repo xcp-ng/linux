@@ -741,4 +741,17 @@ config SUNPLUS_SP7021_INTC
 	  chained controller, routing all interrupt source in P-Chip to
 	  the primary controller on C-Chip.
 
+config IRQ_PENSANDO
+	bool "Support for Pensando SOC IRQ chip structure"
+	depends on ARCH_PENSANDO_ELBA_SOC || ARCH_PENSANDO_GIGLIO_SOC || ARCH_PENSANDO_SALINA_SOC
+	default y
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  Enable the Pensando SoC interrupt controller driver. It builds
+	  the hierarchical IRQ domains that, together with the SoC device
+	  tree, describe how the on-chip devices route their interrupts
+	  to the GIC. Required for interrupt delivery on the Elba, Giglio
+	  and Salina SoCs.
+
 endmenu
