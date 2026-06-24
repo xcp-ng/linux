@@ -16,7 +16,7 @@
 #include "pmbus.h"
 
 enum chips {
-	tps53647, tps53667, tps53676, tps53679, tps53681, tps53688
+	tps53647, tps53659, tps53667, tps53676, tps53679, tps53681, tps53688, tps53689
 };
 
 #define TPS53647_PAGE_NUM		1
@@ -29,6 +29,7 @@ enum chips {
 #define TPS53679_PROT_VR13_10MV		0x04 /* VR13.0 mode, 10-mV DAC */
 #define TPS53679_PROT_IMVP8_5MV		0x05 /* IMVP8 mode, 5-mV DAC */
 #define TPS53679_PROT_VR13_5MV		0x07 /* VR13.0 mode, 5-mV DAC */
+#define TPS53679_PROT_VR14_10MV		0x16 /* VR14.0 mode, 10-mv DAC */
 #define TPS53679_PAGE_NUM		2
 
 #define TPS53681_DEVICE_ID		0x81
@@ -56,6 +57,7 @@ static int tps53679_identify_mode(struct i2c_client *client,
 		switch (vout_params) {
 		case TPS53679_PROT_VR13_10MV:
 		case TPS53679_PROT_VR12_5_10MV:
+		case TPS53679_PROT_VR14_10MV:
 			info->vrm_version[i] = vr13;
 			break;
 		case TPS53679_PROT_VR13_5MV:
@@ -252,10 +254,20 @@ static int tps53679_probe(struct i2c_client *client)
 	case tps53676:
 		info->identify = tps53676_identify;
 		break;
+	case tps53659:
+		info->pages = TPS53679_PAGE_NUM;
+		info->identify = tps53679_identify;
+		info->func[0] |= PMBUS_HAVE_PIN;
+		break;
 	case tps53679:
 	case tps53688:
 		info->pages = TPS53679_PAGE_NUM;
 		info->identify = tps53679_identify;
+		break;
+	case tps53689:
+		info->pages = TPS53679_PAGE_NUM;
+		info->identify = tps53679_identify;
+		info->format[PSC_VOLTAGE_OUT] = linear;
 		break;
 	case tps53681:
 		info->pages = TPS53679_PAGE_NUM;
@@ -273,11 +285,13 @@ static int tps53679_probe(struct i2c_client *client)
 static const struct i2c_device_id tps53679_id[] = {
 	{"bmr474", tps53676},
 	{"tps53647", tps53647},
+	{"tps53659", tps53659},
 	{"tps53667", tps53667},
 	{"tps53676", tps53676},
 	{"tps53679", tps53679},
 	{"tps53681", tps53681},
 	{"tps53688", tps53688},
+	{"tps53689", tps53689},
 	{}
 };
 
@@ -285,11 +299,13 @@ MODULE_DEVICE_TABLE(i2c, tps53679_id);
 
 static const struct of_device_id __maybe_unused tps53679_of_match[] = {
 	{.compatible = "ti,tps53647", .data = (void *)tps53647},
+	{.compatible = "ti,tps53659", .data = (void *)tps53659},
 	{.compatible = "ti,tps53667", .data = (void *)tps53667},
 	{.compatible = "ti,tps53676", .data = (void *)tps53676},
 	{.compatible = "ti,tps53679", .data = (void *)tps53679},
 	{.compatible = "ti,tps53681", .data = (void *)tps53681},
 	{.compatible = "ti,tps53688", .data = (void *)tps53688},
+	{.compatible = "ti,tps53689", .data = (void *)tps53689},
 	{}
 };
 MODULE_DEVICE_TABLE(of, tps53679_of_match);
