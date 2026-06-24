@@ -164,4 +164,52 @@ config UIO_DFL
 	    opae-sdk/tools/libopaeuio/
 
 	  If you compile this as a module, it will be called uio_dfl.
+
+config UIO_PCIEMAC
+	tristate "Include PCI MAC status driver"
+	default "y"
+	select UIO_PENGIC
+	depends on ARCH_PENSANDO_ELBA_SOC || ARCH_PENSANDO_GIGLIO_SOC || ARCH_PENSANDO_SALINA_SOC
+	help
+	  Driver that allows handling of ring2 on Pensando Elba systems. It
+	  is useful for having a userspace driver that can handle GIC 17
+	  interrupts.
+
+	  If you compile this as a module, it will be called uio_pciemac.
+
+config UIO_LINKMAC
+	tristate "Include Pensando Elba uplink MAC status driver"
+	default "y"
+	select UIO_PENGIC
+	depends on ARCH_PENSANDO_ELBA_SOC || ARCH_PENSANDO_GIGLIO_SOC || ARCH_PENSANDO_SALINA_SOC
+	help
+	  Userspace I/O driver that exposes the Ethernet uplink MAC status
+	  registers of the Pensando SoC so that a userspace driver can
+	  monitor and decode link and ASIC status changes. Builds on the
+	  pengic UIO helper.
+
+	  If you compile this as a module, it will be called uio_linkmac0.
+
+config UIO_PENMSI1
+	tristate "Driver 1 for MSI"
+	default "y"
+	select UIO_PENMSI
+	depends on ARCH_PENSANDO_ELBA_SOC || ARCH_PENSANDO_GIGLIO_SOC || ARCH_PENSANDO_SALINA_SOC
+	help
+	  Userspace I/O driver that lets a userspace driver receive MSI
+	  interrupts and read the associated MSI data for the Pensando
+	  SoC. Builds on the penmsi UIO helper to deliver interrupts to
+	  userspace.
+
+	  If you compile this as a module, it will be called uio_pengmsi1.
+
+config UIO_PENGIC
+	tristate
+	depends on ARCH_PENSANDO
+	default n
+
+config UIO_PENMSI
+	tristate
+	depends on ARCH_PENSANDO
+	default n
 endif
