@@ -297,6 +297,21 @@ config SPI_COLDFIRE_QSPI
 	  This enables support for the Coldfire QSPI controller in master
 	  mode.
 
+config SPI_CPLD_SPIMUX
+	tristate "AMD Pensando Salina CPLD SPI mux"
+	depends on ARCH_PENSANDO_SALINA_SOC && SPI_MASTER
+	help
+	  This driver supports the CPLD-based SPI multiplexer
+	  present on AMD Pensando Salina platforms.
+
+	  The CPLD requires a register write on chip select 0
+	  to select the downstream SPI target before accessing
+	  devices behind chip selects 1..3.
+
+	  This driver exposes a virtual SPI controller which
+	  performs the required mux sequencing transparently
+	  for SPI clients.
+
 config SPI_CS42L43
 	tristate "Cirrus Logic CS42L43 SPI controller"
 	depends on MFD_CS42L43 && PINCTRL_CS42L43
