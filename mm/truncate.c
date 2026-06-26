@@ -186,7 +186,7 @@ static int try_folio_split_or_unmap(struct folio *folio)
 		TTU_IGNORE_MLOCK;
 	int ret;
 
-	ret = split_folio(folio);
+	ret = split_folio_to_order(folio, min_order_for_split(folio));
 
 	/*
 	 * If the split fails, unmap the folio, so it will be refaulted
