@@ -120,7 +120,6 @@ struct its_node {
 	unsigned int		msi_domain_flags;
 	u32			pre_its_base; /* for Socionext Synquacer */
 	int			vlpi_redist_offset;
-	u64			msi_encapsulator;
 };
 
 #define is_v4(its)		(!!((its)->typer & GITS_TYPER_VLPIS))
@@ -1720,8 +1719,6 @@ static u64 its_irq_get_msi_base(struct its_device *its_dev)
 {
 	struct its_node *its = its_dev->its;
 
-	if (its->msi_encapsulator)
-		return its->msi_encapsulator;
 	return its->phys_base + GITS_TRANSLATER;
 }
 
@@ -5492,10 +5489,6 @@ static int __init its_of_probe(struct device_node *node)
 		if (err)  {
 			its_node_destroy(its);
 			return err;
-		}
-		if (of_address_to_resource(np, 1, &res) == 0) {
-			its->msi_encapsulator = res.start;
-                        pr_info("its msi encapsulator 0x%llx\n", its->msi_encapsulator);
 		}
 	}
 	return 0;
