@@ -9,7 +9,7 @@
 
 #include "salina-asic.dtsi"
 #include "salina-16core.dtsi"
-#include "salina-16core-spin-table.dtsi"
+#include "salina-16core-psci.dtsi"
 #include "salina-n1-common.dtsi"
 #include "salina-n1-flash-parts.dtsi"
 #include "elba-asic-memory.dtsi"
