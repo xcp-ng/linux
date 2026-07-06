@@ -59,6 +59,8 @@ modules-core:
 - cuse
 - dh_generic
 - dns_resolver
+- dwmac-altr-socfpga
+- dwmac-generic
 - efivarfs
 - em_cmp
 - em_meta
@@ -70,7 +72,9 @@ modules-core:
 - exfat
 - ext2
 - failover
+- fixed_phy
 - fuse
+- fwnode_mdio
 - grace
 - gre
 - hwpoison-inject
@@ -90,11 +94,15 @@ modules-core:
 - l2tp_netlink
 - libarc4
 - libceph
+- libphy
 - lockd
+- mdio_devres
+- mdio-regmap
 - md4
 - mhi
 - mhi_net
 - mhi_pci_generic
+- mii
 - mip6
 - mpls_gso
 - msdos
@@ -110,7 +118,11 @@ modules-core:
 - nfsv4
 - nls_ascii
 - nls_utf8
+- of_mdio
+- pcs-lynx
+- pcs_xpcs
 - pkcs7_test_key
+- phylink
 - psample
 - qrtr
 - qrtr-mhi
@@ -148,6 +160,9 @@ modules-core:
 - sch_teql
 - sctp
 - sctp_diag
+- selftests
+- stmmac
+- stmmac-platform
 - sunrpc
 - tcp_bbr
 - tcp_bic
