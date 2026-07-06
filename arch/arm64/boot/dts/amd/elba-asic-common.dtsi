@@ -3,8 +3,6 @@
  * Copyright 2020-2022 Advanced Micro Devices, Inc.
  */
 
-#include <dt-bindings/reset/amd,pensando-elba-reset.h>
-
 &ahb_clk {
 	clock-frequency = <400000000>;
 };
@@ -45,12 +43,6 @@
 &emmc {
 	bus-width = <8>;
 	cap-mmc-hw-reset;
-	reset-names = "hw";
-	resets = <&rstc EMMC_HW_RESET>;
-	status = "okay";
-};
-
-&edac {
 	status = "okay";
 };
 
@@ -75,38 +67,4 @@
 	cs-gpios = <0>, <0>, <&porta 1 GPIO_ACTIVE_LOW>,
 		   <&porta 7 GPIO_ACTIVE_LOW>;
 	status = "okay";
-
-	spi@0 {
-		compatible = "amd,pensando-elbasr", "simple-mfd";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		spi-max-frequency = <12000000>;
-
-		rstc: reset-controller@0 {
-			compatible = "amd,pensando-elbasr-reset";
-			reg = <0>;
-			#reset-cells = <1>;
-		};
-	};
-
-	spi@1 {
-		compatible = "amd,pensando-elbasr", "simple-mfd";
-		reg = <1>;
-		spi-max-frequency = <12000000>;
-	};
-
-	spi@2 {
-		compatible = "amd,pensando-cpld-rd1173";
-		reg = <2>;
-		spi-max-frequency = <12000000>;
-		interrupt-parent = <&porta>;
-		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
-	};
-
-	spi@3 {
-		compatible = "amd,pensando-elbasr", "simple-mfd";
-		reg = <3>;
-		spi-max-frequency = <12000000>;
-	};
 };
