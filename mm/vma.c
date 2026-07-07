@@ -1386,12 +1386,18 @@ int install_rsvd_mapping(struct mm_struct *mm, unsigned long addr,
 
 	mmap_assert_write_locked(mm);
 
+	if (!may_expand_vm(mm, flags, len >> PAGE_SHIFT))
+		return -ENOMEM;
+
 	vmg.next = vma_next(&vmi);
 	vmg.prev = vma_prev(&vmi);
 	vma_iter_set(&vmi, addr);
 
 	if (vma_merge_new_range(&vmg))
 		goto complete;
+
+	if (mm->map_count >= sysctl_max_map_count)
+		return -ENOMEM;
 
 	vma = vm_area_alloc(mm);
 	if (unlikely(!vma))
