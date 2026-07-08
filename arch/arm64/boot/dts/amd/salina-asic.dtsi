@@ -382,6 +382,7 @@
 		bsm_a35: bsm_a35@61000200 {
 			compatible = "pensando,bsm";
 			reg = <0x0 0x61000200 0x0 0x4>;
+			read-only;
 		};
 
 		panic: panicdump@0 {

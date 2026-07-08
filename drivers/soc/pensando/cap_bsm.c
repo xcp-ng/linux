@@ -15,6 +15,7 @@ struct bsm {
 	void __iomem *base;
 	resource_size_t phys;
 	uint32_t val;
+	bool read_only;
 };
 
 #define BSM_MAX_INSTANCES 4
@@ -59,6 +60,9 @@ static ssize_t success_store(struct device *dev,
 {
 	struct bsm *b = dev_get_drvdata(dev);
 	long val;
+
+	if (b->read_only)
+		return -EPERM;
 
 	if (kstrtoul(buf, 0, &val) < 0)
 		return -EINVAL;
@@ -173,6 +177,7 @@ static int __init cap_bsm_init(void)
 
 		b = &bsm_instances[bsm_count];
 		b->phys = res.start;
+		b->read_only = of_property_read_bool(np, "read-only");
 		b->base = ioremap(res.start, resource_size(&res));
 		if (!b->base) {
 			pr_err("bsm: failed to map register for %s\n", np->name);
@@ -181,7 +186,7 @@ static int __init cap_bsm_init(void)
 
 		b->val = readl(b->base);
 #ifdef CONFIG_PENSANDO_SOC_BSM_ENABLE
-		if (b->val & (1 << BSM_AUTOBOOT_LSB)) {
+		if (!b->read_only && (b->val & (1 << BSM_AUTOBOOT_LSB))) {
 			b->val |= 1 << BSM_RUNNING_LSB;
 			writel(b->val, b->base);
 		}
