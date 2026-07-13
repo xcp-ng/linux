@@ -16,3 +16,4 @@ obj-$(CONFIG_ARM64_PLATFORM_DEVICES)	+= arm64/
 obj-$(CONFIG_ARISTA_SCD_DRIVER) += arista-sonic/
 obj-$(CONFIG_BCM_HSDK_GPL)	+=  bcm-hsdk-gpl/
 obj-y				+= pddf-sonic/
+obj-$(CONFIG_NEXTHOP_SONIC_DRIVERS) += nexthop-sonic/
