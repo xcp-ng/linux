@@ -1754,6 +1754,11 @@ modules-core:
 - nft_tproxy
 - nft_tunnel
 - nft_xfrm
+- nh_adm1266
+- nh_isl68137
+- nh_pmbus_core
+- nh_tda38740
+- nh_tmp464
 - nhc_dest
 - nhc_fragment
 - nhc_ghc_ext_dest
@@ -1955,6 +1960,8 @@ modules-core:
 - pddf_cpld_module
 - pddf_cpldmux_driver
 - pddf_cpldmux_module
+- pddf_custom_fpga_algo
+- pddf_custom_mdio_algo
 - pddf_fan_driver_module
 - pddf_fan_module
 - pddf_fpgai2c_driver
