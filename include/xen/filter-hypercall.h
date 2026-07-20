@@ -20,7 +20,12 @@ int post_hypercall(struct filtercall *fc);
 #endif /* !__ASSEMBLY__ */
 
 /* Current filter code uses 9.0 XS ABI compatibility */
-#define PRIVCMD_FILTERING_ABI_VERSION _AC(0x90001,UL)
+
+/* XCP-ng vendor ID */
+#define FILTER_VENDOR_XCPNG   (1UL << 31)
+
+#define PRIVCMD_FILTERING_ABI_VERSION \
+    (FILTER_VENDOR_XCPNG | _AC(0x90001, UL))
 
 #endif
 
