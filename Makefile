@@ -5,7 +5,7 @@ SUBLEVEL = 0
 EXTRAVERSION =
 NAME = Baby Opossum Posse
 
-#LTS version v6.12.92
+#LTS version v6.12.93
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
