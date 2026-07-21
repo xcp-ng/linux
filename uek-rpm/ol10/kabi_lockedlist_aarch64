@@ -16,6 +16,7 @@
 	__folio_lock
 	__folio_put
 	__fortify_panic
+	__fs_parse
 	__generic_file_write_iter
 	__init_rwsem
 	__init_swait_queue_head
@@ -178,6 +179,7 @@
 	generic_permission
 	generic_write_checks
 	get_random_bytes
+	get_tree_bdev
 	get_user_pages
 	grab_cache_page_write_begin
 	igrab
