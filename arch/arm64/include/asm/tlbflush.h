@@ -181,26 +181,6 @@ static inline unsigned long get_trans_granule(void)
 		(__pages >> (5 * (scale) + 1)) - 1;			\
 	})
 
-#define __repeat_tlbi_sync(op, arg...)						\
-do {										\
-	if (!alternative_has_cap_unlikely(ARM64_WORKAROUND_REPEAT_TLBI_SYNC))	\
-		break;								\
-	__tlbi(op, ##arg);							\
-	dsb(ish);								\
-} while (0)
-
-static inline void __tlbi_sync_s1ish(void)
-{
-	dsb(ish);
-	__repeat_tlbi_sync(vale1is, 0);
-}
-
-static inline void __tlbi_sync_s1ish_hyp(void)
-{
-	dsb(ish);
-	__repeat_tlbi_sync(vale2is, 0);
-}
-
 /*
  *	TLB Invalidation
  *	================
@@ -286,7 +266,7 @@ static inline void flush_tlb_all(void)
 {
 	dsb(ishst);
 	__tlbi(vmalle1is);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 	isb();
 }
 
@@ -298,7 +278,7 @@ static inline void flush_tlb_mm(struct mm_struct *mm)
 	asid = __TLBI_VADDR(0, ASID(mm));
 	__tlbi(aside1is, asid);
 	__tlbi_user(aside1is, asid);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 	mmu_notifier_arch_invalidate_secondary_tlbs(mm, 0, -1UL);
 }
 
@@ -325,7 +305,7 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 				  unsigned long uaddr)
 {
 	flush_tlb_page_nosync(vma, uaddr);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 }
 
 static inline bool arch_tlbbatch_should_defer(struct mm_struct *mm)
@@ -372,7 +352,7 @@ static inline void arch_flush_tlb_batched_pending(struct mm_struct *mm)
  */
 static inline void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
 {
-	__tlbi_sync_s1ish();
+	dsb(ish);
 }
 
 /*
@@ -498,7 +478,7 @@ static inline void __flush_tlb_range(struct vm_area_struct *vma,
 {
 	__flush_tlb_range_nosync(vma, start, end, stride,
 				 last_level, tlb_level);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 }
 
 static inline void flush_tlb_range(struct vm_area_struct *vma,
@@ -528,7 +508,7 @@ static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end
 	dsb(ishst);
 	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12))
 		__tlbi(vaale1is, addr);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 	isb();
 }
 
@@ -542,7 +522,7 @@ static inline void __flush_tlb_kernel_pgtable(unsigned long kaddr)
 
 	dsb(ishst);
 	__tlbi(vaae1is, addr);
-	__tlbi_sync_s1ish();
+	dsb(ish);
 	isb();
 }
 #endif
