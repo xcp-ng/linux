@@ -793,6 +793,9 @@ static unsigned int __max_nr_grant_frames(void)
 	struct gnttab_query_size query;
 	int rc;
 
+	if ( xen_fastabi_force )
+		return xen_auto_xlat_grant_frames.count;
+
 	query.dom = DOMID_SELF;
 
 	rc = HYPERVISOR_grant_table_op(GNTTABOP_query_size, &query, 1);
