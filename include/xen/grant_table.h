@@ -84,6 +84,7 @@ struct gntab_unmap_queue_data
 };
 
 int gnttab_init(void);
+void gnttab_use_version(unsigned int version);
 #ifdef CONFIG_HIBERNATE_CALLBACKS
 int gnttab_suspend(void);
 int gnttab_resume(void);

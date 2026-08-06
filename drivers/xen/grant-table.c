@@ -1544,10 +1544,30 @@ static bool gnttab_need_v2(void)
 	return !!(max_possible_pfn >> 32);
 }
 
+void gnttab_use_version(unsigned int version)
+{
+	switch (version)
+	{
+		case 2:
+			gnttab_interface = &gnttab_v2_ops;
+			break;
+		case 1:
+		default:
+			gnttab_interface = &gnttab_v1_ops;
+			break;
+	}
+			
+	pr_info("Grant tables using version %d layout\n",
+		gnttab_interface->version);
+}
+
 static void gnttab_request_version(void)
 {
 	long rc;
 	struct gnttab_set_version gsv;
+
+	if ( xen_fastabi_force )
+		return;
 
 	if (gnttab_need_v2())
 		gsv.version = 2;
@@ -1559,12 +1579,8 @@ static void gnttab_request_version(void)
 		gsv.version = xen_gnttab_version;
 
 	rc = HYPERVISOR_grant_table_op(GNTTABOP_set_version, &gsv, 1);
-	if (rc == 0 && gsv.version == 2)
-		gnttab_interface = &gnttab_v2_ops;
-	else
-		gnttab_interface = &gnttab_v1_ops;
-	pr_info("Grant tables using version %d layout\n",
-		gnttab_interface->version);
+
+	gnttab_use_version(rc == 0 ? gsv.version : 1);
 }
 
 static int gnttab_setup(void)

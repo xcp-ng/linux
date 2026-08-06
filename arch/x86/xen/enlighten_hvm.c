@@ -281,7 +281,6 @@ static __init void xen_hvm_guest_late_init(void)
 
 	set_fixmap(FIX_XEN_SHARED_INFO, PFN_PHYS(shared_info_pfn));
 	HYPERVISOR_shared_info = (void *)fix_to_virt(FIX_XEN_SHARED_INFO);
-	//HYPERVISOR_shared_info = phys_to_virt(PFN_PHYS(shared_info_pfn));
 
 	set_memory_decrypted((unsigned long)HYPERVISOR_shared_info, 1);
 
@@ -390,8 +389,8 @@ struct hypervisor_x86 x86_hyper_xen_hvm __initdata = {
 	.type			= X86_HYPER_XEN_HVM,
 	.init.init_platform     = xen_hvm_guest_init,
 	.init.x2apic_available  = xen_x2apic_available,
-	.init.init_mem_mapping = xen_hvm_init_mem_mapping,
-	.init.guest_late_init	= xen_hvm_guest_late_init,
+	.init.init_mem_mapping  = xen_hvm_init_mem_mapping,
+	.init.guest_late_init	  = xen_hvm_guest_late_init,
 	.init.msi_ext_dest_id   = msi_ext_dest_id,
 	.runtime.pin_vcpu       = xen_pin_vcpu,
 	.runtime.sev_es_hcall_prepare = xen_sev_es_hcall_prepare,

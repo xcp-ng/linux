@@ -155,7 +155,6 @@ err:
 static int arch_gnttab_setup_e820(void)
 {
 	int rc;
-	unsigned long max_grant_frames = gnttab_max_grant_frames();
 	bool found_gnttab = false, found_grant_status = false;
 
 	for (unsigned int i = 0; i < e820_table->nr_entries; i++) {
@@ -168,13 +167,6 @@ static int arch_gnttab_setup_e820(void)
 		if ((entry.addr & 0xFFF) != 0 || (entry.size & 0xFFF) != 0) {
 				pr_warn("Ignoring misaligned grant e820 entry (%u)\n", entry.type);
 				break;
-		}
-
-		if (entry.type == E820_XEN_TYPE_GRANT_TABLE) {
-			if (PFN_DOWN(entry.size) != max_grant_frames) {
-				pr_warn("e820 grant table entry doesn't match grant table size\n");
-				break;
-			}
 		}
 		
 		switch (entry.type) {
@@ -208,9 +200,15 @@ static int arch_gnttab_setup_e820(void)
 	if ( found_gnttab ) {
 		xen_gnttab_auto_mapped = true;
 		pr_info("Using E820 provided grant table\n");
+
+		if ( found_grant_status )
+			gnttab_use_version(2);
+		else
+		 	gnttab_use_version(1);
+		return 0;
 	}
 
-	return found_gnttab ? 0 : -ENOENT;
+	return -ENOENT;
 }
 
 #ifdef CONFIG_XEN_PVH

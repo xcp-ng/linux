@@ -93,8 +93,9 @@ void xen_hypercall_setfunc(void)
 	else
 		static_call_update(xen_hypercall, xen_hypercall_intel);
 
-	if (boot_cpu_has(X86_FEATURE_CPUID) &&
-		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI)) {
+	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT) || 
+			(boot_cpu_has(X86_FEATURE_CPUID) &&
+		  (cpuid_eax(xen_cpuid_base() + 4) & XEN_HVM_CPUID_FASTABI))) {
 		xen_use_fastabi = true;
 
 		if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))

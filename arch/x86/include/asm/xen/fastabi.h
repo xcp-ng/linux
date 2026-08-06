@@ -19,7 +19,6 @@
 
 #include <xen/interface/fastabi/sched.h>
 #include <xen/interface/fastabi/event_channel.h>
-#include <xen/interface/fastabi/grant_table.h>
 #include <xen/interface/fastabi/hvm.h>
 #include <xen/interface/fastabi/memory.h>
 #include <xen/interface/fastabi/vcpu.h>
@@ -146,18 +145,6 @@ int xen_fastabi_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 	WARN(count != 1, "TODO: Needs to deal with batched grant_table_op");
 	
 	switch (cmd) {
-		case GNTTABOP_map_grant_ref:
-			return xen_hypercall_grant_table_map_grant_ref(xen_fastabi_hypercall_vendor, uop);
-		case GNTTABOP_unmap_grant_ref:
-			return xen_hypercall_grant_table_unmap_grant_ref(xen_fastabi_hypercall_vendor, uop);
-		case GNTTABOP_query_size:
-			return xen_hypercall_grant_table_query_size(xen_fastabi_hypercall_vendor, uop);
-		case GNTTABOP_set_version:
-			return xen_hypercall_grant_table_set_version(xen_fastabi_hypercall_vendor, uop);
-		case GNTTABOP_get_status_frames:
-			WARN_ONCE(1, "xen-fastabi: GNTTABOP_get_status_frames is not implemented");
-			return -EOPNOTSUPP;
-
 		default:
 			printk("Unhandled grant_table_op %u\n", cmd);
 			return -EOPNOTSUPP;
