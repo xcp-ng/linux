@@ -8,6 +8,7 @@
  *
  * Jeremy Fitzhardinge <jeremy@xensource.com>, XenSource Inc, 2007
  */
+#include "xen/interface/features.h"
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/cc_platform.h>
@@ -450,20 +451,24 @@ static void xen_setup_vsyscall_time_info(void)
 	struct vcpu_register_time_memory_area t;
 	struct pvclock_vsyscall_time_info *ti;
 	int ret;
+	unsigned int op;
+	bool use_phys = xen_feature(XENFEAT_vcpu_time_phys_area);
 
 	ti = (struct pvclock_vsyscall_time_info *)get_zeroed_page(GFP_KERNEL);
 	if (!ti)
 		return;
 	set_memory_decrypted((unsigned long)ti, 1);
 
-	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
+	if (use_phys) {
 		t.addr.p = virt_to_phys(&ti->pvti);
-		ret = HYPERVISOR_vcpu_op(VCPUOP_register_vcpu_time_phys_area, 0, &t);
+		op = VCPUOP_register_vcpu_time_phys_area;
 	} else {
 	 	t.addr.v = &ti->pvti;
-		ret = HYPERVISOR_vcpu_op(VCPUOP_register_vcpu_time_memory_area, 0, &t);
+		op = VCPUOP_register_vcpu_time_memory_area;
 	}
-
+	
+	ret = HYPERVISOR_vcpu_op(op, 0, &t);
+	
 	if (ret) {
 		pr_notice("xen: VDSO_CLOCKMODE_PVCLOCK not supported (err %d)\n", ret);
 		free_page((unsigned long)ti);
@@ -477,8 +482,7 @@ static void xen_setup_vsyscall_time_info(void)
 	 */
 	if (!(ti->pvti.flags & PVCLOCK_TSC_STABLE_BIT)) {
 		t.addr.v = NULL;
-		ret = HYPERVISOR_vcpu_op(VCPUOP_register_vcpu_time_phys_area,
-					 0, &t);
+		ret = HYPERVISOR_vcpu_op(op, 0, &t);
 		if (!ret)
 			free_page((unsigned long)ti);
 

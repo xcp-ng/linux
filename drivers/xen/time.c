@@ -22,7 +22,7 @@
 #include <xen/xen-ops.h>
 
 /* runstate info updated by Xen */
-static DEFINE_PER_CPU_PAGE_ALIGNED(struct vcpu_runstate_info, xen_runstate);
+static DEFINE_PER_CPU_DECRYPTED(struct vcpu_runstate_info, xen_runstate);
 
 static DEFINE_PER_CPU(u64[4], old_runstate_time);
 
@@ -155,19 +155,26 @@ u64 xen_steal_clock(int cpu)
 void xen_setup_runstate_info(int cpu)
 {
 	struct vcpu_register_runstate_memory_area area;
-	area.addr.p = virt_to_phys(&per_cpu(xen_runstate, cpu));
+	unsigned int op;
+	
+	if ( xen_feature(XENFEAT_runstate_phys_area) )
+	{
+		op = VCPUOP_register_runstate_phys_area;
+		area.addr.p = virt_to_phys(&per_cpu(xen_runstate, cpu));
+	}
+	else
+	{
+		op = VCPUOP_register_runstate_memory_area;
+		area.addr.v = &per_cpu(xen_runstate, cpu);
+	}
 
-	if (HYPERVISOR_vcpu_op(VCPUOP_register_runstate_phys_area,
-			       xen_vcpu_nr(cpu), &area))
+	if (HYPERVISOR_vcpu_op(op, xen_vcpu_nr(cpu), &area))
 		BUG();
 }
 
 void __init xen_time_setup_guest(void)
 {
 	bool xen_runstate_remote;
-	//size_t nr_pages = PAGE_ALIGN(NR_CPUS * sizeof(struct vcpu_runstate_info)) / PAGE_SIZE;
-
-	set_memory_decrypted((unsigned long)&xen_runstate, 1);
 
 	xen_runstate_remote = !HYPERVISOR_vm_assist(VMASST_CMD_enable,
 					VMASST_TYPE_runstate_update_flag);

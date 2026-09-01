@@ -38,7 +38,7 @@ EXPORT_STATIC_CALL_TRAMP(xen_hypercall);
  * which matches the cache line size of 64-bit x86 processors).
  */
 DEFINE_PER_CPU(struct vcpu_info *, xen_vcpu);
-DEFINE_PER_CPU_PAGE_ALIGNED(struct vcpu_info, xen_vcpu_info);
+DEFINE_PER_CPU_DECRYPTED(struct vcpu_info, xen_vcpu_info);
 
 /* Linux <-> Xen vCPU id mapping */
 DEFINE_PER_CPU(uint32_t, xen_vcpu_id);

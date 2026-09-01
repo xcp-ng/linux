@@ -121,28 +121,7 @@ void __init xen_prepare_pvh(void)
 	u32 msr;
 	bool xen_guest;
 
-	#if 0
-	#ifdef CONFIG_AMD_MEM_ENCRYPT
 	if (pvh_start_info.flags & SIF_HVM_GHCB) {
-		/* Before doing anything that will #VC, we need to setup the GHCB handler */
-		unsigned long ghcb_msr;
-		cc_vendor = CC_VENDOR_AMD;
-		/* 
-		 * Set meaningful values of sev_status and sme_me_mask, fortunately,
-		 * we haven't touched GHCB MSR, so it still contains relevant informations.
-		 */
-		rdmsrl(MSR_AMD64_SEV, sev_status);
-		rdmsrl(MSR_AMD64_SEV_ES_GHCB, ghcb_msr);
-
-		/* C-bit is at GHCB_MSR[31:24] */
-		sme_me_mask = 1LU << ((ghcb_msr >> 24) & 0x7F);
-
-		early_setup_idt();
-	}
-	#endif
-	#endif
-
-	if ( pvh_start_info.flags & SIF_HVM_GHCB ) {
 		xen_guest = true;
 	} else {
 		msr = xen_cpuid_base();
