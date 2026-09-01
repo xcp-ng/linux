@@ -48,8 +48,7 @@ void populate_pvinfo_page(struct intel_vgpu *vgpu)
 	vgpu_vreg_t(vgpu, vgtif_reg(vgt_caps)) |= VGT_CAPS_HWSP_EMULATION;
 	vgpu_vreg_t(vgpu, vgtif_reg(vgt_caps)) |= VGT_CAPS_HUGE_GTT;
 
-	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.base)) =
-		vgpu_aperture_gmadr_base(vgpu);
+	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.base)) = 0;
 	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.size)) =
 		vgpu_aperture_sz(vgpu);
 	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.nonmappable_gmadr.base)) =
@@ -91,7 +90,7 @@ static struct {
 } vgpu_types[] = {
 /* Fixed vGPU type table */
 	{ MB_TO_BYTES(64), MB_TO_BYTES(384), 4, VGPU_WEIGHT(8), GVT_EDID_1024_768, "8" },
-	{ MB_TO_BYTES(128), MB_TO_BYTES(512), 4, VGPU_WEIGHT(4), GVT_EDID_1920_1200, "4" },
+	{ MB_TO_BYTES(128), MB_TO_BYTES(384), 4, VGPU_WEIGHT(8), GVT_EDID_1920_1080, "8" },
 	{ MB_TO_BYTES(256), MB_TO_BYTES(1024), 4, VGPU_WEIGHT(2), GVT_EDID_1920_1200, "2" },
 	{ MB_TO_BYTES(512), MB_TO_BYTES(2048), 4, VGPU_WEIGHT(1), GVT_EDID_1920_1200, "1" },
 };
@@ -214,6 +213,7 @@ void intel_gvt_activate_vgpu(struct intel_vgpu *vgpu)
 {
 	mutex_lock(&vgpu->gvt->lock);
 	vgpu->active = true;
+	intel_vgpu_start_schedule(vgpu);
 	mutex_unlock(&vgpu->gvt->lock);
 }
 
@@ -430,10 +430,6 @@ static struct intel_vgpu *__intel_gvt_create_vgpu(struct intel_gvt *gvt,
 	if (ret)
 		goto out_clean_sched_policy;
 
-	ret = intel_gvt_hypervisor_set_opregion(vgpu);
-	if (ret)
-		goto out_clean_sched_policy;
-
 	return vgpu;
 
 out_clean_sched_policy:
@@ -530,6 +526,9 @@ void intel_gvt_reset_vgpu_locked(struct intel_vgpu *vgpu, bool dmlr,
 {
 	struct intel_gvt *gvt = vgpu->gvt;
 	struct intel_gvt_workload_scheduler *scheduler = &gvt->scheduler;
+	u64 maddr = vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.base));
+	u64 unmaddr = vgpu_vreg_t(vgpu,
+				vgtif_reg(avail_rs.nonmappable_gmadr.base));
 	unsigned int resetting_eng = dmlr ? ALL_ENGINES : engine_mask;
 
 	gvt_dbg_core("------------------------------------------\n");
@@ -562,6 +561,10 @@ void intel_gvt_reset_vgpu_locked(struct intel_vgpu *vgpu, bool dmlr,
 
 		intel_vgpu_reset_mmio(vgpu, dmlr);
 		populate_pvinfo_page(vgpu);
+		vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.base)) =
+			maddr;
+		vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.nonmappable_gmadr.base)) =
+			unmaddr;
 
 		if (dmlr) {
 			intel_vgpu_reset_display(vgpu);

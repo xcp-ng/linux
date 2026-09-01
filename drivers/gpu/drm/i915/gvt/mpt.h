@@ -301,21 +301,6 @@ static inline int intel_gvt_hypervisor_set_trap_area(
 }
 
 /**
- * intel_gvt_hypervisor_set_opregion - Set opregion for guest
- * @vgpu: a vGPU
- *
- * Returns:
- * Zero on success, negative error code if failed.
- */
-static inline int intel_gvt_hypervisor_set_opregion(struct intel_vgpu *vgpu)
-{
-	if (!intel_gvt_host.mpt->set_opregion)
-		return 0;
-
-	return intel_gvt_host.mpt->set_opregion(vgpu);
-}
-
-/**
  * intel_gvt_hypervisor_get_vfio_device - increase vfio device ref count
  * @vgpu: a vGPU
  *
@@ -360,6 +345,21 @@ static inline bool intel_gvt_hypervisor_is_valid_gfn(
 		return true;
 
 	return intel_gvt_host.mpt->is_valid_gfn(vgpu->handle, gfn);
+}
+
+/**
+ * intel_gvt_hypervisor_vgpu_from_vm_id - translate external VM id into vgpu
+ * @vm_id: a VM id
+ *
+ * Returns:
+ * vgpu pointer on success, NULL if failed
+ */
+static inline struct intel_vgpu *intel_gvt_hypervisor_vgpu_from_vm_id(int vm_id)
+{
+	if (!intel_gvt_host.mpt->vgpu_from_vm_id)
+		return NULL;
+
+	return intel_gvt_host.mpt->vgpu_from_vm_id(vm_id);
 }
 
 #endif /* _GVT_MPT_H_ */

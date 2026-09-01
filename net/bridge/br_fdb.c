@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/rculist.h>
 #include <linux/spinlock.h>
@@ -20,6 +21,7 @@
 #include <linux/etherdevice.h>
 #include <linux/jhash.h>
 #include <linux/random.h>
+#include <linux/if_arp.h>
 #include <linux/slab.h>
 #include <linux/atomic.h>
 #include <asm/unaligned.h>
@@ -41,6 +43,12 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 		      const unsigned char *addr, u16 vid);
 static void fdb_notify(struct net_bridge *br,
 		       const struct net_bridge_fdb_entry *, int, bool);
+
+static int fdb_garp_lock_time = 5;
+module_param(fdb_garp_lock_time, int, 0600);
+MODULE_PARM_DESC(fdb_garp_lock_time, "Time to lock a FDB entry after a gratuitous ARP, in seconds");
+
+#define NO_GARP_LOCK (jiffies)
 
 int __init br_fdb_init(void)
 {
@@ -497,7 +505,8 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 					       const unsigned char *addr,
 					       __u16 vid,
 					       unsigned char is_local,
-					       unsigned char is_static)
+					       unsigned char is_static,
+					       unsigned long garp_lock_until)
 {
 	struct net_bridge_fdb_entry *fdb;
 
@@ -513,6 +522,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 			set_bit(BR_FDB_STATIC, &fdb->flags);
 		fdb->offloaded = 0;
 		fdb->updated = fdb->used = jiffies;
+                fdb->garp_lock_until = garp_lock_until;
 		if (rhashtable_lookup_insert_fast(&br->fdb_hash_tbl,
 						  &fdb->rhnode,
 						  br_fdb_rht_params)) {
@@ -545,7 +555,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 		fdb_delete(br, fdb, true);
 	}
 
-	fdb = fdb_create(br, source, addr, vid, 1, 1);
+	fdb = fdb_create(br, source, addr, vid, 1, 1, NO_GARP_LOCK);
 	if (!fdb)
 		return -ENOMEM;
 
@@ -566,8 +576,74 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 	return ret;
 }
 
-void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-		   const unsigned char *addr, u16 vid, bool added_by_user)
+static int is_gratuitous_arp(struct sk_buff *skb)
+{
+	static const u8 bcast[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+#pragma pack(1)
+	struct arp_pkt {
+		u16     hw_addr_space;
+		u16     prot_addr_space;
+		u8      hw_addr_len;
+		u8      prot_addr_len;
+		u16     op_code;
+		u8      mac_src[ETH_ALEN];	/* sender hardware address */
+		u32     ip_src;			/* sender IP address */
+		u8      mac_dst[ETH_ALEN];	/* target hardware address */
+		u32     ip_dst;			/* target IP address */
+	};
+#pragma pack()
+	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
+
+	if (!ether_addr_equal(bcast, eth_hdr(skb)->h_dest))
+		return 0;
+
+	if (!arp)
+		return 0;
+
+	if (skb->len < sizeof(struct arp_pkt))
+		return 0;
+
+	if (eth_hdr(skb)->h_proto != htons(ETH_P_ARP))
+		return 0;
+
+	if (arp->hw_addr_space != htons(ARPHRD_ETHER)
+	    || arp->hw_addr_len != ETH_ALEN)
+		return 0;
+
+	if (arp->prot_addr_space != htons(ETH_P_IP)
+	    || arp->prot_addr_len != 4)
+		return 0;
+
+
+	switch (arp->op_code) {
+	case htons(ARPOP_REQUEST):
+		if (arp->ip_src != arp->ip_dst)
+			return 0;
+
+		break;
+
+	case htons(ARPOP_REPLY):
+		break;
+
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
+static int is_physical_port(struct net_bridge *br, struct net_bridge_port *port)
+{
+	extern struct net_bridge_port *br_locate_physical_port(struct net_bridge *br);
+
+	struct net_bridge_port *phys_port = br_locate_physical_port(br);
+
+	return phys_port && phys_port == port;
+}
+
+static
+void __br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+		     const unsigned char *addr, u16 vid, bool added_by_user)
 {
 	struct net_bridge_fdb_entry *fdb;
 	bool fdb_modified = false;
@@ -611,7 +687,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 		}
 	} else {
 		spin_lock(&br->hash_lock);
-		fdb = fdb_create(br, source, addr, vid, 0, 0);
+		fdb = fdb_create(br, source, addr, vid, 0, 0, NO_GARP_LOCK);
 		if (fdb) {
 			if (unlikely(added_by_user))
 				set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
@@ -624,6 +700,81 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 		 */
 		spin_unlock(&br->hash_lock);
 	}
+}
+
+int br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+                  struct sk_buff *skb, u16 vid, bool added_by_user)
+{
+	const unsigned char *addr = eth_hdr(skb)->h_source;
+	struct net_bridge_fdb_entry *fdb;
+
+       /* some users want to always flood. */
+       if (hold_time(br) == 0)
+               return 1;
+
+       /* ignore packets unless we are using this port */
+       if (!(source->state == BR_STATE_LEARNING ||
+             source->state == BR_STATE_FORWARDING))
+               return 1;
+
+       fdb = fdb_find_rcu(&br->fdb_hash_tbl, addr, vid);
+       if (likely(fdb)) {
+               /*
+                * If this is an address arriving on the physical port
+                * which we have previously seen on a non-physical
+                * port then ignore it.
+                *
+                * _Unless_ it is a broadcast ARP reply in which case
+                * the guest in question has migrated. However we lock
+                * out updates due to broadcast ARP replies received
+                * on the physical port for a configurable amount of
+                * time after any broadcast ARP from the same source
+                * address received on a non-physical link -- this is
+                * order to avoid incorrect learning when a broadcast
+                * ARP transmitted by a VM on this host comes back in
+                * another bond link and causes the bridge to learn
+                * the MAC on the exernal port.
+                */
+               if (!is_physical_port(br, fdb->dst) && is_physical_port(br, source)) {
+
+                       if (!is_gratuitous_arp(skb))
+                               return 0;
+
+                       if (time_before(jiffies, fdb->garp_lock_until))
+                               return 0;
+               }
+
+               /* attempt to update an entry for a local interface */
+               if (unlikely(test_bit(BR_FDB_LOCAL, &fdb->flags))) {
+                       if (net_ratelimit())
+                               br_warn(br, "received packet on %s with "
+                                               "own address as source address\n",
+                                               source->dev->name);
+                       return 0;
+               } else {
+                       if (is_gratuitous_arp(skb) && !is_physical_port(br, source))
+                               fdb->garp_lock_until = jiffies + (fdb_garp_lock_time * HZ);
+
+                       /* fastpath: update of existing entry */
+                       fdb->dst = source;
+                       fdb->updated = jiffies;
+               }
+       } else {
+               spin_lock(&br->hash_lock);
+               if (likely(!br_fdb_find(br, addr, vid))) {
+                       unsigned long garp_lock = NO_GARP_LOCK;
+                       if (is_gratuitous_arp(skb) && !is_physical_port(br, source))
+                               garp_lock = jiffies + (fdb_garp_lock_time * HZ);
+                       fdb = fdb_create(br, source, addr, vid, 0, 0, garp_lock);
+                       if (fdb)
+                               fdb_notify(br, fdb, RTM_NEWNEIGH, true);
+               }
+               /* else  we lose race and someone else inserts
+                * it first, don't bother updating
+                */
+               spin_unlock(&br->hash_lock);
+       }
+       return 1;
 }
 
 static int fdb_to_nud(const struct net_bridge *br,
@@ -810,7 +961,7 @@ static int fdb_add_entry(struct net_bridge *br, struct net_bridge_port *source,
 		if (!(flags & NLM_F_CREATE))
 			return -ENOENT;
 
-		fdb = fdb_create(br, source, addr, vid, 0, 0);
+		fdb = fdb_create(br, source, addr, vid, 0, 0, NO_GARP_LOCK);
 		if (!fdb)
 			return -ENOMEM;
 
@@ -873,7 +1024,7 @@ static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge *br,
 		}
 		local_bh_disable();
 		rcu_read_lock();
-		br_fdb_update(br, p, addr, vid, true);
+		__br_fdb_update(br, p, addr, vid, true);
 		rcu_read_unlock();
 		local_bh_enable();
 	} else if (ndm->ndm_flags & NTF_EXT_LEARNED) {
@@ -1099,7 +1250,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 
 	fdb = br_fdb_find(br, addr, vid);
 	if (!fdb) {
-		fdb = fdb_create(br, p, addr, vid, 0, 0);
+		fdb = fdb_create(br, p, addr, vid, 0, 0, NO_GARP_LOCK);
 		if (!fdb) {
 			err = -ENOMEM;
 			goto err_unlock;
