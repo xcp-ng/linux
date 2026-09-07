@@ -34,12 +34,15 @@ struct scatterlist;
 
 /* default to 64MB */
 #define IO_TLB_DEFAULT_SIZE (64UL<<20)
+#define XEN_IO_TLB_DEFAULT_SIZE (128UL<<20)
 
 unsigned long swiotlb_size_or_default(void);
 void __init swiotlb_init_remap(bool addressing_limit, unsigned int flags,
-	int (*remap)(void *tlb, unsigned long nslabs));
+	int (*remap)(void *tlb, unsigned long nslabs,
+		     unsigned long *contig_pages));
 int swiotlb_init_late(size_t size, gfp_t gfp_mask,
-	int (*remap)(void *tlb, unsigned long nslabs));
+	int (*remap)(void *tlb, unsigned long nslabs,
+		     unsigned long *contig_pages));
 extern void __init swiotlb_update_mem_attributes(void);
 
 #ifdef CONFIG_SWIOTLB

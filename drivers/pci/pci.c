@@ -95,6 +95,7 @@ bool pci_reset_supported(struct pci_dev *dev)
 {
 	return dev->reset_methods[0] != 0;
 }
+EXPORT_SYMBOL_GPL(pci_reset_supported);
 
 #ifdef CONFIG_PCI_DOMAINS
 int pci_domains_supported = 1;
@@ -5341,6 +5342,8 @@ int pci_reset_function(struct pci_dev *dev)
 	pci_dev_save_and_disable(dev);
 
 	rc = __pci_reset_function_locked(dev);
+	if (rc >= 0 && dev->quarantined)
+		dev->unsafe = 0;
 
 	pci_dev_restore(dev);
 	pci_dev_unlock(dev);

@@ -9,6 +9,7 @@
 #include "common.h"
 #include <linux/vmalloc.h>
 #include <linux/rtnetlink.h>
+#include <linux/security.h>
 
 static int connect_data_rings(struct backend_info *be,
 			      struct xenvif_queue *queue);
@@ -171,6 +172,8 @@ DEFINE_SHOW_ATTRIBUTE(xenvif_ctrl);
 static void xenvif_debugfs_addif(struct xenvif *vif)
 {
 	int i;
+	umode_t ring_umode =
+		security_locked_down_nowarn(LOCKDOWN_DEBUGFS) ? 0400 : 0600;
 
 	vif->xenvif_dbg_root = debugfs_create_dir(vif->dev->name,
 						  xen_netback_dbg_root);
@@ -178,7 +181,7 @@ static void xenvif_debugfs_addif(struct xenvif *vif)
 		char filename[sizeof("io_ring_q") + 4];
 
 		snprintf(filename, sizeof(filename), "io_ring_q%d", i);
-		debugfs_create_file(filename, 0600, vif->xenvif_dbg_root,
+		debugfs_create_file(filename, ring_umode, vif->xenvif_dbg_root,
 				    &vif->queues[i],
 				    &xenvif_dbg_io_ring_ops_fops);
 	}

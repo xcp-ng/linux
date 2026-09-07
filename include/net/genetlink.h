@@ -205,6 +205,11 @@ struct genl_small_ops {
 	u8	internal_flags;
 	u8	flags;
 	u8	validate;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /**
@@ -293,6 +298,11 @@ struct genl_split_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
 };
 
 /**

@@ -47,6 +47,8 @@ typedef unsigned int   u32;
 /* This must be large enough to hold the entire setup */
 u8 buf[SETUP_SECT_MAX*512];
 
+#define SBAT_FSIZE 0x1000
+
 static unsigned long _edata;
 
 /*----------------------------------------------------------------------*/
@@ -130,7 +132,11 @@ static void die(const char * str, ...)
 
 static void usage(void)
 {
+#ifdef CONFIG_EFI_STUB
+	die("Usage: build setup system zoffset.h image sbat");
+#else
 	die("Usage: build setup system zoffset.h image");
+#endif
 }
 
 /*
@@ -178,8 +184,15 @@ int main(int argc, char ** argv)
 	int fd;
 	void *kernel;
 	u32 crc = 0xffffffffUL;
+	int expect_argc;
 
-	if (argc != 5)
+#ifdef CONFIG_EFI_STUB
+	expect_argc = 6;
+#else
+	expect_argc = 5;
+#endif
+
+	if (argc < expect_argc)
 		usage();
 	parse_zoffset(argv[3]);
 
@@ -200,6 +213,11 @@ int main(int argc, char ** argv)
 		die("Boot block hasn't got boot flag (0xAA55)");
 	fclose(file);
 
+#if CONFIG_EFI_STUB
+	/* Reserve space for .sbat section */
+	c += SBAT_FSIZE;
+#endif
+
 	/* Pad unused space with zeros */
 	setup_sectors = (c + 4095) / 4096;
 	setup_sectors *= 8;
@@ -207,6 +225,26 @@ int main(int argc, char ** argv)
 		setup_sectors = SETUP_SECT_MIN;
 	i = setup_sectors*512;
 	memset(buf+c, 0, i-c);
+
+#if CONFIG_EFI_STUB
+	{
+		const char *sbat_filename = argv[5];
+		const unsigned int sbat_section_offset = i - SBAT_FSIZE;
+
+		FILE *file = fopen(sbat_filename, "rb");
+		if (!file)
+			die("Unable to open '%s': %m", sbat_filename);
+
+		fread(buf + sbat_section_offset, 1, SBAT_FSIZE-1, file);
+		if (ferror(file))
+			die("read-error on '%s'", sbat_filename);
+
+		if (!feof(file))
+			die("SBAT file too large '%s'", sbat_filename);
+
+		fclose(file);
+	}
+#endif
 
 	/* Open and stat the kernel file */
 	fd = open(argv[2], O_RDONLY);

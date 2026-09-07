@@ -46,6 +46,18 @@ struct xen_hvm_get_mem_type {
 };
 DEFINE_GUEST_HANDLE_STRUCT(xen_hvm_get_mem_type);
 
+/* MSI injection for emulated devices */
+#define HVMOP_inject_msi         16
+struct xen_hvm_inject_msi {
+    /* Domain to be injected */
+    domid_t   domid;
+    /* Data -- lower 32 bits */
+    uint32_t  data;
+    /* Address (0xfeexxxxx) */
+    uint64_t  addr;
+};
+DEFINE_GUEST_HANDLE_STRUCT(xen_hvm_inject_msi);
+
 #if defined(__i386__) || defined(__x86_64__)
 
 /*

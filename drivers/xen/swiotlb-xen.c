@@ -113,7 +113,8 @@ static struct io_tlb_pool *xen_swiotlb_find_pool(struct device *dev,
 }
 
 #ifdef CONFIG_X86
-int __init xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+int xen_swiotlb_fixup(void *buf, unsigned long nslabs,
+		unsigned long *contig_pages)
 {
 	int rc;
 	unsigned int order = get_order(IO_TLB_SEGSIZE << IO_TLB_SHIFT);
@@ -130,6 +131,8 @@ int __init xen_swiotlb_fixup(void *buf, unsigned long nslabs)
 			rc = xen_create_contiguous_region(
 				p + (i << IO_TLB_SHIFT), order,
 				dma_bits, &dma_handle);
+			if (rc == 0 && contig_pages != NULL)
+				*contig_pages += 1 << order;
 		} while (rc && dma_bits++ < MAX_DMA_BITS);
 		if (rc)
 			return rc;
@@ -404,6 +407,12 @@ xen_swiotlb_dma_supported(struct device *hwdev, u64 mask)
 	return xen_phys_to_dma(hwdev, default_swiotlb_limit()) <= mask;
 }
 
+static u64
+xen_swiotlb_get_required_mask(struct device *dev)
+{
+	return DMA_BIT_MASK(64);
+}
+
 const struct dma_map_ops xen_swiotlb_dma_ops = {
 #ifdef CONFIG_X86
 	.alloc = xen_swiotlb_alloc_coherent,
@@ -425,5 +434,6 @@ const struct dma_map_ops xen_swiotlb_dma_ops = {
 	.get_sgtable = dma_common_get_sgtable,
 	.alloc_pages_op = dma_common_alloc_pages,
 	.free_pages = dma_common_free_pages,
+	.get_required_mask = xen_swiotlb_get_required_mask,
 	.max_mapping_size = swiotlb_max_mapping_size,
 };

@@ -131,6 +131,12 @@ struct Qdisc {
 	struct rcu_head		rcu;
 	netdevice_tracker	dev_tracker;
 	struct lock_class_key	root_lock_key;
+
+	UEK_KABI_RESERVE(1)
+	UEK_KABI_RESERVE(2)
+	UEK_KABI_RESERVE(3)
+	UEK_KABI_RESERVE(4)
+
 	/* private data */
 	long privdata[] ____cacheline_aligned;
 };

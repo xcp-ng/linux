@@ -52,13 +52,18 @@ void __init add_to_machine_keyring(const char *source, const void *data, size_t 
 static __init bool uefi_check_trust_mok_keys(void)
 {
 	struct efi_mokvar_table_entry *mokvar_entry;
+	efi_status_t status;
+	unsigned int val = 0;
+	unsigned long size = sizeof(val);
+	efi_guid_t guid = EFI_SHIM_LOCK_GUID;
 
 	mokvar_entry = efi_mokvar_entry_find("MokListTrustedRT");
 
 	if (mokvar_entry)
 		return true;
 
-	return false;
+	status = efi.get_variable(L"MokListTrustedRT", &guid, NULL, &size, &val);
+	return status == EFI_SUCCESS;
 }
 
 static bool __init trust_moklist(void)
