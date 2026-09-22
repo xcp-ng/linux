@@ -75,12 +75,9 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 
 /* Bump dev refs so they don't vanish while packet is out */
-bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+static void __nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
-
-	if (state->sk && !refcount_inc_not_zero(&state->sk->sk_refcnt))
-		return false;
 
 	if (entry->skb_dev)
 		dev_hold(entry->skb_dev);
@@ -100,9 +97,35 @@ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 			dev_hold(physdev);
 	}
 #endif
-	return true;
+}
+
+/*
+ * Kept for out-of-tree users, nf_queue_entry_get_refs_bool() must be used
+ * instead as it won't take a reference on a socket being destroyed.
+ */
+void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+{
+	struct nf_hook_state *state = &entry->state;
+
+	if (state->sk)
+		sock_hold(state->sk);
+
+	__nf_queue_entry_get_refs(entry);
 }
 EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+
+bool nf_queue_entry_get_refs_bool(struct nf_queue_entry *entry)
+{
+	struct nf_hook_state *state = &entry->state;
+
+	if (state->sk && !refcount_inc_not_zero(&state->sk->sk_refcnt))
+		return false;
+
+	__nf_queue_entry_get_refs(entry);
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs_bool);
 
 void nf_queue_nf_hook_drop(struct net *net)
 {
@@ -193,7 +216,7 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		.size	= sizeof(*entry) + route_key_size,
 	};
 
-	if (!nf_queue_entry_get_refs(entry)) {
+	if (!nf_queue_entry_get_refs_bool(entry)) {
 		kfree(entry);
 		return -ENOTCONN;
 	}
