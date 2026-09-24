@@ -17,6 +17,7 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/shadow_var.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
@@ -715,13 +716,26 @@ static struct nf_queue_entry *
 nf_queue_entry_dup(struct nf_queue_entry *e)
 {
 	struct nf_queue_entry *entry = kmemdup(e, e->size, GFP_ATOMIC);
+	struct nf_queue_entry_extra *extra, *orig;
 
 	if (!entry)
 		return NULL;
 
+	extra = shadow_var_alloc(entry, NF_QUEUE_ENTRY_EXTRA, sizeof(*extra), GFP_ATOMIC);
+	if (!extra) {
+		kfree(entry);
+		return NULL;
+	}
+	orig = nf_queue_entry_extra(e);
+	if (orig)
+		*extra = *orig;
+	else
+		memset(extra, 0, sizeof(*extra));
+
 	if (nf_queue_entry_get_refs_bool(entry))
 		return entry;
 
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 	kfree(entry);
 	return NULL;
 }
@@ -750,6 +764,7 @@ static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
 static void free_entry(struct nf_queue_entry *entry)
 {
 	nf_queue_entry_release_refs(entry);
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 	kfree(entry);
 }
 
@@ -910,7 +925,9 @@ nfqnl_set_mode(struct nfqnl_instance *queue,
 static int
 dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
 {
-	if (entry->skb_dev && entry->skb_dev->ifindex == ifindex)
+	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
+
+	if (extra && extra->skb_dev && extra->skb_dev->ifindex == ifindex)
 		return 1;
 	if (entry->state.in)
 		if (entry->state.in->ifindex == ifindex)
