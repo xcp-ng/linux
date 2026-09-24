@@ -3,6 +3,7 @@
  * Patrick McHardy (c) 2006-2012
  */
 
+#include <linux/shadow_var.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -49,10 +50,11 @@ EXPORT_SYMBOL(nf_unregister_queue_handler);
 void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
+	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
 
 	/* Release those devices we held, or Alexey will kill me. */
-	if (entry->skb_dev)
-		dev_put(entry->skb_dev);
+	if (extra && extra->skb_dev)
+		dev_put(extra->skb_dev);
 	if (state->in)
 		dev_put(state->in);
 	if (state->out)
@@ -78,9 +80,10 @@ EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 static void __nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
+	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
 
-	if (entry->skb_dev)
-		dev_hold(entry->skb_dev);
+	if (extra && extra->skb_dev)
+		dev_hold(extra->skb_dev);
 	if (state->in)
 		dev_hold(state->in);
 	if (state->out)
@@ -173,6 +176,7 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		      unsigned int index, unsigned int queuenum)
 {
 	int status = -ENOENT;
+	struct nf_queue_entry_extra *extra = NULL;
 	struct nf_queue_entry *entry = NULL;
 	const struct nf_queue_handler *qh;
 	struct net *net = state->net;
@@ -203,6 +207,15 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		goto err;
 	}
 
+	extra = shadow_var_alloc(entry, NF_QUEUE_ENTRY_EXTRA, sizeof(*extra), GFP_ATOMIC);
+	if (extra == NULL) {
+		status = -ENOMEM;
+		goto err;
+	}
+	*extra = (struct nf_queue_entry_extra) {
+		.skb_dev = skb->dev,
+	};
+
 	if (skb_dst(skb) && !skb_dst_force(skb)) {
 		status = -ENETDOWN;
 		goto err;
@@ -210,15 +223,14 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 
 	*entry = (struct nf_queue_entry) {
 		.skb	= skb,
-		.skb_dev = skb->dev,
 		.state	= *state,
 		.hook_index = index,
 		.size	= sizeof(*entry) + route_key_size,
 	};
 
 	if (!nf_queue_entry_get_refs_bool(entry)) {
-		kfree(entry);
-		return -ENOTCONN;
+		status = -ENOTCONN;
+		goto err;
 	}
 
 	switch (entry->state.pf) {
@@ -240,7 +252,10 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 	return 0;
 
 err:
+	if (extra)
+		shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 	kfree(entry);
+
 	return status;
 }
 
@@ -326,6 +341,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
 	i = entry->hook_index;
 	if (WARN_ON_ONCE(!hooks || i >= hooks->num_hook_entries)) {
 		kfree_skb(skb);
+		shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 		kfree(entry);
 		return;
 	}
@@ -365,6 +381,7 @@ next_hook:
 		kfree_skb(skb);
 	}
 
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 	kfree(entry);
 }
 EXPORT_SYMBOL(nf_reinject);
