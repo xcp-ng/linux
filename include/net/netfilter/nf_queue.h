@@ -5,12 +5,12 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/jhash.h>
+#include <linux/shadow_var.h>
 
 /* Each queued (to userspace) skbuff has one of these. */
 struct nf_queue_entry {
 	struct list_head	list;
 	struct sk_buff		*skb;
-	struct net_device	*skb_dev;
 	unsigned int		id;
 	unsigned int		hook_index;	/* index in hook_entries->hook[] */
 
@@ -21,6 +21,25 @@ struct nf_queue_entry {
 };
 
 #define nf_queue_entry_reroute(x) ((void *)x + sizeof(struct nf_queue_entry))
+
+/*
+ * Fields which can't be added to struct nf_queue_entry without breaking the
+ * kABI, attached to each entry as a shadow variable instead.
+ */
+#define NF_QUEUE_ENTRY_EXTRA "shadow_nf_queue_entry_extra"
+
+struct nf_queue_entry_extra {
+	struct net_device	*skb_dev;
+};
+
+static inline struct nf_queue_entry_extra *
+nf_queue_entry_extra(struct nf_queue_entry *entry)
+{
+	struct nf_queue_entry_extra *extra = shadow_var_get(entry, NF_QUEUE_ENTRY_EXTRA);
+
+	WARN_ON_ONCE(extra == NULL);
+	return extra;
+}
 
 /* Packet queuing */
 struct nf_queue_handler {
