@@ -120,7 +120,6 @@ void ipc_init_ids(struct ipc_ids *ids)
 	rhashtable_init(&ids->key_ht, &ipc_kht_params);
 	idr_init(&ids->ipcs_idr);
 	ids->max_idx = -1;
-	ids->last_idx = -1;
 #ifdef CONFIG_CHECKPOINT_RESTORE
 	ids->next_id = -1;
 #endif
@@ -221,10 +220,17 @@ static inline int ipc_idr_alloc(struct ipc_ids *ids, struct kern_ipc_perm *new)
 	 */
 
 	if (next_id < 0) { /* !CHECKPOINT_RESTORE or next_id is unset */
+		unsigned int cursor;
 		int max_idx;
 
 		max_idx = max(ids->in_use*3/2, ipc_min_cycle);
 		max_idx = min(max_idx, ipc_mni);
+
+		/*
+		 * The cyclic allocator cursor is one past the last idx it
+		 * handed out: allocating below it means we wrapped around.
+		 */
+		cursor = idr_get_cursor(&ids->ipcs_idr);
 
 		/* allocate the idx, with a NULL struct kern_ipc_perm */
 		idx = idr_alloc_cyclic(&ids->ipcs_idr, NULL, 0, max_idx,
@@ -236,12 +242,11 @@ static inline int ipc_idr_alloc(struct ipc_ids *ids, struct kern_ipc_perm *new)
 			 * Now calculate the sequence number and set the
 			 * pointer for real.
 			 */
-			if (idx <= ids->last_idx) {
+			if (idx < cursor) {
 				ids->seq++;
 				if (ids->seq >= ipcid_seq_max())
 					ids->seq = 0;
 			}
-			ids->last_idx = idx;
 
 			new->seq = ids->seq;
 			/* no need for smp_wmb(), this is done
