@@ -46,6 +46,13 @@
 /* Number of bytes allowed on the internal guest Rx queue. */
 #define XENVIF_RX_QUEUE_BYTES (XEN_NETIF_RX_RING_SIZE/2 * PAGE_SIZE)
 
+/* net-lab: per-queue guest-RX buffer limit, applied when a queue is set up
+ * (VIF connect). Default = upstream XENVIF_RX_QUEUE_BYTES (512 KiB).
+ */
+static unsigned int rx_queue_bytes = XENVIF_RX_QUEUE_BYTES;
+module_param(rx_queue_bytes, uint, 0644);
+MODULE_PARM_DESC(rx_queue_bytes, "Per-queue guest-RX buffer limit in bytes (applied at VIF connect)");
+
 /* This function is used to set SKBTX_DEV_ZEROCOPY as well as
  * increasing the inflight counter. We need to increase the inflight
  * counter because core driver calls into xenvif_zerocopy_callback
@@ -575,7 +582,7 @@ int xenvif_init_queue(struct xenvif_queue *queue)
 	timer_setup(&queue->credit_timeout, xenvif_tx_credit_callback, 0);
 	queue->credit_window_start = get_jiffies_64();
 
-	queue->rx_queue_max = XENVIF_RX_QUEUE_BYTES;
+	queue->rx_queue_max = rx_queue_bytes;
 
 	skb_queue_head_init(&queue->rx_queue);
 	skb_queue_head_init(&queue->tx_queue);

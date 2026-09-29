@@ -29,6 +29,7 @@
 #include "common.h"
 
 #include <linux/kthread.h>
+#include <linux/sched/clock.h>
 
 #include <xen/xen.h>
 #include <xen/events.h>
@@ -553,11 +554,46 @@ static long xenvif_rx_queue_timeout(struct xenvif_queue *queue)
  * This cannot be done with wait_event_timeout() because it only
  * calculates the timeout once.
  */
+/* net-lab: bounded busy-poll of the guest-RX kthread before it sleeps, so a
+ * burst arriving from the NIC right after the queue drained does not wait for a
+ * kthread wake-up (dom0 vCPU halt -> Xen wake -> schedule). 0 = off (default).
+ */
+static unsigned int rx_poll_us;
+module_param(rx_poll_us, uint, 0644);
+MODULE_PARM_DESC(rx_poll_us, "Guest-RX kthread busy-poll before sleeping, in microseconds");
+static unsigned long rx_poll_hits, rx_poll_misses;
+module_param(rx_poll_hits, ulong, 0444);
+module_param(rx_poll_misses, ulong, 0444);
+
+static bool xenvif_rx_poll(struct xenvif_queue *queue)
+{
+	unsigned int us = READ_ONCE(rx_poll_us);
+	u64 deadline;
+
+	if (!us)
+		return false;
+	deadline = local_clock() + (u64)us * NSEC_PER_USEC;
+	do {
+		if (xenvif_have_rx_work(queue, true)) {
+			rx_poll_hits++;
+			return true;
+		}
+		if (need_resched())
+			break;
+		cpu_relax();
+	} while (local_clock() < deadline);
+	rx_poll_misses++;
+	return false;
+}
+
 static void xenvif_wait_for_rx_work(struct xenvif_queue *queue)
 {
 	DEFINE_WAIT(wait);
 
 	if (xenvif_have_rx_work(queue, true))
+		return;
+
+	if (xenvif_rx_poll(queue))
 		return;
 
 	for (;;) {
