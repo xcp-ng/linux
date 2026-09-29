@@ -81,6 +81,19 @@ MODULE_PARM_DESC(max_queues,
 static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
 module_param(fatal_skb_slots, uint, 0444);
 
+/* net-lab: copy the whole guest packet into the skb head instead of
+ * grant-mapping the payload slots. No unmap/dealloc round trip: the TX
+ * responses reach the guest as soon as the copy batch completes.
+ */
+static bool tx_copy_all;
+module_param(tx_copy_all, bool, 0644);
+MODULE_PARM_DESC(tx_copy_all,
+		 "Grant-copy the whole guest TX packet into a linear skb (no grant mapping)");
+static unsigned long tx_copy_all_pkts;
+module_param(tx_copy_all_pkts, ulong, 0444);
+static unsigned long tx_copy_all_fallbacks;
+module_param(tx_copy_all_fallbacks, ulong, 0444);
+
 /* The amount to copy out of the first guest Tx slot into the skb's
  * linear area.  If the first slot has more data, it will be mapped
  * and put into the first frag.
@@ -1031,7 +1044,23 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
 		if (ret >= XEN_NETBK_LEGACY_SLOTS_MAX - 1 && data_len < txreq.size)
 			data_len = txreq.size;
 
-		skb = xenvif_alloc_skb(data_len);
+		skb = NULL;
+		if (tx_copy_all) {
+			unsigned int total = txreq.size;
+			int i;
+
+			for (i = 0; i < ret; i++)
+				total += txfrags[i].size;
+			skb = xenvif_alloc_skb(total);
+			if (likely(skb)) {
+				data_len = total;
+				tx_copy_all_pkts++;
+			} else {
+				tx_copy_all_fallbacks++;
+			}
+		}
+		if (!skb)
+			skb = xenvif_alloc_skb(data_len);
 		if (unlikely(skb == NULL)) {
 			netdev_dbg(queue->vif->dev,
 				   "Can't allocate a skb in start_xmit.\n");
