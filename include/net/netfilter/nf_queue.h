@@ -13,9 +13,6 @@ struct nf_queue_entry {
 	struct sk_buff		*skb;
 	unsigned int		id;
 	unsigned int		hook_index;	/* index in hook_entries->hook[] */
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	struct net_device	*bridge_dev;
-#endif
 	struct nf_hook_state	state;
 	u16			size; /* sizeof(entry) + saved route keys */
 
@@ -33,6 +30,7 @@ struct nf_queue_entry {
 struct nf_queue_entry_extra {
 	struct net_device	*skb_dev;
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	struct net_device	*bridge_dev;
 	struct net_device	*physin;
 	struct net_device	*physout;
 #endif
