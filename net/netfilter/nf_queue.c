@@ -72,15 +72,16 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
 	if (entry->bridge_dev)
 		dev_put(entry->bridge_dev);
-	if (entry->physin)
-		dev_put(entry->physin);
-	if (entry->physout)
-		dev_put(entry->physout);
+	if (extra && extra->physin)
+		dev_put(extra->physin);
+	if (extra && extra->physout)
+		dev_put(extra->physout);
 #endif
 }
 EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 
-static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry)
+static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry,
+					   struct nf_queue_entry_extra *extra)
 {
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
 	const struct sk_buff *skb = entry->skb;
@@ -88,11 +89,11 @@ static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry)
 	struct net_device *dev = NULL;
 
 	if (nf_bridge_info_exists(skb)) {
-		entry->physin = nf_bridge_get_physindev(skb);
-		entry->physout = nf_bridge_get_physoutdev(skb);
+		extra->physin = nf_bridge_get_physindev(skb);
+		extra->physout = nf_bridge_get_physoutdev(skb);
 	} else {
-		entry->physin = NULL;
-		entry->physout = NULL;
+		extra->physin = NULL;
+		extra->physout = NULL;
 	}
 
 	if (entry->state.pf == NFPROTO_BRIDGE &&
@@ -123,10 +124,10 @@ static void __nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
 	if (entry->bridge_dev)
 		dev_hold(entry->bridge_dev);
-	if (entry->physin)
-		dev_hold(entry->physin);
-	if (entry->physout)
-		dev_hold(entry->physout);
+	if (extra && extra->physin)
+		dev_hold(extra->physin);
+	if (extra && extra->physout)
+		dev_hold(extra->physout);
 #endif
 }
 
@@ -256,7 +257,7 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		.size	= sizeof(*entry) + route_key_size,
 	};
 
-	__nf_queue_entry_init_physdevs(entry);
+	__nf_queue_entry_init_physdevs(entry, extra);
 
 	if (!nf_queue_entry_get_refs_bool(entry)) {
 		status = -ENOTCONN;
