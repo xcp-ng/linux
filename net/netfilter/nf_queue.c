@@ -70,8 +70,8 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 		sock_put(state->sk);
 
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	if (entry->bridge_dev)
-		dev_put(entry->bridge_dev);
+	if (extra && extra->bridge_dev)
+		dev_put(extra->bridge_dev);
 	if (extra && extra->physin)
 		dev_put(extra->physin);
 	if (extra && extra->physout)
@@ -104,7 +104,7 @@ static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry,
 	 * the dst itself, but the fake rtable is embedded in bridge-private
 	 * storage that netdevice teardown can free independently.
 	 */
-	entry->bridge_dev = dev;
+	extra->bridge_dev = dev;
 #endif
 }
 
@@ -122,8 +122,8 @@ static void __nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 		dev_hold(state->out);
 
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	if (entry->bridge_dev)
-		dev_hold(entry->bridge_dev);
+	if (extra && extra->bridge_dev)
+		dev_hold(extra->bridge_dev);
 	if (extra && extra->physin)
 		dev_hold(extra->physin);
 	if (extra && extra->physout)
