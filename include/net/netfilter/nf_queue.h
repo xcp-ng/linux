@@ -39,7 +39,10 @@ struct nf_queue_entry_extra {
 static inline struct nf_queue_entry_extra *
 nf_queue_entry_extra(struct nf_queue_entry *entry)
 {
-	return shadow_var_get(entry, NF_QUEUE_ENTRY_EXTRA);
+	struct nf_queue_entry_extra *extra = shadow_var_get(entry, NF_QUEUE_ENTRY_EXTRA);
+
+	WARN_ON_ONCE(extra == NULL);
+	return extra;
 }
 
 /* Packet queuing */
