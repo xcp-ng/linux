@@ -64,6 +64,7 @@
 #include <linux/memory.h>
 #include <linux/ipc_namespace.h>
 #include <linux/rhashtable.h>
+#include <linux/log2.h>
 
 #include <asm/unistd.h>
 
@@ -110,7 +111,7 @@ static const struct rhashtable_params ipc_kht_params = {
  * @ids: ipc identifier set
  *
  * Set up the sequence range to use for the ipc identifier range (limited
- * below IPCMNI) then initialise the keys hashtable and ids idr.
+ * below ipc_mni) then initialise the keys hashtable and ids idr.
  */
 void ipc_init_ids(struct ipc_ids *ids)
 {
@@ -193,6 +194,10 @@ static struct kern_ipc_perm *ipc_findkey(struct ipc_ids *ids, key_t key)
  *
  * The caller must own kern_ipc_perm.lock.of the new object.
  * On error, the function returns a (negative) error code.
+ *
+ * To conserve sequence number space, especially with extended ipc_mni,
+ * the sequence number is incremented only when the returned ID is less than
+ * the last one.
  */
 static inline int ipc_idr_alloc(struct ipc_ids *ids, struct kern_ipc_perm *new)
 {
@@ -216,17 +221,48 @@ static inline int ipc_idr_alloc(struct ipc_ids *ids, struct kern_ipc_perm *new)
 	 */
 
 	if (next_id < 0) { /* !CHECKPOINT_RESTORE or next_id is unset */
-		new->seq = ids->seq++;
-		if (ids->seq > IPCID_SEQ_MAX)
-			ids->seq = 0;
-		idx = idr_alloc(&ids->ipcs_idr, new, 0, 0, GFP_NOWAIT);
+		unsigned int cursor;
+		int max_idx;
+
+		max_idx = max(ids->in_use*3/2, ipc_min_cycle);
+		max_idx = min(max_idx, ipc_mni);
+
+		/*
+		 * The cyclic allocator cursor is one past the last idx it
+		 * handed out: allocating below it means we wrapped around.
+		 */
+		cursor = idr_get_cursor(&ids->ipcs_idr);
+
+		/* allocate the idx, with a NULL struct kern_ipc_perm */
+		idx = idr_alloc_cyclic(&ids->ipcs_idr, NULL, 0, max_idx,
+					GFP_NOWAIT);
+
+		if (idx >= 0) {
+			/*
+			 * idx got allocated successfully.
+			 * Now calculate the sequence number and set the
+			 * pointer for real.
+			 */
+			if (idx < cursor) {
+				ids->seq++;
+				if (ids->seq >= ipcid_seq_max())
+					ids->seq = 0;
+			}
+
+			new->seq = ids->seq;
+			/* no need for smp_wmb(), this is done
+			 * inside idr_replace, as part of
+			 * rcu_assign_pointer
+			 */
+			idr_replace(&ids->ipcs_idr, new, idx);
+		}
 	} else {
 		new->seq = ipcid_to_seqx(next_id);
 		idx = idr_alloc(&ids->ipcs_idr, new, ipcid_to_idx(next_id),
-				0, GFP_NOWAIT);
+				ipc_mni, GFP_NOWAIT);
 	}
 	if (idx >= 0)
-		new->id = SEQ_MULTIPLIER * new->seq + idx;
+		new->id = (new->seq << ipcmni_seq_shift()) + idx;
 	return idx;
 }
 
@@ -254,8 +290,8 @@ int ipc_addid(struct ipc_ids *ids, struct kern_ipc_perm *new, int limit)
 	/* 1) Initialize the refcount so that ipc_rcu_putref works */
 	refcount_set(&new->refcount, 1);
 
-	if (limit > IPCMNI)
-		limit = IPCMNI;
+	if (limit > ipc_mni)
+		limit = ipc_mni;
 
 	if (ids->in_use >= limit)
 		return -ENOSPC;
@@ -417,8 +453,43 @@ static int ipcget_public(struct ipc_namespace *ns, struct ipc_ids *ids,
 static void ipc_kht_remove(struct ipc_ids *ids, struct kern_ipc_perm *ipcp)
 {
 	if (ipcp->key != IPC_PRIVATE)
-		rhashtable_remove_fast(&ids->key_ht, &ipcp->khtnode,
-				       ipc_kht_params);
+		WARN_ON_ONCE(rhashtable_remove_fast(&ids->key_ht, &ipcp->khtnode,
+				       ipc_kht_params));
+}
+
+/**
+ * ipc_search_maxidx - search for the highest assigned index
+ * @ids: ipc identifier set
+ * @limit: known upper limit for highest assigned index
+ *
+ * The function determines the highest assigned index in @ids. It is intended
+ * to be called when ids->max_idx needs to be updated.
+ * Updating ids->max_idx is necessary when the current highest index ipc
+ * object is deleted.
+ * If no ipc object is allocated, then -1 is returned.
+ *
+ * ipc_ids.rwsem needs to be held by the caller.
+ */
+static int ipc_search_maxidx(struct ipc_ids *ids, int limit)
+{
+	int tmpidx;
+	int i;
+	int retval;
+
+	i = ilog2(limit+1);
+
+	retval = 0;
+	for (; i >= 0; i--) {
+		tmpidx = retval | (1<<i);
+		/*
+		 * "0" is a possible index value, thus search using
+		 * e.g. 15,7,3,1,0 instead of 16,8,4,2,1.
+		 */
+		tmpidx = tmpidx-1;
+		if (idr_get_next(&ids->ipcs_idr, &tmpidx))
+			retval |= (1<<i);
+	}
+	return retval - 1;
 }
 
 /**
@@ -433,17 +504,15 @@ void ipc_rmid(struct ipc_ids *ids, struct kern_ipc_perm *ipcp)
 {
 	int idx = ipcid_to_idx(ipcp->id);
 
-	idr_remove(&ids->ipcs_idr, idx);
+	WARN_ON_ONCE(idr_remove(&ids->ipcs_idr, idx) != ipcp);
 	ipc_kht_remove(ids, ipcp);
 	ids->in_use--;
 	ipcp->deleted = true;
 
 	if (unlikely(idx == ids->max_idx)) {
-		do {
-			idx--;
-			if (idx == -1)
-				break;
-		} while (!idr_find(&ids->ipcs_idr, idx));
+		idx = ids->max_idx-1;
+		if (idx >= 0)
+			idx = ipc_search_maxidx(ids, idx);
 		ids->max_idx = idx;
 	}
 }
@@ -725,31 +794,23 @@ struct pid_namespace *ipc_seq_pid_ns(struct seq_file *s)
 static struct kern_ipc_perm *sysvipc_find_ipc(struct ipc_ids *ids, loff_t pos,
 					      loff_t *new_pos)
 {
-	struct kern_ipc_perm *ipc;
-	int total, id;
+	struct kern_ipc_perm *ipc = NULL;
+	int max_idx = ipc_get_maxidx(ids);
 
-	total = 0;
-	for (id = 0; id < pos && total < ids->in_use; id++) {
-		ipc = idr_find(&ids->ipcs_idr, id);
-		if (ipc != NULL)
-			total++;
-	}
+	if (max_idx == -1 || pos > max_idx)
+		goto out;
 
-	if (total >= ids->in_use)
-		return NULL;
-
-	for (; pos < IPCMNI; pos++) {
+	for (; pos <= max_idx; pos++) {
 		ipc = idr_find(&ids->ipcs_idr, pos);
 		if (ipc != NULL) {
-			*new_pos = pos + 1;
 			rcu_read_lock();
 			ipc_lock_object(ipc);
-			return ipc;
+			break;
 		}
 	}
-
-	/* Out of range - return NULL to terminate iteration */
-	return NULL;
+out:
+	*new_pos = pos + 1;
+	return ipc;
 }
 
 static void *sysvipc_proc_next(struct seq_file *s, void *it, loff_t *pos)

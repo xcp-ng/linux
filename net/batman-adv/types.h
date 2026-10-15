@@ -1365,6 +1365,8 @@ struct batadv_tp_vars {
 	u8 icmp_uid;
 
 	/* sender variables */
+	/** @unacked_count: number of unacked entries */
+	size_t unacked_count;
 
 	/** @dec_cwnd: decimal part of the cwnd used during linear growth */
 	u16 dec_cwnd;
