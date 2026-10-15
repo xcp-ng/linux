@@ -147,6 +147,8 @@ void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
 
+	WARN_ONCE(true, "Use the nf_queue_entry_get_refs_bool variant to avoid possible use-after-frees.")
+
 	if (state->sk)
 		sock_hold(state->sk);
 
