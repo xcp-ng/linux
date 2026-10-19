@@ -3,6 +3,7 @@
  * Patrick McHardy (c) 2006-2012
  */
 
+#include <linux/shadow_var.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -20,6 +21,13 @@
 #include <net/dst.h>
 
 #include "nf_internals.h"
+
+static inline struct net_device *dst_dev_rcu(const struct dst_entry *dst)
+{
+	/* In the future, use rcu_dereference(dst->dev) */
+	WARN_ON_ONCE(!rcu_read_lock_held());
+	return READ_ONCE(dst->dev);
+}
 
 /*
  * Hook for nfnetlink_queue to register its queue handler.
@@ -49,54 +57,117 @@ EXPORT_SYMBOL(nf_unregister_queue_handler);
 void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
+	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
 
 	/* Release those devices we held, or Alexey will kill me. */
+	if (extra && extra->skb_dev)
+		dev_put(extra->skb_dev);
 	if (state->in)
 		dev_put(state->in);
 	if (state->out)
 		dev_put(state->out);
 	if (state->sk)
 		sock_put(state->sk);
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	if (entry->skb->nf_bridge) {
-		struct net_device *physdev;
 
-		physdev = nf_bridge_get_physindev(entry->skb);
-		if (physdev)
-			dev_put(physdev);
-		physdev = nf_bridge_get_physoutdev(entry->skb);
-		if (physdev)
-			dev_put(physdev);
-	}
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	if (extra && extra->bridge_dev)
+		dev_put(extra->bridge_dev);
+	if (extra && extra->physin)
+		dev_put(extra->physin);
+	if (extra && extra->physout)
+		dev_put(extra->physout);
 #endif
 }
 EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 
+void nf_queue_entry_free(struct nf_queue_entry *entry)
+{
+	nf_queue_entry_release_refs(entry);
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
+	kfree(entry);
+}
+EXPORT_SYMBOL_GPL(nf_queue_entry_free);
+
+static void __nf_queue_entry_init_physdevs(struct nf_queue_entry *entry,
+					   struct nf_queue_entry_extra *extra)
+{
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	const struct sk_buff *skb = entry->skb;
+	struct dst_entry *dst = skb_dst(skb);
+	struct net_device *dev = NULL;
+
+	if (nf_bridge_info_exists(skb)) {
+		extra->physin = nf_bridge_get_physindev(skb);
+		extra->physout = nf_bridge_get_physoutdev(skb);
+	} else {
+		extra->physin = NULL;
+		extra->physout = NULL;
+	}
+
+	if (entry->state.pf == NFPROTO_BRIDGE &&
+	    dst && (dst->flags & DST_FAKE_RTABLE))
+		dev = dst_dev_rcu(dst);
+
+	/* Must hold a reference on the bridge device: dst_hold() protects
+	 * the dst itself, but the fake rtable is embedded in bridge-private
+	 * storage that netdevice teardown can free independently.
+	 */
+	extra->bridge_dev = dev;
+#endif
+}
+
 /* Bump dev refs so they don't vanish while packet is out */
-void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+static void __nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
+	struct nf_queue_entry_extra *extra = nf_queue_entry_extra(entry);
 
+	if (extra && extra->skb_dev)
+		dev_hold(extra->skb_dev);
 	if (state->in)
 		dev_hold(state->in);
 	if (state->out)
 		dev_hold(state->out);
-	if (state->sk)
-		sock_hold(state->sk);
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	if (entry->skb->nf_bridge) {
-		struct net_device *physdev;
 
-		physdev = nf_bridge_get_physindev(entry->skb);
-		if (physdev)
-			dev_hold(physdev);
-		physdev = nf_bridge_get_physoutdev(entry->skb);
-		if (physdev)
-			dev_hold(physdev);
-	}
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	if (extra && extra->bridge_dev)
+		dev_hold(extra->bridge_dev);
+	if (extra && extra->physin)
+		dev_hold(extra->physin);
+	if (extra && extra->physout)
+		dev_hold(extra->physout);
 #endif
 }
+
+/*
+ * Kept for out-of-tree users, nf_queue_entry_get_refs_bool() must be used
+ * instead as it won't take a reference on a socket being destroyed.
+ */
+void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+{
+	struct nf_hook_state *state = &entry->state;
+
+	WARN_ONCE(true, "Use the nf_queue_entry_get_refs_bool variant to avoid possible use-after-frees.");
+
+	if (state->sk)
+		sock_hold(state->sk);
+
+	__nf_queue_entry_get_refs(entry);
+}
 EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+
+bool nf_queue_entry_get_refs_bool(struct nf_queue_entry *entry)
+{
+	struct nf_hook_state *state = &entry->state;
+
+	if (state->sk && !refcount_inc_not_zero(&state->sk->sk_refcnt))
+		return false;
+
+	__nf_queue_entry_get_refs(entry);
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs_bool);
 
 void nf_queue_nf_hook_drop(struct net *net)
 {
@@ -143,18 +214,17 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		      const struct nf_hook_entries *entries,
 		      unsigned int index, unsigned int queuenum)
 {
-	int status = -ENOENT;
+	struct nf_queue_entry_extra *extra;
 	struct nf_queue_entry *entry = NULL;
 	const struct nf_queue_handler *qh;
 	struct net *net = state->net;
 	unsigned int route_key_size;
+	int status;
 
 	/* QUEUE == DROP if no one is waiting, to be safe. */
 	qh = rcu_dereference(net->nf.queue_handler);
-	if (!qh) {
-		status = -ESRCH;
-		goto err;
-	}
+	if (!qh)
+		return -ESRCH;
 
 	switch (state->pf) {
 	case AF_INET:
@@ -169,8 +239,20 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 	}
 
 	entry = kmalloc(sizeof(*entry) + route_key_size, GFP_ATOMIC);
-	if (!entry) {
-		status = -ENOMEM;
+	if (!entry)
+		return -ENOMEM;
+
+	extra = shadow_var_alloc(entry, NF_QUEUE_ENTRY_EXTRA, sizeof(*extra), GFP_ATOMIC);
+	if (!extra) {
+		kfree(entry);
+		return -ENOMEM;
+	}
+	*extra = (struct nf_queue_entry_extra) {
+		.skb_dev = skb->dev,
+	};
+
+	if (skb_dst(skb) && !skb_dst_force(skb)) {
+		status = -ENETDOWN;
 		goto err;
 	}
 
@@ -181,8 +263,12 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 		.size	= sizeof(*entry) + route_key_size,
 	};
 
-	nf_queue_entry_get_refs(entry);
-	skb_dst_force(skb);
+	__nf_queue_entry_init_physdevs(entry, extra);
+
+	if (!nf_queue_entry_get_refs_bool(entry)) {
+		status = -ENOTCONN;
+		goto err;
+	}
 
 	switch (entry->state.pf) {
 	case AF_INET:
@@ -194,15 +280,15 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
 	}
 
 	status = qh->outfn(entry, queuenum);
-
 	if (status < 0) {
-		nf_queue_entry_release_refs(entry);
-		goto err;
+		nf_queue_entry_free(entry);
+		return status;
 	}
 
 	return 0;
 
 err:
+	shadow_var_free(entry, NF_QUEUE_ENTRY_EXTRA);
 	kfree(entry);
 	return status;
 }
@@ -284,12 +370,10 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
 
 	hooks = nf_hook_entries_head(net, pf, entry->state.hook);
 
-	nf_queue_entry_release_refs(entry);
-
 	i = entry->hook_index;
 	if (WARN_ON_ONCE(!hooks || i >= hooks->num_hook_entries)) {
 		kfree_skb(skb);
-		kfree(entry);
+		nf_queue_entry_free(entry);
 		return;
 	}
 
@@ -328,6 +412,6 @@ next_hook:
 		kfree_skb(skb);
 	}
 
-	kfree(entry);
+	nf_queue_entry_free(entry);
 }
 EXPORT_SYMBOL(nf_reinject);

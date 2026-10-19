@@ -5,6 +5,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/jhash.h>
+#include <linux/shadow_var.h>
 
 /* Each queued (to userspace) skbuff has one of these. */
 struct nf_queue_entry {
@@ -12,7 +13,6 @@ struct nf_queue_entry {
 	struct sk_buff		*skb;
 	unsigned int		id;
 	unsigned int		hook_index;	/* index in hook_entries->hook[] */
-
 	struct nf_hook_state	state;
 	u16			size; /* sizeof(entry) + saved route keys */
 
@@ -20,6 +20,30 @@ struct nf_queue_entry {
 };
 
 #define nf_queue_entry_reroute(x) ((void *)x + sizeof(struct nf_queue_entry))
+
+/*
+ * Fields which can't be added to struct nf_queue_entry without breaking the
+ * kABI, attached to each entry as a shadow variable instead.
+ */
+#define NF_QUEUE_ENTRY_EXTRA "shadow_nf_queue_entry_extra"
+
+struct nf_queue_entry_extra {
+	struct net_device	*skb_dev;
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	struct net_device	*bridge_dev;
+	struct net_device	*physin;
+	struct net_device	*physout;
+#endif
+};
+
+static inline struct nf_queue_entry_extra *
+nf_queue_entry_extra(struct nf_queue_entry *entry)
+{
+	struct nf_queue_entry_extra *extra = shadow_var_get(entry, NF_QUEUE_ENTRY_EXTRA);
+
+	WARN_ON_ONCE(extra == NULL);
+	return extra;
+}
 
 /* Packet queuing */
 struct nf_queue_handler {
@@ -33,7 +57,9 @@ void nf_unregister_queue_handler(struct net *net);
 void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
 
 void nf_queue_entry_get_refs(struct nf_queue_entry *entry);
+bool nf_queue_entry_get_refs_bool(struct nf_queue_entry *entry);
 void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
+void nf_queue_entry_free(struct nf_queue_entry *entry);
 
 static inline void init_hashrandom(u32 *jhash_initval)
 {
