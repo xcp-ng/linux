@@ -2644,7 +2644,7 @@ extern __u32 sysctl_wmem_default;
 extern __u32 sysctl_rmem_default;
 
 /* On 32bit arches, an skb frag is limited to 2^15 */
-#define SKB_FRAG_PAGE_ORDER	get_order(32768)
+#define SKB_FRAG_PAGE_ORDER	get_order(4096)
 
 static inline int sk_get_wmem0(const struct sock *sk, const struct proto *proto)
 {
@@ -2693,5 +2693,11 @@ static inline bool sk_dev_equal_l3scope(struct sock *sk, int dif)
 
 	return false;
 }
+
+void sock_set_mark(struct sock *sk, u32 val);
+void sock_set_reuseaddr(struct sock *sk);
+void sock_set_sndtimeo(struct sock *sk, s64 secs);
+void sock_set_keepalive(struct sock *sk);
+void sock_set_rcvbuf(struct sock *sk, int val);
 
 #endif	/* _SOCK_H */

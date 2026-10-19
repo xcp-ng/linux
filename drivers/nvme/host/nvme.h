@@ -242,6 +242,11 @@ struct nvme_ctrl {
 
 	struct page *discard_page;
 	unsigned long discard_page_busy;
+#ifndef __GENKSYMS__
+	struct delayed_work failfast_work;
+	unsigned long flags;
+#endif
+#define NVME_CTRL_FAILFAST_EXPIRED	0
 };
 
 struct nvme_subsystem {

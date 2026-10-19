@@ -132,6 +132,7 @@ struct controller {
 	unsigned int ist_running;
 	int request_result;
 	wait_queue_head_t requester;
+	unsigned int inband_presence_disabled:1;
 };
 
 /**
@@ -186,7 +187,7 @@ void pciehp_handle_button_press(struct slot *slot);
 void pciehp_handle_disable_request(struct slot *slot);
 void pciehp_handle_presence_or_link_change(struct slot *slot, u32 events);
 int pciehp_configure_device(struct slot *p_slot);
-void pciehp_unconfigure_device(struct slot *p_slot);
+void pciehp_unconfigure_device(struct slot *p_slot, bool presence);
 void pciehp_queue_pushbutton_work(struct work_struct *work);
 struct controller *pcie_init(struct pcie_device *dev);
 int pcie_init_notification(struct controller *ctrl);
@@ -199,11 +200,12 @@ void pciehp_get_attention_status(struct slot *slot, u8 *status);
 
 void pciehp_set_attention_status(struct slot *slot, u8 status);
 void pciehp_get_latch_status(struct slot *slot, u8 *status);
-void pciehp_get_adapter_status(struct slot *slot, u8 *status);
 int pciehp_query_power_fault(struct slot *slot);
 void pciehp_green_led_on(struct slot *slot);
 void pciehp_green_led_off(struct slot *slot);
 void pciehp_green_led_blink(struct slot *slot);
+bool pciehp_card_present(struct controller *ctrl);
+bool pciehp_card_present_or_link_active(struct controller *ctrl);
 int pciehp_check_link_status(struct controller *ctrl);
 bool pciehp_check_link_active(struct controller *ctrl);
 void pciehp_release_ctrl(struct controller *ctrl);

@@ -984,7 +984,11 @@ static int cmd_handler_lrr(struct parser_exec_state *s)
 }
 
 static inline int cmd_address_audit(struct parser_exec_state *s,
-		unsigned long guest_gma, int op_size, bool index_mode);
+				    unsigned long guest_gma, int op_size,
+				    bool index_mode);
+static inline void patch_gma(struct parser_exec_state *s,
+			     unsigned long guest_gma, unsigned int offset,
+			     unsigned int mask);
 
 static int cmd_handler_lrm(struct parser_exec_state *s)
 {
@@ -1009,6 +1013,7 @@ static int cmd_handler_lrm(struct parser_exec_state *s)
 			ret |= cmd_address_audit(s, gma, sizeof(u32), false);
 			if (ret)
 				break;
+			patch_gma(s, gma, i + 1, GENMASK(31, 2));
 		}
 		i += gmadr_dw_number(s) + 1;
 	}
@@ -1033,6 +1038,8 @@ static int cmd_handler_srm(struct parser_exec_state *s)
 			ret |= cmd_address_audit(s, gma, sizeof(u32), false);
 			if (ret)
 				break;
+
+			patch_gma(s, gma, i + 1, GENMASK(31, 2));
 		}
 		i += gmadr_dw_number(s) + 1;
 	}
@@ -1102,7 +1109,9 @@ static int cmd_handler_pipe_control(struct parser_exec_state *s)
 				if (cmd_val(s, 1) & (1 << 21))
 					index_mode = true;
 				ret |= cmd_address_audit(s, gma, sizeof(u64),
-						index_mode);
+							 index_mode);
+				if (!ret)
+					patch_gma(s, gma, 2, GENMASK(31, 2));
 			}
 		}
 	}
@@ -1431,8 +1440,26 @@ static unsigned long get_gma_bb_from_cmd(struct parser_exec_state *s, int index)
 	return addr;
 }
 
+static inline void patch_gma(struct parser_exec_state *s,
+			     unsigned long guest_gma, unsigned int offset,
+			     unsigned int mask)
+{
+	struct intel_vgpu *vgpu = s->vgpu;
+	int gmadr_bytes = vgpu->gvt->device_info.gmadr_bytes_in_cmd;
+	u64 host_gma;
+
+	intel_gvt_ggtt_gmadr_g2h(vgpu, guest_gma, &host_gma);
+
+	patch_value(s, cmd_ptr(s, offset),
+		    (host_gma & mask) | (cmd_val(s, offset) & (~mask)));
+	if (gmadr_bytes == 8)
+		patch_value(s, cmd_ptr(s, offset + 1),
+			    (host_gma >> 32) & GENMASK(15, 0));
+}
+
 static inline int cmd_address_audit(struct parser_exec_state *s,
-		unsigned long guest_gma, int op_size, bool index_mode)
+				    unsigned long guest_gma, int op_size,
+				    bool index_mode)
 {
 	struct intel_vgpu *vgpu = s->vgpu;
 	u32 max_surface_size = vgpu->gvt->device_info.max_surface_size;
@@ -1497,7 +1524,11 @@ static int cmd_handler_mi_store_data_imm(struct parser_exec_state *s)
 		gma = (gma_high << 32) | gma_low;
 		core_id = (cmd_val(s, 1) & (1 << 0)) ? 1 : 0;
 	}
+
 	ret = cmd_address_audit(s, gma + op_size * core_id, op_size, false);
+	if (!ret)
+		patch_gma(s, gma, 1, GENMASK(31, 2));
+
 	return ret;
 }
 
@@ -1542,6 +1573,9 @@ static int cmd_handler_mi_op_2f(struct parser_exec_state *s)
 		gma = (gma_high << 32) | gma;
 	}
 	ret = cmd_address_audit(s, gma, op_size, false);
+	if (!ret)
+		patch_gma(s, gma, 1, GENMASK(31, 2));
+
 	return ret;
 }
 
@@ -1582,7 +1616,10 @@ static int cmd_handler_mi_flush_dw(struct parser_exec_state *s)
 		if (cmd_val(s, 0) & (1 << 21))
 			index_mode = true;
 		ret = cmd_address_audit(s, gma, sizeof(u64), index_mode);
+		if (!ret)
+			patch_gma(s, gma, 1, GENMASK(31, 3));
 	}
+
 	/* Check notify bit */
 	if ((cmd_val(s, 0) & (1 << 8)))
 		set_bit(cmd_interrupt_events[s->ring_id].mi_flush_dw,

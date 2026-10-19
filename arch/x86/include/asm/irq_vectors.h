@@ -127,7 +127,7 @@
 
 #define NR_IRQS_LEGACY			16
 
-#define CPU_VECTOR_LIMIT		(64 * NR_CPUS)
+#define CPU_VECTOR_LIMIT		(512 * NR_CPUS)
 #define IO_APIC_VECTOR_LIMIT		(32 * MAX_IO_APICS)
 
 #if defined(CONFIG_X86_IO_APIC) && defined(CONFIG_PCI_MSI)

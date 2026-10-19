@@ -1592,13 +1592,10 @@ void handle_irq_for_port(evtchn_port_t port, struct evtchn_loop_ctrl *ctrl)
 	generic_handle_irq(irq);
 }
 
-static DEFINE_PER_CPU(unsigned, xed_nesting_count);
-
 static void __xen_evtchn_do_upcall(void)
 {
 	struct vcpu_info *vcpu_info = __this_cpu_read(xen_vcpu);
-	int cpu = get_cpu();
-	unsigned count;
+	int cpu = smp_processor_id();
 	struct evtchn_loop_ctrl ctrl = { 0 };
 
 	/*
@@ -1613,18 +1610,13 @@ static void __xen_evtchn_do_upcall(void)
 	do {
 		vcpu_info->evtchn_upcall_pending = 0;
 
-		if (__this_cpu_inc_return(xed_nesting_count) - 1)
-			goto out;
-
 		xen_evtchn_handle_events(cpu, &ctrl);
 
 		BUG_ON(!irqs_disabled());
 
-		count = __this_cpu_read(xed_nesting_count);
-		__this_cpu_write(xed_nesting_count, 0);
-	} while (count != 1 || vcpu_info->evtchn_upcall_pending);
+		virt_rmb(); /* Hypervisor can set upcall pending. */
+	} while (vcpu_info->evtchn_upcall_pending);
 
-out:
 	rcu_read_unlock();
 
 	/*
@@ -1633,8 +1625,6 @@ out:
 	 * above.
 	 */
 	__this_cpu_inc(irq_epoch);
-
-	put_cpu();
 }
 
 void xen_evtchn_do_upcall(struct pt_regs *regs)

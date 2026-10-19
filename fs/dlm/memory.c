@@ -12,18 +12,29 @@
 ******************************************************************************/
 
 #include "dlm_internal.h"
+#include "lowcomms.h"
 #include "config.h"
 #include "memory.h"
 
+static struct kmem_cache *writequeue_cache;
+static struct kmem_cache *msg_cache;
 static struct kmem_cache *lkb_cache;
 static struct kmem_cache *rsb_cache;
 
 
 int __init dlm_memory_init(void)
 {
+	writequeue_cache = dlm_lowcomms_writequeue_cache_create();
+	if (!writequeue_cache)
+		return -ENOMEM;
+
 	lkb_cache = kmem_cache_create("dlm_lkb", sizeof(struct dlm_lkb),
 				__alignof__(struct dlm_lkb), 0, NULL);
 	if (!lkb_cache)
+		return -ENOMEM;
+
+	msg_cache = dlm_lowcomms_msg_cache_create();
+	if (!msg_cache)
 		return -ENOMEM;
 
 	rsb_cache = kmem_cache_create("dlm_rsb", sizeof(struct dlm_rsb),
@@ -38,7 +49,9 @@ int __init dlm_memory_init(void)
 
 void dlm_memory_exit(void)
 {
+	kmem_cache_destroy(writequeue_cache);
 	kmem_cache_destroy(lkb_cache);
+	kmem_cache_destroy(msg_cache);
 	kmem_cache_destroy(rsb_cache);
 }
 
@@ -91,3 +104,22 @@ void dlm_free_lkb(struct dlm_lkb *lkb)
 	kmem_cache_free(lkb_cache, lkb);
 }
 
+struct writequeue_entry *dlm_allocate_writequeue(void)
+{
+	return kmem_cache_alloc(writequeue_cache, GFP_ATOMIC);
+}
+
+void dlm_free_writequeue(struct writequeue_entry *writequeue)
+{
+	kmem_cache_free(writequeue_cache, writequeue);
+}
+
+struct dlm_msg *dlm_allocate_msg(gfp_t allocation)
+{
+	return kmem_cache_alloc(msg_cache, allocation);
+}
+
+void dlm_free_msg(struct dlm_msg *msg)
+{
+	kmem_cache_free(msg_cache, msg);
+}

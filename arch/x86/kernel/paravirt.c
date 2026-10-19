@@ -145,6 +145,7 @@ static void *get_call_destination(u8 type)
 #ifdef CONFIG_PARAVIRT_SPINLOCKS
 		.pv_lock_ops = pv_lock_ops,
 #endif
+		.pv_cpu_ops_ext = pv_cpu_ops_ext,
 	};
 	return *((void **)&tmpl + type);
 }
@@ -384,6 +385,10 @@ __visible struct pv_cpu_ops pv_cpu_ops = {
 
 	.start_context_switch = paravirt_nop,
 	.end_context_switch = paravirt_nop,
+};
+
+__visible struct pv_cpu_ops_ext pv_cpu_ops_ext = {
+	.update_io_bitmap = paravirt_nop,
 };
 
 /* At this point, native_get/set_debugreg has real function entries */

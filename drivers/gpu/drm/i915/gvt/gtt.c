@@ -32,7 +32,8 @@
  *    Bing Niu <bing.niu@intel.com>
  *
  */
-
+#include <linux/types.h>
+#include <xen/xen.h>
 #include "i915_drv.h"
 #include "gvt.h"
 #include "i915_pvinfo.h"
@@ -65,16 +66,15 @@ bool intel_gvt_ggtt_validate_range(struct intel_vgpu *vgpu, u64 addr, u32 size)
 /* translate a guest gmadr to host gmadr */
 int intel_gvt_ggtt_gmadr_g2h(struct intel_vgpu *vgpu, u64 g_addr, u64 *h_addr)
 {
-	if (WARN(!vgpu_gmadr_is_valid(vgpu, g_addr),
-		 "invalid guest gmadr %llx\n", g_addr))
+	if (!vgpu_gmadr_is_valid(vgpu, g_addr))
 		return -EACCES;
 
 	if (vgpu_gmadr_is_aperture(vgpu, g_addr))
 		*h_addr = vgpu_aperture_gmadr_base(vgpu)
-			  + (g_addr - vgpu_aperture_offset(vgpu));
+			  + (g_addr - vgpu_guest_aperture_gmadr_base(vgpu));
 	else
 		*h_addr = vgpu_hidden_gmadr_base(vgpu)
-			  + (g_addr - vgpu_hidden_offset(vgpu));
+			  + (g_addr - vgpu_guest_hidden_gmadr_base(vgpu));
 	return 0;
 }
 
@@ -86,10 +86,10 @@ int intel_gvt_ggtt_gmadr_h2g(struct intel_vgpu *vgpu, u64 h_addr, u64 *g_addr)
 		return -EACCES;
 
 	if (gvt_gmadr_is_aperture(vgpu->gvt, h_addr))
-		*g_addr = vgpu_aperture_gmadr_base(vgpu)
+		*g_addr = vgpu_guest_aperture_gmadr_base(vgpu)
 			+ (h_addr - gvt_aperture_gmadr_base(vgpu->gvt));
 	else
-		*g_addr = vgpu_hidden_gmadr_base(vgpu)
+		*g_addr = vgpu_guest_hidden_gmadr_base(vgpu)
 			+ (h_addr - gvt_hidden_gmadr_base(vgpu->gvt));
 	return 0;
 }
@@ -590,7 +590,7 @@ static inline void ppgtt_set_shadow_root_entry(struct intel_vgpu_mm *mm,
 	_ppgtt_set_root_entry(mm, entry, index, false);
 }
 
-static void ggtt_get_guest_entry(struct intel_vgpu_mm *mm,
+void ggtt_get_guest_entry(struct intel_vgpu_mm *mm,
 		struct intel_gvt_gtt_entry *entry, unsigned long index)
 {
 	struct intel_gvt_gtt_pte_ops *pte_ops = mm->vgpu->gvt->gtt.pte_ops;
@@ -1697,6 +1697,10 @@ static int ppgtt_handle_guest_write_page_table_bytes(
 
 	index = (pa & (PAGE_SIZE - 1)) >> info->gtt_entry_size_shift;
 
+	if (xen_initial_domain())
+		/* Set guest ppgtt entry.Optional for KVMGT,but MUST for XENGT*/
+		intel_gvt_hypervisor_write_gpa(vgpu, pa, p_data, bytes);
+
 	ppgtt_get_guest_entry(spt, &we, index);
 
 	/*
@@ -1887,7 +1891,11 @@ struct intel_vgpu_mm *intel_vgpu_create_ppgtt_mm(struct intel_vgpu *vgpu,
 	}
 
 	list_add_tail(&mm->ppgtt_mm.list, &vgpu->gtt.ppgtt_mm_list_head);
+
+	mutex_lock(&gvt->gtt.ppgtt_mm_lock);
 	list_add_tail(&mm->ppgtt_mm.lru_list, &gvt->gtt.ppgtt_mm_lru_list_head);
+	mutex_unlock(&gvt->gtt.ppgtt_mm_lock);
+
 	return mm;
 }
 
@@ -1910,7 +1918,6 @@ static struct intel_vgpu_mm *intel_vgpu_create_ggtt_mm(struct intel_vgpu *vgpu)
 		vgpu_free_mm(mm);
 		return ERR_PTR(-ENOMEM);
 	}
-	mm->ggtt_mm.last_partial_off = -1UL;
 
 	return mm;
 }
@@ -1931,11 +1938,14 @@ void _intel_vgpu_mm_release(struct kref *mm_ref)
 
 	if (mm->type == INTEL_GVT_MM_PPGTT) {
 		list_del(&mm->ppgtt_mm.list);
+
+		mutex_lock(&mm->vgpu->gvt->gtt.ppgtt_mm_lock);
 		list_del(&mm->ppgtt_mm.lru_list);
+		mutex_unlock(&mm->vgpu->gvt->gtt.ppgtt_mm_lock);
+
 		invalidate_ppgtt_mm(mm);
 	} else {
 		vfree(mm->ggtt_mm.virtual_ggtt);
-		mm->ggtt_mm.last_partial_off = -1UL;
 	}
 
 	vgpu_free_mm(mm);
@@ -1974,9 +1984,10 @@ int intel_vgpu_pin_mm(struct intel_vgpu_mm *mm)
 		if (ret)
 			return ret;
 
+		mutex_lock(&mm->vgpu->gvt->gtt.ppgtt_mm_lock);
 		list_move_tail(&mm->ppgtt_mm.lru_list,
 			       &mm->vgpu->gvt->gtt.ppgtt_mm_lru_list_head);
-
+		mutex_unlock(&mm->vgpu->gvt->gtt.ppgtt_mm_lock);
 	}
 
 	return 0;
@@ -1987,6 +1998,8 @@ static int reclaim_one_ppgtt_mm(struct intel_gvt *gvt)
 	struct intel_vgpu_mm *mm;
 	struct list_head *pos, *n;
 
+	mutex_lock(&gvt->gtt.ppgtt_mm_lock);
+
 	list_for_each_safe(pos, n, &gvt->gtt.ppgtt_mm_lru_list_head) {
 		mm = container_of(pos, struct intel_vgpu_mm, ppgtt_mm.lru_list);
 
@@ -1994,9 +2007,11 @@ static int reclaim_one_ppgtt_mm(struct intel_gvt *gvt)
 			continue;
 
 		list_del_init(&mm->ppgtt_mm.lru_list);
+		mutex_unlock(&gvt->gtt.ppgtt_mm_lock);
 		invalidate_ppgtt_mm(mm);
 		return 1;
 	}
+	mutex_unlock(&gvt->gtt.ppgtt_mm_lock);
 	return 0;
 }
 
@@ -2169,83 +2184,73 @@ static int emulate_ggtt_mmio_write(struct intel_vgpu *vgpu, unsigned int off,
 	struct intel_vgpu_mm *ggtt_mm = vgpu->gtt.ggtt_mm;
 	struct intel_gvt_gtt_pte_ops *ops = gvt->gtt.pte_ops;
 	unsigned long g_gtt_index = off >> info->gtt_entry_size_shift;
-	unsigned long gma, gfn;
+	unsigned long gfn;
+	unsigned long h_gtt_index;
 	struct intel_gvt_gtt_entry e = {.val64 = 0, .type = GTT_TYPE_GGTT_PTE};
 	struct intel_gvt_gtt_entry m = {.val64 = 0, .type = GTT_TYPE_GGTT_PTE};
 	dma_addr_t dma_addr;
 	int ret;
+	struct intel_gvt_partial_pte *partial_pte, *pos, *n;
+	bool partial_update = false;
 
 	if (bytes != 4 && bytes != 8)
 		return -EINVAL;
 
-	gma = g_gtt_index << I915_GTT_PAGE_SHIFT;
-
 	/* the VM may configure the whole GM space when ballooning is used */
-	if (!vgpu_gmadr_is_valid(vgpu, gma))
+	if (intel_gvt_ggtt_index_g2h(vgpu, g_gtt_index, &h_gtt_index))
 		return 0;
 
-	ggtt_get_guest_entry(ggtt_mm, &e, g_gtt_index);
-
+	e.type = GTT_TYPE_GGTT_PTE;
 	memcpy((void *)&e.val64 + (off & (info->gtt_entry_size - 1)), p_data,
 			bytes);
 
 	/* If ggtt entry size is 8 bytes, and it's split into two 4 bytes
-	 * write, we assume the two 4 bytes writes are consecutive.
-	 * Otherwise, we abort and report error
+	 * write, save the first 4 bytes in a list and update virtual
+	 * PTE. Only update shadow PTE when the second 4 bytes comes.
 	 */
 	if (bytes < info->gtt_entry_size) {
-		if (ggtt_mm->ggtt_mm.last_partial_off == -1UL) {
-			/* the first partial part*/
-			ggtt_mm->ggtt_mm.last_partial_off = off;
-			ggtt_mm->ggtt_mm.last_partial_data = e.val64;
-			return 0;
-		} else if ((g_gtt_index ==
-				(ggtt_mm->ggtt_mm.last_partial_off >>
-				info->gtt_entry_size_shift)) &&
-			(off !=	ggtt_mm->ggtt_mm.last_partial_off)) {
-			/* the second partial part */
+		bool found = false;
 
-			int last_off = ggtt_mm->ggtt_mm.last_partial_off &
-				(info->gtt_entry_size - 1);
+		list_for_each_entry_safe(pos, n,
+				&ggtt_mm->ggtt_mm.partial_pte_list, list) {
+			if (g_gtt_index == pos->offset >>
+					info->gtt_entry_size_shift) {
+				if (off != pos->offset) {
+					/* the second partial part*/
+					int last_off = pos->offset &
+						(info->gtt_entry_size - 1);
 
-			memcpy((void *)&e.val64 + last_off,
-				(void *)&ggtt_mm->ggtt_mm.last_partial_data +
-				last_off, bytes);
+					memcpy((void *)&e.val64 + last_off,
+						(void *)&pos->data + last_off,
+						bytes);
 
-			ggtt_mm->ggtt_mm.last_partial_off = -1UL;
-		} else {
-			int last_offset;
+					list_del(&pos->list);
+					kfree(pos);
+					found = true;
+					break;
+				}
 
-			gvt_vgpu_err("failed to populate guest ggtt entry: abnormal ggtt entry write sequence, last_partial_off=%lx, offset=%x, bytes=%d, ggtt entry size=%d\n",
-					ggtt_mm->ggtt_mm.last_partial_off, off,
-					bytes, info->gtt_entry_size);
+				/* update of the first partial part */
+				pos->data = e.val64;
+				ggtt_set_guest_entry(ggtt_mm, &e, g_gtt_index);
+				return 0;
+			}
+		}
 
-			/* set host ggtt entry to scratch page and clear
-			 * virtual ggtt entry as not present for last
-			 * partially write offset
-			 */
-			last_offset = ggtt_mm->ggtt_mm.last_partial_off &
-					(~(info->gtt_entry_size - 1));
-
-			ggtt_get_host_entry(ggtt_mm, &m, last_offset);
-			ggtt_invalidate_pte(vgpu, &m);
-			ops->set_pfn(&m, gvt->gtt.scratch_mfn);
-			ops->clear_present(&m);
-			ggtt_set_host_entry(ggtt_mm, &m, last_offset);
-			ggtt_invalidate(gvt->dev_priv);
-
-			ggtt_get_guest_entry(ggtt_mm, &e, last_offset);
-			ops->clear_present(&e);
-			ggtt_set_guest_entry(ggtt_mm, &e, last_offset);
-
-			ggtt_mm->ggtt_mm.last_partial_off = off;
-			ggtt_mm->ggtt_mm.last_partial_data = e.val64;
-
-			return 0;
+		if (!found) {
+			/* the first partial part */
+			partial_pte = kzalloc(sizeof(*partial_pte), GFP_KERNEL);
+			if (!partial_pte)
+				return -ENOMEM;
+			partial_pte->offset = off;
+			partial_pte->data = e.val64;
+			list_add_tail(&partial_pte->list,
+				&ggtt_mm->ggtt_mm.partial_pte_list);
+			partial_update = true;
 		}
 	}
 
-	if (ops->test_present(&e)) {
+	if (!partial_update && (ops->test_present(&e))) {
 		gfn = ops->get_pfn(&e);
 		m.val64 = e.val64;
 		m.type = e.type;
@@ -2270,16 +2275,18 @@ static int emulate_ggtt_mmio_write(struct intel_vgpu *vgpu, unsigned int off,
 		} else
 			ops->set_pfn(&m, dma_addr >> PAGE_SHIFT);
 	} else {
-		ggtt_get_host_entry(ggtt_mm, &m, g_gtt_index);
-		ggtt_invalidate_pte(vgpu, &m);
 		ops->set_pfn(&m, gvt->gtt.scratch_mfn);
 		ops->clear_present(&m);
 	}
 
 out:
-	ggtt_set_host_entry(ggtt_mm, &m, g_gtt_index);
-	ggtt_invalidate(gvt->dev_priv);
 	ggtt_set_guest_entry(ggtt_mm, &e, g_gtt_index);
+
+	ggtt_get_host_entry(ggtt_mm, &e, h_gtt_index);
+	ggtt_invalidate_pte(vgpu, &e);
+
+	ggtt_set_host_entry(ggtt_mm, &m, h_gtt_index);
+	ggtt_invalidate(gvt->dev_priv);
 	return 0;
 }
 
@@ -2437,6 +2444,8 @@ int intel_vgpu_init_gtt(struct intel_vgpu *vgpu)
 
 	intel_vgpu_reset_ggtt(vgpu, false);
 
+	INIT_LIST_HEAD(&gtt->ggtt_mm->ggtt_mm.partial_pte_list);
+
 	return create_scratch_page_tree(vgpu);
 }
 
@@ -2461,6 +2470,14 @@ static void intel_vgpu_destroy_all_ppgtt_mm(struct intel_vgpu *vgpu)
 
 static void intel_vgpu_destroy_ggtt_mm(struct intel_vgpu *vgpu)
 {
+	struct intel_gvt_partial_pte *pos;
+
+	list_for_each_entry(pos,
+			&vgpu->gtt.ggtt_mm->ggtt_mm.partial_pte_list, list) {
+		gvt_dbg_mm("partial PTE update on hold 0x%lx : 0x%llx\n",
+			pos->offset, pos->data);
+		kfree(pos);
+	}
 	intel_vgpu_destroy_mm(vgpu->gtt.ggtt_mm);
 	vgpu->gtt.ggtt_mm = NULL;
 }
@@ -2665,6 +2682,7 @@ int intel_gvt_init_gtt(struct intel_gvt *gvt)
 		}
 	}
 	INIT_LIST_HEAD(&gvt->gtt.ppgtt_mm_lru_list_head);
+	mutex_init(&gvt->gtt.ppgtt_mm_lock);
 	return 0;
 }
 
@@ -2705,7 +2723,9 @@ void intel_vgpu_invalidate_ppgtt(struct intel_vgpu *vgpu)
 	list_for_each_safe(pos, n, &vgpu->gtt.ppgtt_mm_list_head) {
 		mm = container_of(pos, struct intel_vgpu_mm, ppgtt_mm.list);
 		if (mm->type == INTEL_GVT_MM_PPGTT) {
+			mutex_lock(&vgpu->gvt->gtt.ppgtt_mm_lock);
 			list_del_init(&mm->ppgtt_mm.lru_list);
+			mutex_unlock(&vgpu->gvt->gtt.ppgtt_mm_lock);
 			if (mm->ppgtt_mm.shadowed)
 				invalidate_ppgtt_mm(mm);
 		}
