@@ -401,7 +401,11 @@ struct sock {
 #ifdef CONFIG_XFRM
 	struct xfrm_policy __rcu *sk_policy[2];
 #endif
+#ifdef __GENKSYMS__
+	struct dst_entry	*sk_rx_dst;
+#else
 	struct dst_entry __rcu	*sk_rx_dst;
+#endif
 	struct dst_entry __rcu	*sk_dst_cache;
 	atomic_t		sk_omem_alloc;
 	int			sk_sndbuf;
