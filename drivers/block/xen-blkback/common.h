@@ -324,6 +324,7 @@ struct xen_blkif {
 	struct work_struct	free_work;
 	unsigned int 		nr_ring_pages;
 	/* All rings for this device. */
+	rwlock_t		rings_lock;
 	struct xen_blkif_ring	*rings;
 	unsigned int		nr_rings;
 };
