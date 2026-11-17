@@ -112,16 +112,23 @@ static int check_pages_physically_contiguous(unsigned long xen_pfn,
 	return 1;
 }
 
-static inline int range_straddles_page_boundary(phys_addr_t p, size_t size)
+static inline int range_straddles_page_boundary(struct device *dev,
+						phys_addr_t p, size_t size)
 {
 	unsigned long xen_pfn = XEN_PFN_DOWN(p);
 	unsigned int offset = p & ~XEN_PAGE_MASK;
+	unsigned long mask;
+	dma_addr_t dma;
 
 	if (offset + size <= XEN_PAGE_SIZE)
 		return 0;
-	if (check_pages_physically_contiguous(xen_pfn, offset, size))
-		return 0;
-	return 1;
+	if (!check_pages_physically_contiguous(xen_pfn, offset, size))
+		return 1;
+
+	/* Contiguous, but may cross the segment boundary in bus space */
+	mask = dev ? dma_get_seg_boundary(dev) : DMA_BIT_MASK(32);
+	dma = xen_phys_to_bus(p);
+	return size - 1 <= mask && ((dma ^ (dma + size - 1)) & ~mask);
 }
 
 static int is_xen_swiotlb_buffer(dma_addr_t dma_addr)
@@ -349,7 +356,7 @@ xen_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
 	phys = *dma_handle;
 	dev_addr = xen_phys_to_bus(phys);
 	if (((dev_addr + size - 1 <= dma_mask)) &&
-	    !range_straddles_page_boundary(phys, size))
+	    !range_straddles_page_boundary(hwdev, phys, size))
 		*dma_handle = dev_addr;
 	else {
 		if (xen_create_contiguous_region(phys, order,
@@ -381,7 +388,7 @@ xen_swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
 	size = 1UL << (order + XEN_PAGE_SHIFT);
 
 	if (((dev_addr + size - 1 <= dma_mask)) ||
-	    range_straddles_page_boundary(phys, size))
+	    range_straddles_page_boundary(hwdev, phys, size))
 		xen_destroy_contiguous_region(phys, order);
 
 	xen_free_coherent_pages(hwdev, size, vaddr, (dma_addr_t)phys, attrs);
@@ -409,7 +416,7 @@ static dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
 	 * buffering it.
 	 */
 	if (dma_capable(dev, dev_addr, size) &&
-	    !range_straddles_page_boundary(phys, size) &&
+	    !range_straddles_page_boundary(dev, phys, size) &&
 		!xen_arch_need_swiotlb(dev, phys, dev_addr) &&
 		(swiotlb_force != SWIOTLB_FORCE)) {
 		/* we are not interested in the dma_addr returned by
@@ -589,7 +596,7 @@ xen_swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
 		if (swiotlb_force == SWIOTLB_FORCE ||
 		    xen_arch_need_swiotlb(hwdev, paddr, dev_addr) ||
 		    !dma_capable(hwdev, dev_addr, sg->length) ||
-		    range_straddles_page_boundary(paddr, sg->length)) {
+		    range_straddles_page_boundary(hwdev, paddr, sg->length)) {
 			phys_addr_t map = swiotlb_tbl_map_single(hwdev,
 								 start_dma_addr,
 								 sg_phys(sg),
