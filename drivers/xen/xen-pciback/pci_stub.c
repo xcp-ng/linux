@@ -17,6 +17,7 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/atomic.h>
+#include <linux/delay.h>
 #include <xen/events.h>
 #include <asm/xen/pci.h>
 #include <asm/xen/hypervisor.h>
@@ -34,6 +35,9 @@ wait_queue_head_t xen_pcibk_aer_wait_queue;
 */
 static DECLARE_RWSEM(pcistub_sem);
 module_param_named(hide, pci_devs_to_hide, charp, 0444);
+
+bool disable_rp_fatal_err_reporting = true;
+module_param(disable_rp_fatal_err_reporting, bool, S_IRUGO);
 
 struct pcistub_device_id {
 	struct list_head slot_list;
@@ -64,6 +68,114 @@ static LIST_HEAD(pcistub_devices);
  */
 static int initialize_devices;
 static LIST_HEAD(seized_devices);
+
+/*
+ * pci_reset_function() will only work if there is a mechanism to
+ * reset that single function (e.g., FLR or a D-state transition).
+ * For PCI hardware that has two or more functions but no per-function
+ * reset, we can do a bus reset iff all the functions are co-assigned
+ * to the same domain.
+ *
+ * If a function has no per-function reset mechanism the 'reset' sysfs
+ * file that the toolstack uses to reset a function prior to assigning
+ * the device will be missing.  In this case, pciback adds its own
+ * which will try a bus reset.
+ *
+ * Note: pciback does not check for co-assigment before doing a bus
+ * reset, only that the devices are bound to pciback.  The toolstack
+ * is assumed to have done the right thing.
+ */
+static int __pcistub_reset_function(struct pci_dev *dev)
+{
+	struct pci_dev *pdev;
+	u16 ctrl;
+	int ret;
+
+	ret = __pci_reset_function_locked(dev);
+	if (ret == 0)
+		return 0;
+
+	if (pci_is_root_bus(dev->bus) || dev->subordinate || !dev->bus->self)
+		return -ENOTTY;
+
+	list_for_each_entry(pdev, &dev->bus->devices, bus_list) {
+		if (pdev != dev && (!pdev->driver
+				    || strcmp(pdev->driver->name, "pciback")))
+			return -ENOTTY;
+		pci_save_state(pdev);
+	}
+
+	pci_read_config_word(dev->bus->self, PCI_BRIDGE_CONTROL, &ctrl);
+	ctrl |= PCI_BRIDGE_CTL_BUS_RESET;
+	pci_write_config_word(dev->bus->self, PCI_BRIDGE_CONTROL, ctrl);
+	msleep(200);
+
+	ctrl &= ~PCI_BRIDGE_CTL_BUS_RESET;
+	pci_write_config_word(dev->bus->self, PCI_BRIDGE_CONTROL, ctrl);
+	msleep(200);
+
+	list_for_each_entry(pdev, &dev->bus->devices, bus_list)
+		pci_restore_state(pdev);
+
+	return 0;
+}
+
+static int pcistub_reset_function(struct pci_dev *dev)
+{
+	int ret;
+
+	device_lock(&dev->dev);
+	ret = __pcistub_reset_function(dev);
+	device_unlock(&dev->dev);
+
+	return ret;
+}
+
+static ssize_t pcistub_reset_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	unsigned long val;
+	ssize_t result = kstrtoul(buf, 0, &val);
+
+	if (result < 0)
+		return result;
+
+	if (val != 1)
+		return -EINVAL;
+
+	result = pcistub_reset_function(pdev);
+	if (result < 0)
+		return result;
+	return count;
+}
+static DEVICE_ATTR(reset, 0200, NULL, pcistub_reset_store);
+
+static int pcistub_try_create_reset_file(struct pci_dev *pci)
+{
+	struct xen_pcibk_dev_data *dev_data = pci_get_drvdata(pci);
+	struct device *dev = &pci->dev;
+	int ret;
+
+	/* Already have a per-function reset? */
+	if (pci_probe_reset_function(pci) == 0)
+		return 0;
+
+	ret = device_create_file(dev, &dev_attr_reset);
+	if (ret < 0)
+		return ret;
+	dev_data->created_reset_file = true;
+	return 0;
+}
+
+static void pcistub_remove_reset_file(struct pci_dev *pci)
+{
+	struct xen_pcibk_dev_data *dev_data = pci_get_drvdata(pci);
+
+	if (dev_data && dev_data->created_reset_file)
+		device_remove_file(&pci->dev, &dev_attr_reset);
+}
 
 static struct pcistub_device *pcistub_device_alloc(struct pci_dev *dev)
 {
@@ -105,7 +217,8 @@ static void pcistub_device_release(struct kref *kref)
 	/* Call the reset function which does not take lock as this
 	 * is called from "unbind" which takes a device_lock mutex.
 	 */
-	__pci_reset_function_locked(dev);
+	__pcistub_reset_function(psdev->dev);
+
 	if (dev_data &&
 	    pci_load_and_free_saved_state(dev, &dev_data->pci_saved_state))
 		dev_info(&dev->dev, "Could not reload PCI state\n");
@@ -284,7 +397,7 @@ void pcistub_put_pci_dev(struct pci_dev *dev)
 	 * (so it's ready for the next domain)
 	 */
 	device_lock_assert(&dev->dev);
-	__pci_reset_function_locked(dev);
+	__pcistub_reset_function(dev);
 
 	dev_data = pci_get_drvdata(dev);
 	ret = pci_load_saved_state(dev, dev_data->pci_saved_state);
@@ -352,10 +465,14 @@ static int pcistub_match(struct pci_dev *dev)
 	return found;
 }
 
+#define INTEL_RP_UNCEDMASK 0x218
+#define INTEL_RP_COMP_TIME_OUT (1 << 14)
+
 static int pcistub_init_device(struct pci_dev *dev)
 {
 	struct xen_pcibk_dev_data *dev_data;
 	int err = 0;
+	struct pci_dev *tmp = NULL;
 
 	dev_dbg(&dev->dev, "initializing...\n");
 
@@ -410,6 +527,68 @@ static int pcistub_init_device(struct pci_dev *dev)
 				err);
 	}
 
+	if (disable_rp_fatal_err_reporting) {
+		/* Find the root port for this device and disable AER reporting */
+		tmp = dev;
+		do {
+			struct pci_bus *bus = tmp->bus;
+
+			if (pci_is_root_bus(bus))
+				break;
+			while (!bus->self && bus->parent)
+				bus = bus->parent;
+			tmp = bus->self;
+		} while (tmp != NULL);
+
+		if ((tmp != dev) && (tmp != NULL)) {
+			uint16_t val;
+			pcie_capability_read_word(tmp, PCI_EXP_RTCTL, &val);
+			if ( val & (PCI_EXP_RTCTL_SECEE | PCI_EXP_RTCTL_SEFEE
+						| PCI_EXP_RTCTL_SENFEE)) {
+				dev_info(&dev->dev,
+					"Disabling System Error reporting on root port"
+					" %02x:%02x.%d\n",
+					tmp->bus->number, PCI_SLOT(tmp->devfn),
+					PCI_FUNC(tmp->devfn));
+				pcie_capability_clear_word(tmp, PCI_EXP_RTCTL,
+					   PCI_EXP_RTCTL_SEFEE |
+					   PCI_EXP_RTCTL_SENFEE |
+					   PCI_EXP_RTCTL_SECEE);
+			}
+		}
+		if (tmp->vendor == PCI_VENDOR_ID_INTEL) {
+			u32 uncedmask;
+			switch (tmp->device)
+			{
+				/* Tylersburg (EP)/Boxboro (MP) chipsets (NHM-EP/EX, WSM-EP/EX) */
+				case 0x3408 ... 0x3411: case 0x3420 ... 0x3421: /* root ports */
+				/* JasperForest (Intel Xeon Processor C5500/C3500 */
+				case 0x3720 ... 0x3724: /* root ports */
+				/* Sandybridge-EP (Romley) */
+				case 0x3c01 ... 0x3c0b: /* root ports */
+				/* Ivy Bridge-EP (Romley) */
+				case 0x0e01 ... 0x0e0b: /* root ports */
+				/* Haswell-EP (Grantley) */
+				case 0x2f01 ... 0x2f0b: /* root ports */
+				/* Broadwell-EP (Grantley) */
+				case 0x6f01 ... 0x6f0b: /* root ports */
+				{
+					pci_read_config_dword(tmp, INTEL_RP_UNCEDMASK, &uncedmask);
+					/* Mask completion time out detect */
+					if (!(uncedmask & INTEL_RP_COMP_TIME_OUT)) {
+						uncedmask |= INTEL_RP_COMP_TIME_OUT;
+						pci_write_config_dword(tmp, INTEL_RP_UNCEDMASK, uncedmask);
+						dev_info(&dev->dev,
+						"Masking Uncorrectable error Completion time-"
+						"out on root port %02x:%02x.%d\n",
+						tmp->bus->number, PCI_SLOT(tmp->devfn),
+						PCI_FUNC(tmp->devfn));
+					}
+				}
+			}
+		}
+	}
+
 	/* We need the device active to save the state. */
 	dev_dbg(&dev->dev, "save state of device\n");
 	pci_save_state(dev);
@@ -418,7 +597,7 @@ static int pcistub_init_device(struct pci_dev *dev)
 		dev_err(&dev->dev, "Could not store PCI conf saved state!\n");
 	else {
 		dev_dbg(&dev->dev, "resetting (FLR, D3, etc) the device\n");
-		__pci_reset_function_locked(dev);
+		__pcistub_reset_function(dev);
 		pci_restore_state(dev);
 	}
 	/* Now disable the device (this also ensures some private device
@@ -426,6 +605,12 @@ static int pcistub_init_device(struct pci_dev *dev)
 	 */
 	dev_dbg(&dev->dev, "reset device\n");
 	xen_pcibk_reset_device(dev);
+
+	err = pcistub_try_create_reset_file(dev);
+	if (err < 0) {
+		pci_load_and_free_saved_state(dev, &dev_data->pci_saved_state);
+		goto config_release;
+	}
 
 	pci_set_dev_assigned(dev);
 	return 0;
@@ -603,6 +788,8 @@ static void pcistub_remove(struct pci_dev *dev)
 	unsigned long flags;
 
 	dev_dbg(&dev->dev, "removing\n");
+
+	pcistub_remove_reset_file(dev);
 
 	spin_lock_irqsave(&pcistub_devices_lock, flags);
 

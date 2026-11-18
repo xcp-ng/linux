@@ -93,6 +93,7 @@
 #define __HYPERVISOR_arch_6               54
 #define __HYPERVISOR_arch_7               55
 
+#define __HYPERVISOR_iommu_op             56
 /*
  * VIRTUAL INTERRUPTS
  *
@@ -737,6 +738,9 @@ struct dom0_vga_console_info {
 			uint32_t gbl_caps;
 			/* Mode attributes (offset 0x0, VESA command 0x4f01). */
 			uint16_t mode_attrs;
+			uint16_t pad;
+			/* high 32 bits of lfb_base */
+			uint32_t ext_lfb_base;
 		} vesa_lfb;
 	} u;
 };

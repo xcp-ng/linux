@@ -231,7 +231,14 @@ struct xen_vbd {
 	unsigned int		overflow_max_grants:1;
 };
 
-struct backend_info;
+struct backend_info {
+	struct xenbus_device	*dev;
+	struct xen_blkif	*blkif;
+	struct xenbus_watch	backend_watch;
+	unsigned		major;
+	unsigned		minor;
+	char			*mode;
+};
 
 /* Number of requests that we can fit in a ring */
 #define XEN_BLKIF_REQS_PER_PAGE		32
@@ -317,6 +324,7 @@ struct xen_blkif {
 	struct work_struct	free_work;
 	unsigned int 		nr_ring_pages;
 	/* All rings for this device. */
+	rwlock_t		rings_lock;
 	struct xen_blkif_ring	*rings;
 	unsigned int		nr_rings;
 };
@@ -365,8 +373,12 @@ struct pending_req {
 #define xen_blkif_get(_b) (atomic_inc(&(_b)->refcnt))
 #define xen_blkif_put(_b)				\
 	do {						\
-		if (atomic_dec_and_test(&(_b)->refcnt))	\
-			schedule_work(&(_b)->free_work);\
+		if (atomic_dec_and_test(&(_b)->refcnt))	{ \
+			get_device(&(_b)->be->dev->dev); \
+			if (!schedule_work(&(_b)->free_work)) { \
+				put_device(&(_b)->be->dev->dev); \
+			} \
+                } \
 	} while (0)
 
 struct phys_req {

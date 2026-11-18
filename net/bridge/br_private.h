@@ -192,6 +192,8 @@ struct net_bridge_fdb_entry {
 	unsigned long			flags;
 	unsigned char			offloaded:1;
 
+	unsigned long			garp_lock_until;
+
 	/* write-heavy members should not affect lookups */
 	unsigned long			updated ____cacheline_aligned_in_smp;
 	unsigned long			used;
@@ -321,6 +323,7 @@ struct net_bridge {
 	spinlock_t			hash_lock;
 	struct list_head		port_list;
 	struct net_device		*dev;
+	struct net_bridge_port		*phys_port; /* One of our ports will contains the route to the physical world */
 	struct pcpu_sw_netstats		__percpu *stats;
 	/* These fields are accessed on each packet */
 #ifdef CONFIG_BRIDGE_VLAN_FILTERING
@@ -554,8 +557,8 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf, unsigned long count,
 		   unsigned long off);
 int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 		  const unsigned char *addr, u16 vid);
-void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-		   const unsigned char *addr, u16 vid, bool added_by_user);
+int br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+		  struct sk_buff *skb, u16 vid, bool added_by_user);
 
 int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
 		  struct net_device *dev, const unsigned char *addr, u16 vid);

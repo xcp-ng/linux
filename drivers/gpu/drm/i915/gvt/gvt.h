@@ -46,6 +46,7 @@
 #include "sched_policy.h"
 #include "mmio_context.h"
 #include "cmd_parser.h"
+#include "migrate.h"
 #include "fb_decoder.h"
 #include "dmabuf.h"
 #include "page_track.h"
@@ -198,6 +199,7 @@ struct intel_vgpu {
 	u32 hws_pga[I915_NUM_ENGINES];
 
 	struct dentry *debugfs;
+	unsigned long low_mem_max_gpfn;
 
 #if IS_ENABLED(CONFIG_DRM_I915_GVT_KVMGT)
 	struct {
@@ -420,6 +422,20 @@ int intel_gvt_load_firmware(struct intel_gvt *gvt);
 #define vgpu_fence_base(vgpu) (vgpu->fence.base)
 #define vgpu_fence_sz(vgpu) (vgpu->fence.size)
 
+/* Aperture/GM space definitions for vGPU Guest view point */
+#define vgpu_guest_aperture_offset(vgpu) \
+	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.mappable_gmadr.base))
+#define vgpu_guest_hidden_offset(vgpu)	\
+	vgpu_vreg_t(vgpu, vgtif_reg(avail_rs.nonmappable_gmadr.base))
+
+#define vgpu_guest_aperture_gmadr_base(vgpu) (vgpu_guest_aperture_offset(vgpu))
+#define vgpu_guest_aperture_gmadr_end(vgpu) \
+	(vgpu_guest_aperture_gmadr_base(vgpu) + vgpu_aperture_sz(vgpu) - 1)
+
+#define vgpu_guest_hidden_gmadr_base(vgpu) (vgpu_guest_hidden_offset(vgpu))
+#define vgpu_guest_hidden_gmadr_end(vgpu) \
+	(vgpu_guest_hidden_gmadr_base(vgpu) + vgpu_hidden_sz(vgpu) - 1)
+
 struct intel_vgpu_creation_params {
 	__u64 handle;
 	__u64 low_gm_sz;  /* in MB */
@@ -492,15 +508,17 @@ void intel_gvt_reset_vgpu_locked(struct intel_vgpu *vgpu, bool dmlr,
 void intel_gvt_reset_vgpu(struct intel_vgpu *vgpu);
 void intel_gvt_activate_vgpu(struct intel_vgpu *vgpu);
 void intel_gvt_deactivate_vgpu(struct intel_vgpu *vgpu);
+int intel_gvt_save_restore(struct intel_vgpu *vgpu, char *buf, size_t count,
+			   void *base, uint64_t off, bool restore);
 
 /* validating GM functions */
 #define vgpu_gmadr_is_aperture(vgpu, gmadr) \
-	((gmadr >= vgpu_aperture_gmadr_base(vgpu)) && \
-	 (gmadr <= vgpu_aperture_gmadr_end(vgpu)))
+	((gmadr >= vgpu_guest_aperture_gmadr_base(vgpu)) && \
+	 (gmadr <= vgpu_guest_aperture_gmadr_end(vgpu)))
 
 #define vgpu_gmadr_is_hidden(vgpu, gmadr) \
-	((gmadr >= vgpu_hidden_gmadr_base(vgpu)) && \
-	 (gmadr <= vgpu_hidden_gmadr_end(vgpu)))
+	((gmadr >= vgpu_guest_hidden_gmadr_base(vgpu)) && \
+	 (gmadr <= vgpu_guest_hidden_gmadr_end(vgpu)))
 
 #define vgpu_gmadr_is_valid(vgpu, gmadr) \
 	 ((vgpu_gmadr_is_aperture(vgpu, gmadr) || \
@@ -525,6 +543,20 @@ int intel_gvt_ggtt_index_g2h(struct intel_vgpu *vgpu, unsigned long g_index,
 			     unsigned long *h_index);
 int intel_gvt_ggtt_h2g_index(struct intel_vgpu *vgpu, unsigned long h_index,
 			     unsigned long *g_index);
+
+/* apply guest to host gma conversion in GM registers setting */
+static inline u64 intel_gvt_reg_g2h(struct intel_vgpu *vgpu,
+		u32 addr, u32 mask)
+{
+	u64 gma;
+
+	if (addr) {
+		intel_gvt_ggtt_gmadr_g2h(vgpu,
+				addr & mask, &gma);
+		addr = gma | (addr & (~mask));
+	}
+	return addr;
+}
 
 void intel_vgpu_init_cfg_space(struct intel_vgpu *vgpu,
 		bool primary);
@@ -577,6 +609,8 @@ struct intel_gvt_ops {
 	int (*vgpu_get_dmabuf)(struct intel_vgpu *vgpu, unsigned int);
 	int (*write_protect_handler)(struct intel_vgpu *, u64, void *,
 				     unsigned int);
+	int  (*vgpu_save_restore)(struct intel_vgpu *, char *buf, size_t count,
+				  void *base, uint64_t off, bool restore);
 };
 
 
@@ -690,6 +724,9 @@ int intel_gvt_debugfs_add_vgpu(struct intel_vgpu *vgpu);
 void intel_gvt_debugfs_remove_vgpu(struct intel_vgpu *vgpu);
 int intel_gvt_debugfs_init(struct intel_gvt *gvt);
 void intel_gvt_debugfs_clean(struct intel_gvt *gvt);
+int submit_context(struct intel_vgpu *vgpu, int ring_id,
+		struct execlist_ctx_descriptor_format *desc,
+		bool emulate_schedule_in);
 
 
 #include "trace.h"

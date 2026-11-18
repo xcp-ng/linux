@@ -26,15 +26,6 @@
 /* On the XenBus the max length of 'ring-ref%u'. */
 #define RINGREF_NAME_LEN (20)
 
-struct backend_info {
-	struct xenbus_device	*dev;
-	struct xen_blkif	*blkif;
-	struct xenbus_watch	backend_watch;
-	unsigned		major;
-	unsigned		minor;
-	char			*mode;
-};
-
 static struct kmem_cache *xen_blkif_cachep;
 static void connect(struct backend_info *);
 static int connect_ring(struct backend_info *);
@@ -81,12 +72,26 @@ static int blkback_name(struct xen_blkif *blkif, char *buf)
 	return 0;
 }
 
+static void cleanup_xs_pid(char *buf, size_t size, const char *nodename,
+			   unsigned int ring)
+{
+	memset(buf, 0, size);
+	snprintf(buf, size, "%s/queue-%u", nodename, ring);
+	xenbus_rm(XBT_NIL, buf, "kthread-pid");
+	memset(buf, 0, size);
+	snprintf(buf, size, "queue-%u", ring);
+	xenbus_rm(XBT_NIL, nodename, buf);
+}
+
 static void xen_update_blkif_status(struct xen_blkif *blkif)
 {
 	int err;
 	char name[TASK_COMM_LEN];
 	struct xen_blkif_ring *ring;
 	int i;
+	char *xspath;
+	size_t xspathsize;
+	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
 
 	/* Not ready to connect? */
 	if (!blkif->rings || !blkif->rings[0].irq || !blkif->vbd.bdev)
@@ -114,6 +119,13 @@ static void xen_update_blkif_status(struct xen_blkif *blkif)
 	}
 	invalidate_inode_pages2(blkif->vbd.bdev->bd_inode->i_mapping);
 
+	xspathsize = strlen(blkif->be->dev->nodename) + xenstore_path_ext_size;
+	xspath = kmalloc(xspathsize, GFP_KERNEL);
+	if (!xspath) {
+		xenbus_dev_fatal(blkif->be->dev, -ENOMEM, "allocating xspath");
+		return;
+	}
+
 	for (i = 0; i < blkif->nr_rings; i++) {
 		ring = &blkif->rings[i];
 		ring->xenblkd = kthread_run(xen_blkif_schedule, ring, "%s-%d", name, i);
@@ -124,25 +136,47 @@ static void xen_update_blkif_status(struct xen_blkif *blkif)
 					"start %s-%d xenblkd", name, i);
 			goto out;
 		}
+
+		memset(xspath, 0, xspathsize);
+		snprintf(xspath, xspathsize, "%s/queue-%d",
+			 blkif->be->dev->nodename, i);
+		err = xenbus_printf(XBT_NIL, xspath, "kthread-pid",
+				    "%d", ring->xenblkd->pid);
+		if (err) {
+			xenbus_dev_error(blkif->be->dev, err, "writing kthread-pid");
+			kthread_stop(ring->xenblkd);
+			goto out;
+		}
 	}
+	kfree(xspath);
 	return;
 
 out:
 	while (--i >= 0) {
 		ring = &blkif->rings[i];
 		kthread_stop(ring->xenblkd);
+		cleanup_xs_pid(xspath, xspathsize, blkif->be->dev->nodename, i);
 	}
+	kfree(xspath);
 	return;
 }
 
-static int xen_blkif_alloc_rings(struct xen_blkif *blkif)
+static int xen_blkif_alloc_rings(struct xen_blkif *blkif,
+				 unsigned int nr_rings)
 {
 	unsigned int r;
+	struct xen_blkif_ring *rings;
 
-	blkif->rings = kcalloc(blkif->nr_rings, sizeof(struct xen_blkif_ring),
-			       GFP_KERNEL);
-	if (!blkif->rings)
+	rings = kcalloc(nr_rings, sizeof(struct xen_blkif_ring), GFP_KERNEL);
+	if (!rings)
 		return -ENOMEM;
+
+	write_lock(&blkif->rings_lock);
+
+	blkif->rings = rings;
+	blkif->nr_rings = nr_rings;
+
+	write_unlock(&blkif->rings_lock);
 
 	for (r = 0; r < blkif->nr_rings; r++) {
 		struct xen_blkif_ring *ring = &blkif->rings[r];
@@ -188,6 +222,7 @@ static struct xen_blkif *xen_blkif_alloc(domid_t domid)
 	 * has been freed back to the cache.
 	 */
 	__module_get(THIS_MODULE);
+	rwlock_init(&blkif->rings_lock);
 	INIT_WORK(&blkif->free_work, xen_blkif_deferred_free);
 
 	return blkif;
@@ -254,6 +289,15 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 	struct pending_req *req, *n;
 	unsigned int j, r;
 	bool busy = false;
+	struct xen_blkif_ring *rings;
+	char *xspath;
+	size_t xspathsize;
+	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
+
+	xspathsize = strlen(blkif->be->dev->nodename) + xenstore_path_ext_size;
+	xspath = kmalloc(xspathsize, GFP_KERNEL);
+	if (!xspath)
+		dev_warn(&blkif->be->dev->dev, "allocating xspath (%d)", -ENOMEM);
 
 	for (r = 0; r < blkif->nr_rings; r++) {
 		struct xen_blkif_ring *ring = &blkif->rings[r];
@@ -264,6 +308,9 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 
 		if (ring->xenblkd) {
 			kthread_stop(ring->xenblkd);
+			if (xspath)
+				cleanup_xs_pid(xspath, xspathsize,
+					       blkif->be->dev->nodename, r);
 			ring->xenblkd = NULL;
 			wake_up(&ring->shutdown_wq);
 		}
@@ -313,6 +360,7 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 		WARN_ON(i != (XEN_BLKIF_REQS_PER_PAGE * blkif->nr_ring_pages));
 		ring->active = false;
 	}
+	kfree(xspath);
 	if (busy)
 		return -EBUSY;
 
@@ -321,9 +369,15 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 	 * blkif->rings was allocated in connect_ring, so we should free it in
 	 * here.
 	 */
-	kfree(blkif->rings);
+	write_lock(&blkif->rings_lock);
+
+	rings = blkif->rings;
 	blkif->rings = NULL;
 	blkif->nr_rings = 0;
+
+	write_unlock(&blkif->rings_lock);
+
+	kfree(rings);
 
 	return 0;
 }
@@ -331,6 +385,11 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 static void xen_blkif_free(struct xen_blkif *blkif)
 {
 	WARN_ON(xen_blkif_disconnect(blkif));
+	/*
+	 * Drop the ref taken in xen_blkif_put. This ensures nodename can be
+	 * safely used in xen_blkif_disconnect.
+	 */
+	put_device(&blkif->be->dev->dev);
 	xen_vbd_free(&blkif->vbd);
 	kfree(blkif->be->mode);
 	kfree(blkif->be);
@@ -366,6 +425,7 @@ int __init xen_blkif_interface_init(void)
 		unsigned int i;						\
 		unsigned long long result = 0;				\
 									\
+		read_lock(&blkif->rings_lock);				\
 		if (!blkif->rings)				\
 			goto out;					\
 									\
@@ -376,6 +436,7 @@ int __init xen_blkif_interface_init(void)
 		}							\
 									\
 out:									\
+		read_unlock(&blkif->rings_lock);			\
 		return sprintf(buf, format, result);			\
 	}								\
 	static DEVICE_ATTR(name, 0444, show_##name, NULL)
@@ -1078,8 +1139,7 @@ static int connect_ring(struct backend_info *be)
 				requested_num_queues, xenblk_max_queues);
 		return -ENOSYS;
 	}
-	be->blkif->nr_rings = requested_num_queues;
-	if (xen_blkif_alloc_rings(be->blkif))
+	if (xen_blkif_alloc_rings(be->blkif, requested_num_queues))
 		return -ENOMEM;
 
 	pr_info("%s: using %d queues, protocol %d (%s) %s\n", dev->nodename,
